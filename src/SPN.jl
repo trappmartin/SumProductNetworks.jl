@@ -6,9 +6,13 @@ module SPN
   using Base
 
   export
+    # types
+    SPNNode,
     SumNode,
     ProductNode,
     UnivariateNode,
+
+    # spn functions
     add,
     remove,
     build_sum,
@@ -20,9 +24,13 @@ module SPN
     llh_map,
 
     # utils
-    generate_bloobs
+    generate_bloobs,
+
+    # gibbs
+    gibbs_iteration!
 
   include("nodes.jl")
   include("utils.jl")
+  include("gibbs.jl")
 
 end # module
