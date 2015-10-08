@@ -5,6 +5,9 @@ module SPN
   using Distributions
   using Base
 
+  include("nodes.jl")
+  include("utils.jl")
+
   export
     # types
     SPNNode,
@@ -13,24 +16,10 @@ module SPN
     UnivariateNode,
 
     # spn functions
-    add,
-    remove,
-    build_sum,
-    build_prod,
-    build_univariate,
-    build_multivariate,
-    normalize,
+    add!,
+    remove!,
+    normalize!,
     llh,
-    llh_map,
-
-    # utils
-    generate_bloobs,
-
-    # gibbs
-    gibbs_iteration!
-
-  include("nodes.jl")
-  include("utils.jl")
-  include("gibbs.jl")
-
+    llh_map
+  
 end # module
