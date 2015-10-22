@@ -9,15 +9,15 @@ abstract Leaf <: SPNNode
 type SumNode <: Node
 
   # SumNode fields
-  uid::Int                    # unique identifier
-  children::Vector{SPNNode}   # children of sum node
-  weights::Vector{Float32}    # weights / priors for children
+  uid::Int
+  children::Vector{SPNNode}
+  weights::Vector{Float32}
    
   # additional fields
   deepChildrenCount::Int
     
   SumNode(id::Int) = new(id, SPNNode[], Float64[], 0)
-    SumNode(id::Int, children::Vector{SPNNode}, w::Vector{Float64}) = new(id, children, w, sum())
+  SumNode(id::Int, children::Vector{SPNNode}, w::Vector{Float64}) = new(id, children, w, sum())
 
 end
 
@@ -25,11 +25,14 @@ end
 type ProductNode <: Node
 
   # ProductNode fields
-  uid::Int32                 # unique identifier
-  children::Vector{SPNNode}  # children of product node
+  uid::Int32
+  children::Vector{SPNNode}
+  class::Nullable{ClassNode}
     
-  ProductNode(id::Int) = new(id, SPNNode[])
-  ProductNode(id::Int, children::Vector{SPNNode}) = new(id, children)
+  ProductNode(id::Int) = new(id, SPNNode[], Nullable{ClassNode}())
+  ProductNode(id::Int, class::ClassNode) = new(id, SPNNode[], Nullable(class))
+  ProductNode(id::Int, children::Vector{SPNNode}) = new(id, children, Nullable{ClassNode}())
+  ProductNode(id::Int, children::Vector{SPNNode}, class::ClassNode) = new(id, children, Nullable(class))
 
 end
 
@@ -37,8 +40,10 @@ end
 type UnivariateNode <: Leaf
 
   dist::UnivariateDistribution
+  variable::Int
     
-  UnivariateNode(D::UnivariateDistribution) = new(D)
+  UnivariateNode(D::UnivariateDistribution) = new(D, 0)
+  UnivariateNode(D::UnivariateDistribution, var::Int) = new(D, var)
 
 end
 
@@ -46,9 +51,18 @@ end
 type MultivariateNode <: Leaf
 
   dist::MultivariateDistribution
+  variables::Vector{Int}
     
-  MultivariateNode(D::MultivariateDistribution) = new(D)
+  MultivariateNode(D::MultivariateDistribution, vars::Vector{Int}) = new(D, vars)
 
+end
+
+# definition of class indicater Node
+type ClassNode <: Leaf
+    
+    class::Int
+   
+    ClassNode(class::Int) = new(class)
 end
 
 ## -------------------------------------------------- ##
@@ -180,21 +194,26 @@ end
 function eval{T<:Real}(root::SumNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
 
     _llh = [llhvals[c] for c in root.children]
-    _llh = reduce(vcat, _llh)
     
     if ndims(data) != 1
-        w = repmat( log(root.weights)', size(_llh, 1), 1)
+        _llh = reduce(vcat, _llh)
+        w = repmat( log(root.weights), 1, size(_llh, 2))
+        
+        _llh = _llh + w
     else
-        w = log(root.weights)
+        _llh = reduce(hcat, _llh)
+        w = repmat( log(root.weights)', size(_llh, 1), 1)
+        
+        _llh = _llh + w
+        _llh = _llh'
     end
-  
-    _llh = _llh + w
     
-    maxlog = maximum(_llh)
-    _llh -= maxlog
+    maxlog = maximum(_llh, 1)
+    
+    _llh = _llh .- maxlog
     prob = sum(exp(_llh), 1)
 
-    _llh = log(prob) + maxlog
+    _llh = log(prob) .+ maxlog
     _llh -= log(sum(root.weights))
     
     return _llh
@@ -202,16 +221,27 @@ end
 
 # evaluate ProductNode
 function eval{T<:Real}(root::ProductNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  _llh = [llhvals[c] for c in root.children]
-  return sum(_llh, 2)
+    _llh = [llhvals[c] for c in root.children]
+    _llh = reduce(vcat, _llh)
+    return sum(_llh, 1)
 end
 
 # evaluate Univariate Node
-function eval{T<:Real}(node::UnivariateNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  return logpdf(node.dist, data)
+function eval{T<:Real}(node::UnivariateNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})  
+    if ndims(data) > 1
+        x = sub(data, node.variable, :)
+        return logpdf(node.dist, x)
+    else
+        return logpdf(node.dist, data)
+    end
 end
 
 # evaluate Univariate Node
 function llh{T<:Real}(node::MultivariateNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  return logpdf(node.dist, data)
+    if ndims(data) < 1
+        error("got unexpected vector for MultivariateNode")
+    else
+        x = sub(data, node.variable, :)
+        return logpdf(node.dist, x)
+    end
 end
