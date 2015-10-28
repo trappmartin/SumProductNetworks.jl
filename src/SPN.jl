@@ -1,9 +1,8 @@
-require("Distributions")
-
 module SPN
 
   using Distributions
   using Base
+  using BNP
 
   include("nodes.jl")
   include("utils.jl")
@@ -20,6 +19,6 @@ module SPN
     remove!,
     normalize!,
     llh,
-    llh_map
-  
+    eval
+
 end # module

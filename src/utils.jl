@@ -1,5 +1,3 @@
-using Distributions
-
 function generate_bloobs(n_features = 2, n_centers = 3, n_samples = 100)
     centers = @parallel (hcat) for i = 1:n_features
         rand(Uniform(-10, 10), n_centers)
@@ -20,7 +18,7 @@ function generate_bloobs(n_features = 2, n_centers = 3, n_samples = 100)
     end
 
     X = X';
-    
+
     Y = @parallel (vcat) for i = 1:n_centers
       y = ones(n_samples_per_center[i]) * i
     end
@@ -30,6 +28,6 @@ function generate_bloobs(n_features = 2, n_centers = 3, n_samples = 100)
 
     X = X[ids,:]
     Y = Y[ids];
-    
+
     return (X, Y)
 end
