@@ -6,6 +6,7 @@ module SPN
 
   include("nodes.jl")
   include("utils.jl")
+  include("crosscat.jl")
 
   export
     # types
@@ -18,7 +19,9 @@ module SPN
     add!,
     remove!,
     normalize!,
+    convert,
     llh,
+    map,
     eval
 
 end # module

@@ -105,13 +105,20 @@ function remove!(parent::ProductNode, index::Integer)
   parent
 end
 
+function convert(ProductNode, n::MultivariateNode)
+  return ProductNode(-1, collect(n))
+end
+
+" Type definition for topological ordering, naming could be improved"
 type SPNMarking
   ordering::Array{SPNNode}
   unmarked::Array{SPNNode}
 
 end
 
-# get topological order of SPN
+"""
+Compute topological order of SPN using Tarjan's algoritm.
+"""
 function order(root::Node)
 
     function visit!(node::SPNNode, data::SPNMarking)
@@ -182,6 +189,10 @@ function flat!(nodes::Array{SPNNode}, node::SPNNode)
     nodes
 end
 
+"""
+Compute the log likelihood of the data under the model.
+The result is computed considering the topological order of the SPN.
+"""
 function llh{T<:Real}(root::Node, data::Array{T})
     # get topological order
     toporder = order(root)
@@ -189,18 +200,66 @@ function llh{T<:Real}(root::Node, data::Array{T})
     llhval = Dict{SPNNode, Array{Float64}}()
 
     for node in toporder
-        llhval[node] = eval(node, data, llhval)
+        # take only llh values. Eval function returns: (llh, map, mappath)
+        llhval[node] = eval(node, data, llhval)[1]
     end
 
     return llhval[toporder[end]]
 end
 
+"""
+Compute the log likelihood of the data under the model.
+This function evaluates leaf nodes only.
+"""
 function llh{T<:Real}(root::Leaf, data::Array{T})
     llhval = Dict{SPNNode, Array{Float64}}()
-    return eval(root, data, llhval)
+    return eval(root, data, llhval)[1]
 end
 
-# evaluate SumNode
+"Extract MAP path, this implementation is possibly slow!"
+function map_path!(root::SPNNode, allpath::Dict{SPNNode, Array{SPNNode}}, mappath::Dict{SPNNode, Array{SPNNode}})
+
+    if haskey(allpath, root)
+
+        mappath[root] = allpath[root]
+
+        for child in allpath[root]
+            map_path!(child, allpath, mappath)
+        end
+
+    end
+
+end
+
+"Compute MAP and MAP path, this implementation is possibly slow!"
+function map{T<:Real}(root::Node, data::Array{T})
+
+    # get topological order
+    toporder = order(root)
+
+    mappath = Dict{SPNNode, Array{SPNNode}}()
+    mapval = Dict{SPNNode, Array{Float64}}()
+
+    for node in toporder
+        (llh, mapv, mapp) = eval(node, data, mapval)
+        mapval[node] = mapv
+
+        if !isempty(mapp)
+            mappath[node] = mapp
+        end
+    end
+
+    # construct MAP path
+    path = Dict{SPNNode, Array{SPNNode}}()
+    map_path!(toporder[end], mappath, path)
+
+    return (mapval[toporder[end]], path)
+end
+
+"""
+Evaluate Sum-Node on data.
+This function returns the llh of the data under the model, the maximum a posterior, and the child node of the maximum a posterior path.
+"""
 function eval{T<:Real}(root::SumNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
 
     _llh = [llhvals[c] for c in root.children]
@@ -222,40 +281,65 @@ function eval{T<:Real}(root::SumNode, data::Array{T}, llhvals::Dict{SPNNode, Arr
 
     _llh = _llh .- maxlog
     prob = sum(exp(_llh), 1)
+    (map, mapidx) = findmax(exp(_llh), 1)
+
+    map = log(map) .+ maxlog
+    map -= log( sum(root.weights) )
 
     _llh = log(prob) .+ maxlog
     _llh -= log(sum(root.weights))
 
-    return _llh
+    # get map path
+    ids = length(root) - (mapidx % length(root))
+    mappath = repmat(root.children, 1, size(data, 2))[ids]
+
+    return (_llh, map, mappath)
 end
 
-# evaluate ProductNode
+"""
+Evaluate Product-Node on data.
+This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and all child nodes of the maximum a posterior path.
+"""
 function eval{T<:Real}(root::ProductNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
     _llh = [llhvals[c] for c in root.children]
     _llh = reduce(vcat, _llh)
-    return sum(_llh, 1)
+    return (sum(_llh, 1), sum(_llh, 1), root.children)
 end
 
-# evaluate Univariate Node
+"""
+Evaluate Univariate Node.
+This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
+"""
 function eval{T<:Real}(node::UnivariateNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
     if ndims(data) > 1
         x = sub(data, node.variable, :)
-        return logpdf(node.dist, x)
+        llh = logpdf(node.dist, x)
+        return (llh, llh, Array{SPNNode}(0))
     else
-        return logpdf(node.dist, data)
+        llh = logpdf(node.dist, data)
+        return (llh, llh, Array{SPNNode}(0))
     end
 end
 
-"Evaluate Multivariate Node with ContinuousMultivariateDistribution."
+"""
+Evaluate Multivariate Node with ContinuousMultivariateDistribution.
+This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
+"""
 function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
-    return logpdf(node.dist, data[node.variables])
+    llh = logpdf(node.dist, data[node.variables])
+    return (llh, llh, Array{SPNNode}(0))
 end
 
-"Evaluate Multivariate Node with ConjugatePostDistribution."
+"""
+Evaluate Multivariate Node with ConjugatePostDistribution.
+This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
+"""
 function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
   if ndims(data) < 2
-      return collect(logpred(node.dist, data[node.variables]))
+      llh = collect(logpred(node.dist, data[node.variables]))
+      return (llh, llh, Array{SPNNode}(0))
   else
-      return logpred(node.dist, data[node.variables])
+      llh = logpred(node.dist, data[node.variables])
+      return (llh, llh, Array{SPNNode}(0))
   end
 end
