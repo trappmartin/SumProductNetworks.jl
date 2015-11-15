@@ -105,7 +105,7 @@ function remove!(parent::ProductNode, index::Integer)
   parent
 end
 
-function convert(ProductNode, n::MultivariateNode)
+function convertNode(ProductNode, n::MultivariateNode)
   return ProductNode(-1, collect(n))
 end
 
@@ -237,23 +237,23 @@ function map{T<:Real}(root::Node, data::Array{T})
     # get topological order
     toporder = order(root)
 
-    mappath = Dict{SPNNode, Array{SPNNode}}()
-    mapval = Dict{SPNNode, Array{Float64}}()
+    path = Dict{SPNNode, Array{SPNNode}}()
+    val = Dict{SPNNode, Array{Float64}}()
 
     for node in toporder
-        (llh, mapv, mapp) = eval(node, data, mapval)
-        mapval[node] = mapv
+        (llh, v, p) = eval(node, data, val)
+        val[node] = v
 
-        if !isempty(mapp)
-            mappath[node] = mapp
+        if !isempty(p)
+            path[node] = p
         end
     end
 
     # construct MAP path
-    path = Dict{SPNNode, Array{SPNNode}}()
-    map_path!(toporder[end], mappath, path)
+    mappath = Dict{SPNNode, Array{SPNNode}}()
+    map_path!(toporder[end], path, mappath)
 
-    return (mapval[toporder[end]], path)
+    return (mapval[toporder[end]], mappath)
 end
 
 """

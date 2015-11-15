@@ -14,14 +14,16 @@ module SPN
     SumNode,
     ProductNode,
     UnivariateNode,
+    MultivariateNode,
 
     # spn functions
     add!,
     remove!,
     normalize!,
-    convert,
+    convertNode,
     llh,
     map,
+    order,
     eval
 
 end # module

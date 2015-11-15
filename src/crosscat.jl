@@ -11,63 +11,97 @@ type DataAssignments
     # ids
     ids::Vector{Int}
 
-    # children
-    children::Vector{DataAssignments}
-
-    # constructor
-    DataAssignments(Z::Vector{Int}, ids::Vector{Int}) = new(Base.length(unique(Z)), Z, ids, DataAssignments[])
-
-end
-
-# functions on DataAssignments
-call(p::DataAssignments, idx::Int) = p.Z[idx]
-call(p::DataAssignments, ids::Vector{Int}) = p.Z[ids]
-
-"Get index function for DataAssignments"
-function getindex(p::DataAssignments, i::Int)
-    p.ids[find(p.Z .== i)]
-end
-
-"delete assignment for DataAssignments"
-function delete!(p::DataAssignments, id::Int)
-    println(id)
-end
-
-type SPNBuffer
+    # active ids
+    active::Vector{Bool}
 
     # dimensionality of data
     D::Int
     N::Int
 
-    # data indecies
-    idx::Vector{Int}
-
-    # data matrix
-    X::AbstractArray{Float32}
-
-    # assignment tree
-    Z::DataAssignments
+    # constructor
+    DataAssignments(Z::Vector{Int}, ids::Vector{Int}, D::Int, N::Int) = new(
+        Base.length(unique(Z)),
+        Z,
+        ids,
+        ones(Bool, N),
+        D,
+        N)
 
 end
 
-# functions on SPNBuffer
-call(p::SPNBuffer, i::Int) = SPNBuffer(p.D, Base.length(p.Z[i]), collect(1:Base.length(p.Z[i])), sub(p.X, :, p.Z[i]), p.Z.children[i])
+# functions on DataAssignments
+call(p::DataAssignments, idx::Int) = p.Z[idx]
+
+"Get index function for DataAssignments"
+function getindex(p::DataAssignments, i::Int)
+    p.ids[find(p.Z[p.active] .== i)]
+end
+
+"add data assignment"
+function add!(p::DataAssignments, id::Int, z::Int)
+
+    if findfirst(p.Z .== z) == 0
+        # we need to increase the cluster count
+        p.c += 1
+    end
+
+    p.Z[id] = z
+    p.active[id] = true
+
+end
+
+"delete assignment for DataAssignments"
+function remove!(p::DataAssignments, id::Int)
+
+    if !p.active[id]
+        return p
+    end
+
+    if Base.length(p[p(id)]) == 1
+        # we need to remove cluster count
+        p.c -= 1
+    end
+
+    p.active[id] = false
+end
+
+type SPNBuffer
+
+    # data matrix
+    X::AbstractArray{Float64, 2}
+
+    # assignment tree
+    Z::Dict{SPNNode, DataAssignments}
+
+end
+
+"Get datum from Buffer"
+function get(B::SPNBuffer, idx::Int)
+    sub(B.X, :, idx)
+end
 
 ## utility functions
 
 "Add data point to Distribtion"
-function deepadd_data!{T<:Real}(node::SPN.MultivariateNode{ConjugatePostDistribution}, x::Array{T})
+function deepadd_data!(node::MultivariateNode{ConjugatePostDistribution}, B::SPNBuffer, id::Int)
+
+    x = get(B, id)
+    add!(B.Z[node], id, 1)
+
     add_data!(node.dist, x)
 end
 
 "Add data point to Distribtion (intermediate node)"
-function deepadd_data!(node::SPN.Node, x::Array)
+function deepadd_data!(node::Node, B::SPNBuffer, id::Int)
+
+    x = get(B, id)
+
     # compute map path to find distribution
-    (mapval, path) = SPN.map(node, x)
+    (mapval, path) = map(node, x)
 
     for key in keys(path)
         for c in path[key]
-            if isa(c, SPN.Leaf)
+            if isa(c, Leaf)
                 deepadd_data!(c, x)
             end
         end
@@ -77,6 +111,9 @@ end
 
 "Remove data point from Distribtion"
 function deepremove_data!(node::MultivariateNode{ConjugatePostDistribution}, B::SPNBuffer, id::Int)
+    x = get(B, id)
+    remove!(B.Z[node], id)
+
     remove_data!(node.dist, x)
 end
 

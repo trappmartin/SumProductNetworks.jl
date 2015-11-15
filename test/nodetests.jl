@@ -1,9 +1,7 @@
 using Distributions
 
 N = 100
-
 X = randn(N)
-
 root = SumNode(0)
 add!(root, UnivariateNode(fit(Normal, X)))
 normalize!(root);

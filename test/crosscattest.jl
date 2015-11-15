@@ -1,10 +1,8 @@
-using SPN
-using Base.Test
-
+println(" * DataAssignments test...")
 # 50% 1, 50% 2
 Z = 1 + round(Int, rand(10) .>= 0.5)
 
-d = DataAssignments(Z)
+d = SPN.DataAssignments(Z, collect(1:10), 1, 10)
 
 for (i, z) in enumerate(Z)
     @test d(i) == z
@@ -17,49 +15,81 @@ end
 
 N = 10
 D = 2
-X = rand(2, 10)
+X = rand(Float64, 2, 10)
 idx = collect(1:10)
 Z = 1 + vec( round(Int, X[1,:] .>= 0.5) )
 
-da = DataAssignments(Z)
+da = SPN.DataAssignments(Z, collect(1:10), 2, 10)
 
 Z1 = ones(Int, length(da[1]))
-da1 = DataAssignments(Z1)
+da1 = SPN.DataAssignments(Z1, da[1], 2, length(da[1]))
 
 Z2 = ones(Int, length(da[2]))
-da2 = DataAssignments(Z2)
+da2 = SPN.DataAssignments(Z2, da[2], 2, length(da[2]))
 
-push!(da.children, da1)
-push!(da.children, da2)
+@test da1.N + da2.N == da.N
+
+println(" * SPNBuffer tests...")
+
+using Distributions
+
+# node assiciated with data assignment
+dist = MvNormal(vec(mean(X, 2)), cov(X, vardim=2))
+node = MultivariateNode{MvNormal}(fit(MvNormal, X), collect(1:2))
+
+n2d = Dict{SPNNode, SPN.DataAssignments}(node => da)
 
 # create Buffer Object
-B = SPNBuffer(D, N, collect(1:10), X, da)
+B = SPN.SPNBuffer(X, n2d)
 
-# create sub Buffer
-B2 = B(1)
+@test B.Z[node] == da
+@test sum(SPN.get(B, 1) - X[:,1]) ≈ 0
 
-@test B2.N == length(da1.Z)
-
+println(" * deep add & remove tests...")
 # test deepadd_data!
-
+N = 100
 D = 2
 
-μ0 = vec( zeros(D) )
+X = randn(D, N)
+
+μ0 = vec( mean(X, 2) )
 κ0 = 1.0
 ν0 = convert(Float64, D)
-Ψ = eye(D)
+Ψ = eye(D) * 10
 
 G0 = GaussianWishart(μ0, κ0, ν0, Ψ);
 
-n = MultivariateNode{ConjugatePostDistribution}(d, collect(1:D))
+node = MultivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[:,1:end-1]), collect(1:D))
+da = SPN.DataAssignments(ones(Int, N), collect(1:N), D, N)
 
-x = ones(D, 1)
+n2d = Dict{SPNNode, SPN.DataAssignments}(node => da)
 
-llh1 = llh(n, x)
+# create Buffer Object
+B = SPN.SPNBuffer(X, n2d)
 
-# add data
-deepadd_data!(n, x)
+x = X[:,end]
 
-llh2 = llh(n, x)
+llh1 = llh(node, x)[1]
+
+# add data to leaf
+SPN.deepadd_data!(node, B, N)
+llh2 = llh(node, x)[1]
 
 @test llh1 < llh2
+@test B.Z[node].N == N
+@test sum(B.Z[node].ids .== N) == 1
+@test B.Z[node](N) == 1
+
+# remove data from leaf
+SPN.deepremove_data!(node, B, N)
+
+@test length(B.Z[node][1]) == N-1
+@test B.Z[node].active[N] == false
+
+llh1 = llh(node, x)[1]
+SPN.deepadd_data!(node, B, N)
+llh2 = llh(node, x)[1]
+
+@test llh1 < llh2
+
+# add data to internal node
