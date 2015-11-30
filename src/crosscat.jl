@@ -27,6 +27,20 @@ type DataAssignments
         D,
         N)
 
+    function DataAssignments(p::DataAssignments, Z::Vector{Int}, ids::Vector{Int})
+        ZZ = copy(p.Z)
+        ZZ[ids] = Z
+        active = zeros(Bool, p.N)
+        active[ids] = true
+
+        new( Base.length(unique(Z)),
+            ZZ,
+            p.ids,
+            active,
+            p.D,
+            p.N)
+    end
+
 end
 
 # functions on DataAssignments
@@ -82,7 +96,7 @@ end
 
 ## utility functions
 
-"Add data point to Distribtion"
+"Add data point to Distribution"
 function deepadd_data!(node::MultivariateNode{ConjugatePostDistribution}, B::SPNBuffer, id::Int)
 
     x = get(B, id)
@@ -91,25 +105,48 @@ function deepadd_data!(node::MultivariateNode{ConjugatePostDistribution}, B::SPN
     add_data!(node.dist, x)
 end
 
-"Add data point to Distribtion (intermediate node)"
-function deepadd_data!(node::Node, B::SPNBuffer, id::Int)
+"Alias function for deepadd_data!"
+function traverse_deepadd!(path::Dict{SPNNode, Array{SPNNode}}, node::Leaf, B::SPNBuffer, id::Int)
+    deepadd_data!(node, B, id)
+end
+
+"Traverse through MAP tree and add datum."
+function traverse_deepadd!(path::Dict{SPNNode, Array{SPNNode}}, node::Node, B::SPNBuffer, id::Int)
+
+    children = path[node]
+
+    if Base.length(children) > 1 # product node
+
+        for (z, child) in enumerate(children)
+            traverse_deepadd!(path, child, B, id)
+
+            # add to Buffer
+            add!(B.Z[node], id, z)
+        end
+
+    elseif Base.length(children) == 1 # sum node
+        z = findfirst(node.children .== children[1])
+
+        traverse_deepadd!(path, children[1], B, id)
+
+        add!(B.Z[node], id, z)
+    end
+end
+
+"Add data point to Distribution (intermediate node)"
+function deepadd_data!(node::Node, B::SPNBuffer, id::Int; z = 1)
 
     x = get(B, id)
 
     # compute map path to find distribution
-    (mapval, path) = map(node, x)
+    path = map(node, x)[2]
 
-    for key in keys(path)
-        for c in path[key]
-            if isa(c, Leaf)
-                deepadd_data!(c, x)
-            end
-        end
-    end
+    # traverse through path and add data
+    traverse_deepadd!(path, node, B, id)
 
 end
 
-"Remove data point from Distribtion"
+"Remove data point from Distribution"
 function deepremove_data!(node::MultivariateNode{ConjugatePostDistribution}, B::SPNBuffer, id::Int)
     x = get(B, id)
     remove!(B.Z[node], id)
@@ -117,12 +154,12 @@ function deepremove_data!(node::MultivariateNode{ConjugatePostDistribution}, B::
     remove_data!(node.dist, x)
 end
 
-"Remove data point from Distribtion (intermediate node)"
-function deepremove_data!(node::SumNode, B::SPNBuffer, id::Int)
-    deepremove_data!(c, B, x)
-end
+"Remove data point from Distribution (intermediate node)"
+function deepremove_data!(node::Node, B::SPNBuffer, id::Int)
 
-"Remove data point from Distribtion (intermediate node)"
-function deepremove_data!(node::ProductNode, B::SPNBuffer, id::Int)
-    deepremove_data!(c, B, x)
+    remove!(B.Z[node], id)
+
+    for child in node.children
+        deepremove_data!(child, B, id)
+    end
 end

@@ -220,29 +220,28 @@ end
 function map_path!(root::SPNNode, allpath::Dict{SPNNode, Array{SPNNode}}, mappath::Dict{SPNNode, Array{SPNNode}})
 
     if haskey(allpath, root)
-
-        mappath[root] = allpath[root]
-
         for child in allpath[root]
             map_path!(child, allpath, mappath)
         end
+
+        mappath[root] = allpath[root]
 
     end
 
 end
 
 "Compute MAP and MAP path, this implementation is possibly slow!"
-function map{T<:Real}(root::Node, data::Array{T})
+function map{T<:Real}(root::Node, data::AbstractArray{T})
 
     # get topological order
     toporder = order(root)
 
     path = Dict{SPNNode, Array{SPNNode}}()
-    val = Dict{SPNNode, Array{Float64}}()
+    mapval = Dict{SPNNode, Array{Float64}}()
 
     for node in toporder
-        (llh, v, p) = eval(node, data, val)
-        val[node] = v
+        (llh, v, p) = eval(node, data, mapval)
+        mapval[node] = v
 
         if !isempty(p)
             path[node] = p
@@ -260,7 +259,7 @@ end
 Evaluate Sum-Node on data.
 This function returns the llh of the data under the model, the maximum a posterior, and the child node of the maximum a posterior path.
 """
-function eval{T<:Real}(root::SumNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
+function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
 
     _llh = [llhvals[c] for c in root.children]
 
@@ -300,7 +299,7 @@ end
 Evaluate Product-Node on data.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and all child nodes of the maximum a posterior path.
 """
-function eval{T<:Real}(root::ProductNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
+function eval{T<:Real}(root::ProductNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
     _llh = [llhvals[c] for c in root.children]
     _llh = reduce(vcat, _llh)
     return (sum(_llh, 1), sum(_llh, 1), root.children)
@@ -310,7 +309,7 @@ end
 Evaluate Univariate Node.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
-function eval{T<:Real}(node::UnivariateNode, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
+function eval{T<:Real}(node::UnivariateNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
     if ndims(data) > 1
         x = sub(data, node.variable, :)
         llh = logpdf(node.dist, x)
@@ -325,8 +324,9 @@ end
 Evaluate Multivariate Node with ContinuousMultivariateDistribution.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
-function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
+function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
     llh = logpdf(node.dist, data[node.variables])
+		println(llh)
     return (llh, llh, Array{SPNNode}(0))
 end
 
@@ -334,7 +334,7 @@ end
 Evaluate Multivariate Node with ConjugatePostDistribution.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
-function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::Array{T}, llhvals::Dict{SPNNode, Array{Float64}})
+function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
   if ndims(data) < 2
       llh = collect(logpred(node.dist, data[node.variables]))
       return (llh, llh, Array{SPNNode}(0))

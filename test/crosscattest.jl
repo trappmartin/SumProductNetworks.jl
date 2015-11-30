@@ -45,7 +45,7 @@ B = SPN.SPNBuffer(X, n2d)
 @test B.Z[node] == da
 @test sum(SPN.get(B, 1) - X[:,1]) ≈ 0
 
-println(" * deep add & remove tests...")
+println(" * deep add & remove (distribution) tests...")
 # test deepadd_data!
 N = 100
 D = 2
@@ -93,3 +93,35 @@ llh2 = llh(node, x)[1]
 @test llh1 < llh2
 
 # add data to internal node
+println(" * deep add & remove (internal node) tests...")
+
+N = 100
+D = 2
+X1 = randn(D, N)
+X2 = randn(D, N) + 10
+root = SumNode(0)
+add!(root, MultivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X1), collect(1:D)))
+add!(root, MultivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X2), collect(1:D)))
+
+da0 = SPN.DataAssignments(ones(Int, N*2), collect(1:N*2), D, N*2)
+da1 = SPN.DataAssignments(da0, ones(Int, N), collect(1:N))
+da2 = SPN.DataAssignments(da0, ones(Int, N), collect(N+1:N*2))
+
+n2d = Dict{SPNNode, SPN.DataAssignments}(root => da0, root.children[1] => da1, root.children[2] => da2)
+
+# create Buffer Object
+B = SPN.SPNBuffer(X, n2d)
+
+SPN.deepremove_data!(root, B, 1)
+
+# item should be in-active for all data assignments
+@test da0.active[1] == false
+@test da1.active[1] == false
+@test da2.active[1] == false
+
+SPN.deepadd_data!(root, B, 1)
+
+# item should be only active for data assignment 0 and 1
+@test da0.active[1] == true
+@test da1.active[1] == true
+@test da2.active[1] == false
