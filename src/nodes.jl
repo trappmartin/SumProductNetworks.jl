@@ -1,7 +1,7 @@
 # abstract definition of a SPN node
 abstract SPNNode
 abstract Node <: SPNNode
-abstract Leaf <: SPNNode
+abstract Leaf{T} <: SPNNode
 
 # definition of class indicater Node
 type ClassNode <: Leaf
@@ -16,14 +16,14 @@ type SumNode <: Node
 
   # SumNode fields
   uid::Int
+	parent::Nullable{SPNNode}
   children::Vector{SPNNode}
   weights::Vector{Float32}
 
-  # additional fields
-  deepChildrenCount::Int
+  scope::Vector{Int}
 
-  SumNode(id::Int) = new(id, SPNNode[], Float64[], 0)
-  SumNode(id::Int, children::Vector{SPNNode}, w::Vector{Float64}) = new(id, children, w, sum())
+  SumNode(id::Int; parent = Nullable{SPNNode}(), scope = Vector{Int}(0)) = new(id, parent, SPNNode[], Float64[], scope)
+  SumNode(id::Int, children::Vector{SPNNode}, w::Vector{Float64}; parent = Nullable{SPNNode}()) = new(id, parent, children, w, Vector{Int}(0))
 
 end
 
@@ -32,34 +32,33 @@ type ProductNode <: Node
 
   # ProductNode fields
   uid::Int32
+	parent::Nullable{SPNNode}
   children::Vector{SPNNode}
   class::Nullable{ClassNode}
 
-  ProductNode(id::Int) = new(id, SPNNode[], Nullable{ClassNode}())
-  ProductNode(id::Int, class::ClassNode) = new(id, SPNNode[], Nullable(class))
-  ProductNode(id::Int, children::Vector{SPNNode}) = new(id, children, Nullable{ClassNode}())
-  ProductNode(id::Int, children::Vector{SPNNode}, class::ClassNode) = new(id, children, Nullable(class))
+  scope::Vector{Int}
 
+  ProductNode(id::Int; parent = Nullable{SPNNode}(), children = SPNNode[], class = Nullable{ClassNode}(), scope = Vector{Int}(0)) = new(id, parent, children, class, scope)
 end
 
 # definition of a Univariate Node
-type UnivariateNode <: Leaf
+type UnivariateNode{T} <: Leaf
 
-  dist::UnivariateDistribution
-  variable::Int
+	parent::Nullable{SPNNode}
+  dist::T
+  scope::Int
 
-  UnivariateNode(D::UnivariateDistribution) = new(D, 0)
-  UnivariateNode(D::UnivariateDistribution, var::Int) = new(D, var)
-
+  UnivariateNode{T}(D::T; parent = Nullable{SPNNode}(), scope = 0) = new(parent, D, scope)
 end
 
 # definition of a Multivariate Node
 type MultivariateNode{T} <: Leaf
 
+	parent::Nullable{SPNNode}
   dist::T
-  variables::Vector{Int}
+  scope::Vector{Int}
 
-  MultivariateNode{T}(D::T, vars::Vector{Int}) = new(D, vars)
+  MultivariateNode{T}(D::T, scope::Vector{Int}; parent = Nullable{SPNNode}()) = new(parent, D, scope)
 
 end
 
@@ -83,12 +82,16 @@ end
 function add!(parent::SumNode, child::SPNNode, weight::Float64)
   push!(parent.children, child)
   push!(parent.weights, weight)
+  child.parent = parent
+
   parent
 end
 
 # add node
 function add!(parent::ProductNode, child::SPNNode)
   push!(parent.children, child)
+  child.parent = parent
+
   parent
 end
 
@@ -96,17 +99,15 @@ end
 function remove!(parent::SumNode, index::Integer)
   deleteat!(parent.children, index)
   deleteat!(parent.weights, index)
+
   parent
 end
 
 # remove node with index
 function remove!(parent::ProductNode, index::Integer)
   deleteat!(parent.children, index)
-  parent
-end
 
-function convertNode(ProductNode, n::MultivariateNode)
-  return ProductNode(-1, collect(n))
+  parent
 end
 
 " Type definition for topological ordering, naming could be improved"
@@ -262,19 +263,11 @@ This function returns the llh of the data under the model, the maximum a posteri
 function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
 
     _llh = [llhvals[c] for c in root.children]
+    _llh = reduce(hcat, _llh)
+    w = repmat( log(root.weights)', size(_llh, 1), 1)
 
-    if ndims(data) != 1
-        _llh = reduce(vcat, _llh)
-        w = repmat( log(root.weights), 1, size(_llh, 2))
-
-        _llh = _llh + w
-    else
-        _llh = reduce(hcat, _llh)
-        w = repmat( log(root.weights)', size(_llh, 1), 1)
-
-        _llh = _llh + w
-        _llh = _llh'
-    end
+    _llh = _llh + w
+    _llh = _llh'
 
     maxlog = maximum(_llh, 1)
 
@@ -311,13 +304,14 @@ This function returns the llh of the data under the model, the maximum a posteri
 """
 function eval{T<:Real}(node::UnivariateNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
     if ndims(data) > 1
-        x = sub(data, node.variable, :)
+        x = sub(data, node.scope, :)
         llh = logpdf(node.dist, x)
         return (llh, llh, Array{SPNNode}(0))
     else
         llh = logpdf(node.dist, data)
         return (llh, llh, Array{SPNNode}(0))
     end
+
 end
 
 """
@@ -325,8 +319,9 @@ Evaluate Multivariate Node with ContinuousMultivariateDistribution.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
 function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-    llh = logpdf(node.dist, data[node.variables])
-		println(llh)
+
+    llh = logpdf(node.dist, data[node.scope,:])
+
     return (llh, llh, Array{SPNNode}(0))
 end
 
@@ -335,11 +330,8 @@ Evaluate Multivariate Node with ConjugatePostDistribution.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
 function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  if ndims(data) < 2
-      llh = collect(logpred(node.dist, data[node.variables]))
-      return (llh, llh, Array{SPNNode}(0))
-  else
-      llh = logpred(node.dist, data[node.variables])
-      return (llh, llh, Array{SPNNode}(0))
-  end
+
+  llh = logpred(node.dist, data[node.scope,:])
+
+  return (llh, llh, Array{SPNNode}(0))
 end

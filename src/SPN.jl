@@ -3,10 +3,11 @@ module SPN
   using Distributions
   using Base
   using BNP
+	using GraphLayout
 
   include("nodes.jl")
   include("utils.jl")
-  include("crosscat.jl")
+  include("infiniteSPN.jl")
 
   export
     # types
@@ -20,10 +21,7 @@ module SPN
     add!,
     remove!,
     normalize!,
-    convertNode,
     llh,
-    map,
-    order,
-    eval
+    map
 
 end # module
