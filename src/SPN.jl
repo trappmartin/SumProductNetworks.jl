@@ -3,7 +3,7 @@ module SPN
   using Distributions
   using Base
   using BNP
-  using Graphs
+  using GraphLayout
 
   include("nodes.jl")
   include("utils.jl")

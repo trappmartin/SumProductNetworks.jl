@@ -220,7 +220,7 @@ function recurseCondK!{T<:Real}(node::Leaf, ks::Dict{SPNNode, Int},
    data::AbstractArray{T}, idx::Int, assign::Assignments, G0::ConjugatePostDistribution)
 
    assign!(assign, idx, node)
-   add_data!(node.dist, data)
+   add_data!(node.dist, data[node.scope,:])
    increment!(assign, node)
 
 end
@@ -292,8 +292,10 @@ function draw(root::Node; adjMatrix = Vector{Int}[], labels = Vector{AbstractStr
    if isa(root, SumNode)
       push!(labels, "+")
    else
-      push!(labels, "*")
+      push!(labels, "x")
    end
+
+   push!(adjMatrix, adjList)
 
    for (ci, child) in enumerate(root.children)
       push!(adjList, level + 1)
@@ -301,16 +303,29 @@ function draw(root::Node; adjMatrix = Vector{Int}[], labels = Vector{AbstractStr
    end
 
    if thislevel == 1
-      GraphLayout.layout_tree(adj_list,labels,filename="spn.svg",
-            cycles = false, ordering = :optimal, coord = :optimal,
-            background = nothing)
+
+      # generate real adjmatrix
+      L = maximum(reduce(vcat, adjMatrix))
+
+      A = zeros(L, L)
+
+      for i in collect(1:Base.length(adjMatrix))
+         for j in adjMatrix[i]
+            A[i, j] = 1
+         end
+      end
+
+      loc_x, loc_y = layout_spring_adj(A)
+      draw_layout_adj(A, loc_x, loc_y, labels=labels, labelsize=20.0, filename="spn.svg")
+
    end
 
    level
 
 end
 
+
 function draw(root::Leaf; adjMatrix = Vector{Int}[], labels = Vector{AbstractString}(0), level = 1)
-   push!(labels, "N")
+   push!(labels, "D")
    level
 end

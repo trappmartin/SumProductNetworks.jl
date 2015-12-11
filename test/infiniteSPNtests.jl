@@ -36,17 +36,17 @@ end
 println(" * infinite GMM test")
 
 # data
-M = 10
+M = 50
 N = M * 2
 D = 2
 
-X = cat(2, randn(D, M) + 10, randn(D, M) - 10)
+X = cat(2, randn(D, M), randn(D, M) - 10)
 
 # G0
 μ0 = vec( mean(X, 2) )
 κ0 = 1.0
 ν0 = convert(Float64, D)
-Ψ = eye(D)
+Ψ = eye(D) * 10
 
 G0 = GaussianWishart(μ0, κ0, ν0, Ψ)
 
@@ -173,7 +173,7 @@ for child in root.children
 			μ0 = vec( mean(X[:,child.scope], 1) )
 			κ0 = 1.0
 			ν0 = convert(Float64, length(child.scope))
-			Ψ = eye(length(child.scope)) * 100
+			Ψ = eye(length(child.scope)) * 10
 
 			G0Mirror = GaussianWishart(μ0, κ0, ν0, Ψ)
 
@@ -183,7 +183,7 @@ for child in root.children
 
 			for dist in kdists
 				# - remove data point
-				SPN.decrement!(assign, dist)
+				SPN.decrement!(assignMirror, dist)
 				remove_data!(dist.dist, x[dist.scope,:])
 			end
 
@@ -194,11 +194,14 @@ for child in root.children
 
 			for node in toporder
 
-					(llh, newk) = SPN.evalWithK(node, x, llhval, assign, G0Mirror, mirror = true)
+					(llh, newk) = SPN.evalWithK(node, x, llhval, assignMirror, G0Mirror, mirror = true)
 
 					llhval[node] = llh
 					kvals[node] = newk
 			end
+
+			# assign datum to
+			SPN.recurseCondK!(child, kvals, x, id, assignMirror, G0Mirror)
 
 		end
 
@@ -208,4 +211,4 @@ end
 
 
 println(" * Draw SPN")
-#SPN.draw(root)
+SPN.draw(root)
