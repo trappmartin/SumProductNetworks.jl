@@ -92,12 +92,12 @@ function evalSumInternal{T<:Real}(root::Node,
    k = 0
 
    maxp = maximum(p, 2)
-   p = p .- maxp
+   p = exp(p .- maxp)
 
    k = BNP.rand_indices(p)
 
    # get node llh
-   p = sum(exp(p), 2)
+   p = sum(p, 2)
    p = log(p) .+ maxp
 
    #p -= log(sum(root.weights))
@@ -172,6 +172,11 @@ end
 
 "Spawn new child into SPN"
 function spawnChild!(node::Node, G0::ConjugatePostDistribution)
+
+
+   println("Spawning child")
+
+
    G = GaussianWishart(G0.mu0[node.scope], G0.kappa0, G0.nu0, G0.Sigma0[node.scope, node.scope])
    add!(node, MultivariateNode{ConjugatePostDistribution}(G, copy(node.scope)))
 end
@@ -239,7 +244,17 @@ function extend!(node::Leaf, assign::Assignments; depth = 1, cutoff = 2)
       # extend SPN
       p = get(node.parent)
 
-      n = isa(p, SumNode) ? ProductNode(0) : SumNode(0)
+      # compute scope
+      scope = Int[]
+      for (di, datum) in enumerate(assign.Z)
+
+         if sum(datum .== node) > 0
+            push!(scope, di)
+         end
+
+      end
+
+      n = isa(p, SumNode) ? ProductNode(0, scope = scope) : SumNode(0, scope = scope)
 
       add!(p, n)
       increment!(assign, n, i = assign(node))

@@ -46,7 +46,7 @@ X = cat(2, randn(D, M) + 10, randn(D, M) - 10)
 μ0 = vec( mean(X, 2) )
 κ0 = 1.0
 ν0 = convert(Float64, D)
-Ψ = eye(D) * 10
+Ψ = eye(D)
 
 G0 = GaussianWishart(μ0, κ0, ν0, Ψ)
 
@@ -69,41 +69,39 @@ SPN.increment!(assign, dist, i = N)
 # single Gibbs step
 println(" * Gibbs sweep test")
 
-id = M + 1
-x = X[:, id]
+for id in randperm(N)
 
-kdists = assign[id]
+	x = X[:, id]
 
-for dist in kdists
-	# - remove "random" data point
-	SPN.decrement!(assign, dist)
-	@test assign(dist) == N - 1
+	kdists = assign[id]
 
-	remove_data!(dist.dist, x)
+	for dist in kdists
+		# - remove "random" data point
+		SPN.decrement!(assign, dist)
+		remove_data!(dist.dist, x[dist.scope,:])
+	end
+
+	# get k's
+
+	toporder = SPN.order(root)
+
+	llhval = Dict{SPNNode, Array{Float64}}()
+	kvals = Dict{SPNNode, Int}()
+
+	for node in toporder
+
+			(llh, newk) = SPN.evalWithK(node, x, llhval, assign, G0)
+
+			# always open a new table
+
+			llhval[node] = llh
+			kvals[node] = newk
+	end
+
+	# assign datum to
+	SPN.recurseCondK!(root, kvals, x, id, assign, G0)
+
 end
-
-# get k's
-
-toporder = SPN.order(root)
-
-llhval = Dict{SPNNode, Array{Float64}}()
-kvals = Dict{SPNNode, Int}()
-
-for node in toporder
-
-		(llh, newk) = SPN.evalWithK(node, X[:,id], llhval, assign, G0)
-
-		# always open a new table
-		newk = 2
-
-		llhval[node] = llh
-		kvals[node] = newk
-end
-
-# assign datum to
-SPN.recurseCondK!(root, kvals, x, id, assign, G0)
-
-@test length(root.children) == 2
 
 # test removal
 #kdists = assign[id]
@@ -139,7 +137,7 @@ for node in toporder
 	if isa(node, SPN.Leaf)
 
 		for i in node.scope
-			SPN.assign!(assign, i, dist)
+			SPN.assign!(assignMirror, i, dist)
 		end
 
 	else
@@ -162,38 +160,46 @@ end
 
 println(" * parallel sweeps")
 
-id = D - 1
-x = X[id, :]'
-
-kdists = assign[id]
-
 # for each product node
 for child in root.children
 
 	if isa(child, ProductNode)
 
-		kdists = assign[id]
+		for id in randperm(D)
 
-		for dist in kdists
-			# - remove "random" data point
-			SPN.decrement!(assign, dist)
-			remove_data!(dist.dist, x)
-		end
+			# define G0 for mirrored SPN rooted at child
 
-		toporder = SPN.order(child)
+			# G0Mirror
+			μ0 = vec( mean(X[:,child.scope], 1) )
+			κ0 = 1.0
+			ν0 = convert(Float64, length(child.scope))
+			Ψ = eye(length(child.scope)) * 100
 
-		llhval = Dict{SPNNode, Array{Float64}}()
-		kvals = Dict{SPNNode, Int}()
+			G0Mirror = GaussianWishart(μ0, κ0, ν0, Ψ)
 
-		for node in toporder
+			x = X[id, :]'
 
-				(llh, newk) = SPN.evalWithK(node, X[:,id], llhval, assign, G0, mirror = true)
+			kdists = assignMirror[id]
 
-				# always open a new table
-				newk = 2
+			for dist in kdists
+				# - remove data point
+				SPN.decrement!(assign, dist)
+				remove_data!(dist.dist, x[dist.scope,:])
+			end
 
-				llhval[node] = llh
-				kvals[node] = newk
+			toporder = SPN.order(child)
+
+			llhval = Dict{SPNNode, Array{Float64}}()
+			kvals = Dict{SPNNode, Int}()
+
+			for node in toporder
+
+					(llh, newk) = SPN.evalWithK(node, x, llhval, assign, G0Mirror, mirror = true)
+
+					llhval[node] = llh
+					kvals[node] = newk
+			end
+
 		end
 
 	end
