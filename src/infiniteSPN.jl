@@ -80,13 +80,15 @@ function evalSumInternal{T<:Real}(root::Node,
    G0::ConjugatePostDistribution;
    α = 1.0)
 
+   G = GaussianWishart(G0.mu0[root.scope], G0.kappa0, float(Base.length(root.scope)), G0.Sigma0[root.scope, root.scope])
+
    p = ones(size(data, 2), Base.length(root.children) + 1) * -Inf
 
    for (ci, c) in enumerate(root.children)
       p[:,ci] = llhvals[c] + log(assign(c) / (assign(root) + α - 1))
    end
 
-   p[:,end] = logpred(G0, data[root.scope,:]) + log( α / (assign(root) + α - 1) )
+   p[:,end] = logpred(G, data[root.scope,:]) + log( α / (assign(root) + α - 1) )
 
    # get k
    k = 0
@@ -165,6 +167,10 @@ function evalWithK{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode
    α = 1.0,
    mirror = false)
 
+   if mirror
+      println(node.dist.n)
+   end
+
    llh = logpred(node.dist, data[node.scope,:])
 
  return (llh, -1)
@@ -173,11 +179,7 @@ end
 "Spawn new child into SPN"
 function spawnChild!(node::Node, G0::ConjugatePostDistribution)
 
-
-   println("Spawning child")
-
-
-   G = GaussianWishart(G0.mu0[node.scope], G0.kappa0, G0.nu0, G0.Sigma0[node.scope, node.scope])
+   G = GaussianWishart(G0.mu0[node.scope], G0.kappa0, float(Base.length(node.scope)), G0.Sigma0[node.scope, node.scope])
    add!(node, MultivariateNode{ConjugatePostDistribution}(G, copy(node.scope)))
 end
 
@@ -233,7 +235,13 @@ function extend!(node::Node, assign::Assignments; depth = 1, cutoff = 2)
       d + 1
    end
 
+   childrens = SPNNode[]
+
    for child in node.children
+      push!(childrens, child)
+   end
+
+   for child in childrens
       extend!(child, assign, depth = d, cutoff = cutoff)
    end
 end
@@ -274,58 +282,51 @@ function mirror!(node::Leaf, assign::Assignments, X::Array, G0::ConjugatePostDis
 		end
 	end
 
+   G = GaussianWishart(G0.mu0[scope], G0.kappa0, float(Base.length(scope)), G0.Sigma0[scope, scope])
+
 	if !mirrored
-		d = BNP.add_data(G0, X[node.scope, scope])
+		d = BNP.add_data(G, X[node.scope, scope]')
 	else
-		d = BNP.add_data(G0, X[scope, node.scope])
+		d = BNP.add_data(G, X[scope, node.scope])
 	end
 
+   println("D: ", d.D)
+   println("N: ", d.n)
+
+   node.scope = scope
 	node.dist = d
 
 end
 
 "Visualize SPN"
-function draw(root::Node; adjMatrix = Vector{Int}[], labels = Vector{AbstractString}(0), level = 1)
-   thislevel = copy(level)
-   adjList = Int[]
+function draw(spn::SumNode)
 
-   if isa(root, SumNode)
-      push!(labels, "+")
-   else
-      push!(labels, "x")
-   end
+   nodes = order(spn)
 
-   push!(adjMatrix, adjList)
+   labels = AbstractString[]
+   A = zeros(Base.length(nodes), Base.length(nodes))
 
-   for (ci, child) in enumerate(root.children)
-      push!(adjList, level + 1)
-      level = draw(child, adjMatrix = adjMatrix, labels = labels, level = level + 1)
-   end
+   reverse!(nodes)
 
-   if thislevel == 1
-
-      # generate real adjmatrix
-      L = maximum(reduce(vcat, adjMatrix))
-
-      A = zeros(L, L)
-
-      for i in collect(1:Base.length(adjMatrix))
-         for j in adjMatrix[i]
-            A[i, j] = 1
+   for i in collect(1:Base.length(nodes))
+      if isa(nodes[i], Node)
+         for j in collect(1:Base.length(nodes))
+            if nodes[j] in nodes[i].children
+               A[i, j] = 1
+            end
          end
+
+         if isa(nodes[i], SumNode)
+            push!(labels, "+")
+         else
+            push!(labels, "x")
+         end
+      else
+         push!(labels, "D")
       end
-
-      loc_x, loc_y = layout_spring_adj(A)
-      draw_layout_adj(A, loc_x, loc_y, labels=labels, labelsize=20.0, filename="spn.svg")
-
    end
 
-   level
+   loc_x, loc_y = layout_spring_adj(A)
+   draw_layout_adj(A, loc_x, loc_y, labels=labels, labelsize=20.0, filename="spn.svg")
 
-end
-
-
-function draw(root::Leaf; adjMatrix = Vector{Int}[], labels = Vector{AbstractString}(0), level = 1)
-   push!(labels, "D")
-   level
 end

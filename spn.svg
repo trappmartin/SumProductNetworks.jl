@@ -8,32 +8,32 @@
      stroke-width="0.3"
      font-size="3.88"
 >
-<g stroke-width="1.73" stroke="#BBBBBB" id="img-a7057197-1">
+<g stroke-width="1.73" stroke="#BBBBBB" id="img-98c32a1a-1">
   <path fill="none" d="M164.33,171.43 L 177.63 177.63"/>
   <path fill="none" d="M171.43,164.33 L 177.63 177.63"/>
-  <path fill="none" d="M102.23,102.23 L 177.63 177.63"/>
-  <path fill="none" d="M80.3,87.4 L 93.59 93.59"/>
-  <path fill="none" d="M87.4,80.3 L 93.59 93.59"/>
-  <path fill="none" d="M16.93,16.93 L 93.59 93.59"/>
+  <path fill="none" d="M101.81,101.81 L 177.63 177.63"/>
+  <path fill="none" d="M79.88,86.97 L 93.17 93.17"/>
+  <path fill="none" d="M86.97,79.88 L 93.17 93.17"/>
+  <path fill="none" d="M16.93,16.93 L 93.17 93.17"/>
 </g>
-<g stroke="#BBBBBB" fill="#AAAAFF" id="img-a7057197-2">
-  <use xlink:href="#img-a7057197-3" x="186.27" y="186.27"/>
-  <use xlink:href="#img-a7057197-4" x="102.23" y="102.23"/>
-  <use xlink:href="#img-a7057197-5" x="16.93" y="16.93"/>
+<g stroke="#BBBBBB" fill="#AAAAFF" id="img-98c32a1a-2">
+  <use xlink:href="#img-98c32a1a-3" x="186.27" y="186.27"/>
+  <use xlink:href="#img-98c32a1a-4" x="101.81" y="101.81"/>
+  <use xlink:href="#img-98c32a1a-5" x="16.93" y="16.93"/>
 </g>
-<g font-size="20" stroke="#000000" stroke-opacity="0.000" fill="#000000" id="img-a7057197-6">
+<g font-size="20" stroke="#000000" stroke-opacity="0.000" fill="#000000" id="img-98c32a1a-6">
   <text x="186.27" y="186.27" text-anchor="middle" dy="0.35em">D</text>
-  <text x="102.23" y="102.23" text-anchor="middle" dy="0.35em">x</text>
+  <text x="101.81" y="101.81" text-anchor="middle" dy="0.35em">x</text>
   <text x="16.93" y="16.93" text-anchor="middle" dy="0.35em">+</text>
 </g>
 <defs>
-  <g id="img-a7057197-3">
+  <g id="img-98c32a1a-3">
     <circle cx="0" cy="0" r="12.22"/>
   </g>
-  <g id="img-a7057197-4">
+  <g id="img-98c32a1a-4">
     <circle cx="0" cy="0" r="12.22"/>
   </g>
-  <g id="img-a7057197-5">
+  <g id="img-98c32a1a-5">
     <circle cx="0" cy="0" r="12.22"/>
   </g>
 </defs>

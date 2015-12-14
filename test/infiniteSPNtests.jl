@@ -35,6 +35,8 @@ end
 
 println(" * infinite GMM test")
 
+#srand(41234)
+
 # data
 M = 50
 N = M * 2
@@ -49,6 +51,14 @@ X = cat(2, randn(D, M), randn(D, M) - 10)
 Ψ = eye(D) * 10
 
 G0 = GaussianWishart(μ0, κ0, ν0, Ψ)
+
+# G0Mirror
+μ0 = vec( mean(X, 1) )
+κ0 = 1.0
+ν0 = convert(Float64, N)
+Ψ = eye(N) * 10
+
+G0Mirror = GaussianWishart(μ0, κ0, ν0, Ψ)
 
 root = SumNode(0, scope = collect(1:D))
 dist = MultivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X), collect(1:D))
@@ -93,6 +103,9 @@ for id in randperm(N)
 			(llh, newk) = SPN.evalWithK(node, x, llhval, assign, G0)
 
 			# always open a new table
+			if id % 10 == 0
+				newk = 2
+			end
 
 			llhval[node] = llh
 			kvals[node] = newk
@@ -103,22 +116,6 @@ for id in randperm(N)
 
 end
 
-# test removal
-#kdists = assign[id]
-
-#for dist in kdists
-	# - remove "random" data point
-#	SPN.decrement!(assign, dist)
-
-#	remove_data!(dist.dist, x)
-
-#	if assign(dist) == 0
-#		SPN.killChild!(dist, assign)
-#	end
-#end
-
-#@test length(root.children) == 1
-
 println(" * Extend SPN with Product")
 
 SPN.extend!(root, assign)
@@ -128,6 +125,14 @@ println(" * Gibbs on mirror SPN")
 toporder = SPN.order(root)
 
 println(" * Compute mirrored Assignment for first time...")
+
+# clean up
+for node in toporder
+    # remove if no data points assigned
+    if assign(node) == 0
+        killChild!(node, assign)
+    end
+end
 
 assignMirror = SPN.Assignments(D)
 assignMirror.S = assign.S
@@ -140,8 +145,6 @@ for node in toporder
 			SPN.assign!(assignMirror, i, dist)
 		end
 
-	else
-		break
 	end
 end
 
@@ -150,32 +153,22 @@ println(" * mirror all leafs")
 
 for node in toporder
 
-	if isa(node, SPN.Leaf)
-		SPN.mirror!(node, assign, X, G0)
-	else
-		break
+	if isa(node, Leaf)
+		SPN.mirror!(node, assign, X, G0Mirror)
 	end
 
 end
 
-println(" * parallel sweeps")
+println(" * parallel sweeps.")
 
 # for each product node
 for child in root.children
 
 	if isa(child, ProductNode)
 
+		println(assign(child))
+
 		for id in randperm(D)
-
-			# define G0 for mirrored SPN rooted at child
-
-			# G0Mirror
-			μ0 = vec( mean(X[:,child.scope], 1) )
-			κ0 = 1.0
-			ν0 = convert(Float64, length(child.scope))
-			Ψ = eye(length(child.scope)) * 10
-
-			G0Mirror = GaussianWishart(μ0, κ0, ν0, Ψ)
 
 			x = X[id, :]'
 
@@ -205,6 +198,14 @@ for child in root.children
 
 		end
 
+	end
+
+end
+
+for node in toporder
+
+	if isa(node, SPN.Leaf)
+		SPN.mirror!(node, assignMirror, X, G0)
 	end
 
 end
