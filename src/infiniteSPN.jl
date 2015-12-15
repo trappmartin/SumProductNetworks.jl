@@ -45,6 +45,7 @@ function assign!(p::Assignments, id::Int, n::Leaf)
 	else
 		p.Z[id] = [n]
 	end
+
 end
 
 "Get index function"
@@ -167,10 +168,6 @@ function evalWithK{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode
    α = 1.0,
    mirror = false)
 
-   if mirror
-      println(node.dist.n)
-   end
-
    llh = logpred(node.dist, data[node.scope,:])
 
  return (llh, -1)
@@ -290,16 +287,13 @@ function mirror!(node::Leaf, assign::Assignments, X::Array, G0::ConjugatePostDis
 		d = BNP.add_data(G, X[scope, node.scope])
 	end
 
-   println("D: ", d.D)
-   println("N: ", d.n)
-
    node.scope = scope
 	node.dist = d
 
 end
 
 "Visualize SPN"
-function draw(spn::SumNode)
+function draw(spn::SumNode; file="spn.svg")
 
    nodes = order(spn)
 
@@ -327,6 +321,19 @@ function draw(spn::SumNode)
    end
 
    loc_x, loc_y = layout_spring_adj(A)
-   draw_layout_adj(A, loc_x, loc_y, labels=labels, labelsize=20.0, filename="spn.svg")
+   draw_layout_adj(A, loc_x, loc_y, labels=labels, labelsize=20.0, filename=file)
+
+   adj_list = Vector{Int}[]
+   for i in 1:size(A,1)
+       new_list = Int[]
+       for j in 1:size(A,2)
+           if A[i,j] != zero(eltype(A))
+               push!(new_list,j)
+           end
+       end
+       push!(adj_list, new_list)
+   end
+
+   #layout_tree(adj_list, labels, cycles=false, filename="tree.svg")
 
 end

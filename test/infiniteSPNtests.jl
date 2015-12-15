@@ -134,31 +134,6 @@ for node in toporder
     end
 end
 
-assignMirror = SPN.Assignments(D)
-assignMirror.S = assign.S
-
-for node in toporder
-
-	if isa(node, SPN.Leaf)
-
-		for i in node.scope
-			SPN.assign!(assignMirror, i, dist)
-		end
-
-	end
-end
-
-# mirror all Leafs
-println(" * mirror all leafs")
-
-for node in toporder
-
-	if isa(node, Leaf)
-		SPN.mirror!(node, assign, X, G0Mirror)
-	end
-
-end
-
 println(" * parallel sweeps.")
 
 # for each product node
@@ -166,7 +141,28 @@ for child in root.children
 
 	if isa(child, ProductNode)
 
-		println(assign(child))
+		toporder = SPN.order(child)
+
+		assignMirror = SPN.Assignments(D)
+		assignMirror.S = assign.S
+
+		for node in toporder
+
+			if isa(node, SPN.Leaf)
+				for i in node.scope
+					SPN.assign!(assignMirror, i, node)
+				end
+			end
+		end
+
+		# mirror all Leafs
+		for node in toporder
+
+			if isa(node, Leaf)
+				SPN.mirror!(node, assign, X, G0Mirror)
+			end
+
+		end
 
 		for id in randperm(D)
 
@@ -178,15 +174,13 @@ for child in root.children
 				# - remove data point
 				SPN.decrement!(assignMirror, dist)
 				remove_data!(dist.dist, x[dist.scope,:])
-			end
 
-			toporder = SPN.order(child)
+			end
 
 			llhval = Dict{SPNNode, Array{Float64}}()
 			kvals = Dict{SPNNode, Int}()
 
 			for node in toporder
-
 					(llh, newk) = SPN.evalWithK(node, x, llhval, assignMirror, G0Mirror, mirror = true)
 
 					llhval[node] = llh
@@ -198,14 +192,14 @@ for child in root.children
 
 		end
 
-	end
+		for node in toporder
 
-end
+			if isa(node, SPN.Leaf)
+				SPN.mirror!(node, assignMirror, X, G0, mirrored = true)
+			end
 
-for node in toporder
+		end
 
-	if isa(node, SPN.Leaf)
-		SPN.mirror!(node, assignMirror, X, G0)
 	end
 
 end
