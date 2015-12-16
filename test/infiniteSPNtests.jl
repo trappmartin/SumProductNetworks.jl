@@ -70,6 +70,7 @@ for i in collect(1:N)
 	SPN.assign!(assign, i, dist)
 end
 
+# TODO use something else than add
 SPN.add!(assign, root)
 SPN.increment!(assign, root, i = N)
 
@@ -88,6 +89,7 @@ for id in randperm(N)
 	for dist in kdists
 		# - remove "random" data point
 		SPN.decrement!(assign, dist)
+		#SPN.withdraw!(assign, id, dist)
 		remove_data!(dist.dist, x[dist.scope,:])
 	end
 
@@ -148,19 +150,41 @@ for child in root.children
 
 		for node in toporder
 
+			# flip assignment of data to leafs
 			if isa(node, SPN.Leaf)
 				for i in node.scope
 					SPN.assign!(assignMirror, i, node)
 				end
+			end
+
+			# flip scopes and transpose distributions
+			SPN.mirror!(node, assign, X, G0Mirror)
+
+			# flip bucket sizes
+			if isa(node, SPN.Leaf)
+
+				bucket = Int[]
+
+				for (zi, z) in enumerate(assignMirror.Z)
+					if node in z
+						push!(bucket, zi)
+					end
+				end
+
+				assignMirror.S[node] = length(bucket)
+			else
+				assignMirror.S[node] = sum(Base.map(c -> assignMirror(c), node.children))
 			end
 		end
 
 		# mirror all Leafs
 		for node in toporder
 
-			if isa(node, Leaf)
-				SPN.mirror!(node, assign, X, G0Mirror)
-			end
+			println(assign(node))
+			println(assignMirror(node))
+			println(typeof(node))
+			println(node.scope)
+			println("--")
 
 		end
 

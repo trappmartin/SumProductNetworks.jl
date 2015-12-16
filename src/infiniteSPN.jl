@@ -48,6 +48,16 @@ function assign!(p::Assignments, id::Int, n::Leaf)
 
 end
 
+"Withdraw node assignment"
+function withdraw!(p::Assignments, id::Int, n::Leaf)
+
+	if isdefined(p.Z[id])
+      idx = findfirst(p.Z[id] .== n)
+      p.Z[id] = p.Z[id][[1:idx-1; idx+1:end]]
+	end
+
+end
+
 "Get index function"
 function getindex(p::Assignments, i::Int)
     p.Z[i]
@@ -204,6 +214,18 @@ function recurseCondK!{T<:Real}(node::Node, ks::Dict{SPNNode, Int},
    end
 
 	if haskey(ks, node)
+
+      oldNodes = assign[idx]
+
+      for n in oldNodes
+         oldk = findfirst(n .== node.children)
+         if oldk > 0
+            if oldk != ks[node]
+               withdraw!(assign, idx, n)
+            end
+         end
+      end
+
 		recurseCondK!(node.children[ks[node]], ks, data, idx, assign, G0)
 	else
 		for child in node.children
@@ -249,7 +271,7 @@ function extend!(node::Leaf, assign::Assignments; depth = 1, cutoff = 2)
       # extend SPN
       p = get(node.parent)
 
-      # compute scope
+		# compute scope
       scope = Int[]
       for (di, datum) in enumerate(assign.Z)
 
@@ -289,6 +311,23 @@ function mirror!(node::Leaf, assign::Assignments, X::Array, G0::ConjugatePostDis
 
    node.scope = scope
 	node.dist = d
+
+end
+
+"Mirror Internal node"
+function mirror!(node::Node, assign::Assignments, X::Array, G0::ConjugatePostDistribution; mirrored = false)
+
+	function recurseInternal(node::Node)
+		mapreduce(c -> recurseInternal(c), vcat, node.children)
+	end
+
+	function recurseInternal(node::Leaf)
+		node.scope
+	end
+
+	scope = recurseInternal(node)
+
+   node.scope = scope
 
 end
 
