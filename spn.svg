@@ -8,33 +8,49 @@
      stroke-width="0.3"
      font-size="3.88"
 >
-<g stroke-width="1.73" stroke="#BBBBBB" id="img-98c32a1a-1">
-  <path fill="none" d="M164.33,171.43 L 177.63 177.63"/>
-  <path fill="none" d="M171.43,164.33 L 177.63 177.63"/>
-  <path fill="none" d="M101.81,101.81 L 177.63 177.63"/>
-  <path fill="none" d="M79.88,86.97 L 93.17 93.17"/>
-  <path fill="none" d="M86.97,79.88 L 93.17 93.17"/>
-  <path fill="none" d="M16.93,16.93 L 93.17 93.17"/>
+<g stroke-width="1.34" stroke="#BBBBBB" id="img-4d744de1-1">
+  <path fill="none" d="M169.28,174.77 L 179.57 179.57"/>
+  <path fill="none" d="M174.77,169.28 L 179.57 179.57"/>
+  <path fill="none" d="M146.27,146.27 L 179.57 179.57"/>
+  <path fill="none" d="M33.92,28.43 L 23.63 23.63"/>
+  <path fill="none" d="M28.43,33.92 L 23.63 23.63"/>
+  <path fill="none" d="M56.42,56.42 L 23.63 23.63"/>
+  <path fill="none" d="M129.28,134.77 L 139.57 139.57"/>
+  <path fill="none" d="M134.77,129.28 L 139.57 139.57"/>
+  <path fill="none" d="M101.78,101.78 L 139.57 139.57"/>
+  <path fill="none" d="M73.41,67.92 L 63.12 63.12"/>
+  <path fill="none" d="M67.92,73.41 L 63.12 63.12"/>
+  <path fill="none" d="M101.78,101.78 L 63.12 63.12"/>
 </g>
-<g stroke="#BBBBBB" fill="#AAAAFF" id="img-98c32a1a-2">
-  <use xlink:href="#img-98c32a1a-3" x="186.27" y="186.27"/>
-  <use xlink:href="#img-98c32a1a-4" x="101.81" y="101.81"/>
-  <use xlink:href="#img-98c32a1a-5" x="16.93" y="16.93"/>
+<g stroke="#BBBBBB" fill="#AAAAFF" id="img-4d744de1-2">
+  <use xlink:href="#img-4d744de1-3" x="186.27" y="186.27"/>
+  <use xlink:href="#img-4d744de1-4" x="146.27" y="146.27"/>
+  <use xlink:href="#img-4d744de1-5" x="16.93" y="16.93"/>
+  <use xlink:href="#img-4d744de1-6" x="56.42" y="56.42"/>
+  <use xlink:href="#img-4d744de1-7" x="101.78" y="101.78"/>
 </g>
-<g font-size="20" stroke="#000000" stroke-opacity="0.000" fill="#000000" id="img-98c32a1a-6">
+<g font-size="20" stroke="#000000" stroke-opacity="0.000" fill="#000000" id="img-4d744de1-8">
   <text x="186.27" y="186.27" text-anchor="middle" dy="0.35em">D</text>
-  <text x="101.81" y="101.81" text-anchor="middle" dy="0.35em">x</text>
-  <text x="16.93" y="16.93" text-anchor="middle" dy="0.35em">+</text>
+  <text x="146.27" y="146.27" text-anchor="middle" dy="0.35em">x</text>
+  <text x="16.93" y="16.93" text-anchor="middle" dy="0.35em">D</text>
+  <text x="56.42" y="56.42" text-anchor="middle" dy="0.35em">x</text>
+  <text x="101.78" y="101.78" text-anchor="middle" dy="0.35em">+</text>
 </g>
 <defs>
-  <g id="img-98c32a1a-3">
-    <circle cx="0" cy="0" r="12.22"/>
+  <g id="img-4d744de1-3">
+    <circle cx="0" cy="0" r="9.47"/>
   </g>
-  <g id="img-98c32a1a-4">
-    <circle cx="0" cy="0" r="12.22"/>
+  <g id="img-4d744de1-4">
+    <circle cx="0" cy="0" r="9.47"/>
   </g>
-  <g id="img-98c32a1a-5">
-    <circle cx="0" cy="0" r="12.22"/>
+  <g id="img-4d744de1-5">
+    <circle cx="0" cy="0" r="9.47"/>
+  </g>
+  <g id="img-4d744de1-6">
+    <circle cx="0" cy="0" r="9.47"/>
+  </g>
+  <g id="img-4d744de1-7">
+    <circle cx="0" cy="0" r="9.47"/>
   </g>
 </defs>
 </svg>
