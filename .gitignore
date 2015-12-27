@@ -3,3 +3,9 @@
 playground/.ipynb_checkpoints/
 
 *.svg
+
+*.data
+
+*.svg
+
+*.mat

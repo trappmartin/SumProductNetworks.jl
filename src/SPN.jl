@@ -41,6 +41,7 @@ module SPN
 		recurseCondK!,
 		extend!,
 		mirror!,
-		draw
+		draw,
+		gibbs_iteration!
 
 end # module

@@ -2,7 +2,7 @@
 type Assignments
 
 	# datum to leaf assignments
-	Z::Vector{Vector{Leaf}}
+	Z::Vector{Vector{SPNNode}}
 
 	# bucket sizes
 	S::Dict{SPNNode, Int}
@@ -38,10 +38,13 @@ function decrement!(p::Assignments, n::SPNNode; i = 1)
 end
 
 "Assign datum to leaf node"
-function assign!(p::Assignments, id::Int, n::Leaf)
+function assign!(p::Assignments, id::Int, n::SPNNode)
 
 	if isdefined(p.Z[id])
-		push!(p.Z[id], n)
+
+      if !(n in p.Z[id])
+         push!(p.Z[id], n)
+      end
 	else
 		p.Z[id] = [n]
 	end
@@ -49,7 +52,7 @@ function assign!(p::Assignments, id::Int, n::Leaf)
 end
 
 "Withdraw node assignment"
-function withdraw!(p::Assignments, id::Int, n::Leaf)
+function withdraw!(p::Assignments, id::Int, n::SPNNode)
 
 	if isdefined(p.Z[id])
       idx = findfirst(p.Z[id] .== n)
@@ -96,7 +99,22 @@ function evalSumInternal{T<:Real}(root::Node,
    p = ones(size(data, 2), Base.length(root.children) + 1) * -Inf
 
    for (ci, c) in enumerate(root.children)
-      p[:,ci] = llhvals[c] + log(assign(c) / (assign(root) + α - 1))
+      try
+         p[:,ci] = llhvals[c] + log(assign(c) / (assign(root) + α - 1))
+      catch
+         println("ERROR!")
+         println("assign(c): ", assign(c))
+         println("c*: ", pointer_from_objref(c))
+         println("node*: ", pointer_from_objref(root))
+         println("# children: ", Base.length(root.children))
+
+         for k in keys(assign.S)
+            println("assign(k): ", assign(k))
+            println("k*: ", pointer_from_objref(k))
+         end
+
+      end
+
    end
 
    p[:,end] = logpred(G, data[root.scope,:]) + log( α / (assign(root) + α - 1) )
@@ -112,6 +130,8 @@ function evalSumInternal{T<:Real}(root::Node,
    # get node llh
    p = sum(p, 2)
    p = log(p) .+ maxp
+
+   @assert k != nothing
 
    #p -= log(sum(root.weights))
 
@@ -143,8 +163,14 @@ function evalProductInternal{T<:Real}(root::Node,
       G0::ConjugatePostDistribution;
       α = 1.0)
 
+   if Base.length(root.children) == 0
+      println(assign(root))
+   end
+
    _llh = [llhvals[c] for c in root.children]
    _llh = reduce(vcat, _llh)
+
+   @assert !isnan(_llh[1])
 
    return (sum(_llh, 1), -1)
 end
@@ -180,6 +206,8 @@ function evalWithK{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode
 
    llh = logpred(node.dist, data[node.scope,:])
 
+   @assert !isnan(llh[1])
+
  return (llh, -1)
 end
 
@@ -198,47 +226,61 @@ function killChild!(node::SPNNode, assign::Assignments)
    remove!(p, findfirst(p.children .== node))
 
    # apply to parent if necessary
-   if assign(p) == 0
-      killChild!(p, assign)
-   end
+   #if assign(p) == 0
+   #   killChild!(p, assign)
+   #end
 
 end
 
 "Recurse on Nodes, add node if necessary."
-function recurseCondK!{T<:Real}(node::Node, ks::Dict{SPNNode, Int},
-   data::AbstractArray{T}, idx::Int, assign::Assignments, G0::ConjugatePostDistribution)
+function recurseCondK!{T<:Real}(node::ProductNode, ks::Dict{SPNNode, Int},
+   data::AbstractArray{T}, idx::Int, assign::Assignments, G0::ConjugatePostDistribution; mirror = false)
 
    # check if we need to extend the number of children
    if ks[node] > Base.length(node.children)
       spawnChild!(node, G0)
    end
 
-	if haskey(ks, node)
-
+	if mirror
       oldNodes = assign[idx]
-
-      for n in oldNodes
-         oldk = findfirst(n .== node.children)
-         if oldk > 0
-            if oldk != ks[node]
-               withdraw!(assign, idx, n)
-            end
-         end
-      end
-
-		recurseCondK!(node.children[ks[node]], ks, data, idx, assign, G0)
+		recurseCondK!(node.children[ks[node]], ks, data, idx, assign, G0, mirror = mirror)
+      increment!(assign, node)
 	else
 		for child in node.children
-			recurseCondK!(child, ks, data, idx, assign, G0)
+			recurseCondK!(child, ks, data, idx, assign, G0, mirror = mirror)
+         increment!(assign, node)
 		end
 	end
 
-   increment!(assign, node)
+   assign!(assign, idx, node)
+end
+
+"Recurse on Nodes, add node if necessary."
+function recurseCondK!{T<:Real}(node::SumNode, ks::Dict{SPNNode, Int},
+   data::AbstractArray{T}, idx::Int, assign::Assignments, G0::ConjugatePostDistribution; mirror = false)
+
+   # check if we need to extend the number of children
+   if ks[node] > Base.length(node.children)
+      spawnChild!(node, G0)
+   end
+
+	if !mirror
+      oldNodes = assign[idx]
+		recurseCondK!(node.children[ks[node]], ks, data, idx, assign, G0, mirror = mirror)
+      increment!(assign, node)
+	else
+		for child in node.children
+			recurseCondK!(child, ks, data, idx, assign, G0, mirror = mirror)
+         increment!(assign, node)
+		end
+	end
+
+   assign!(assign, idx, node)
 end
 
 "Recurse on Leafs"
 function recurseCondK!{T<:Real}(node::Leaf, ks::Dict{SPNNode, Int},
-   data::AbstractArray{T}, idx::Int, assign::Assignments, G0::ConjugatePostDistribution)
+   data::AbstractArray{T}, idx::Int, assign::Assignments, G0::ConjugatePostDistribution; mirror = false)
 
    assign!(assign, idx, node)
    add_data!(node.dist, data[node.scope,:])
@@ -247,11 +289,11 @@ function recurseCondK!{T<:Real}(node::Leaf, ks::Dict{SPNNode, Int},
 end
 
 "Extend SPN"
-function extend!(node::Node, assign::Assignments; depth = 1, cutoff = 2)
+function extend!(node::Node, assign::Assignments; depth = 1, cutoff = 2, tomirror = true)
 
    d = depth
    if Base.length(node.children) == 1
-      d + 1
+      d = depth + 1
    end
 
    childrens = SPNNode[]
@@ -261,31 +303,36 @@ function extend!(node::Node, assign::Assignments; depth = 1, cutoff = 2)
    end
 
    for child in childrens
-      extend!(child, assign, depth = d, cutoff = cutoff)
+      extend!(child, assign, depth = d, cutoff = cutoff, tomirror = tomirror)
    end
 end
 
 "Extend SPN on Leaf"
-function extend!(node::Leaf, assign::Assignments; depth = 1, cutoff = 2)
+function extend!(node::Leaf, assign::Assignments; depth = 1, cutoff = 2, tomirror = true)
+
    if depth <= cutoff
+
       # extend SPN
       p = get(node.parent)
 
-		# compute scope
-      scope = Int[]
-      for (di, datum) in enumerate(assign.Z)
+      n = isa(p, SumNode) ? ProductNode(0, scope = node.scope) : SumNode(0, scope = node.scope)
 
-         if sum(datum .== node) > 0
-            push!(scope, di)
-         end
-
+      if isa(n, ProductNode) & tomirror
+         return
+      elseif isa(n, SumNode) & !tomirror
+         return
       end
-
-      n = isa(p, SumNode) ? ProductNode(0, scope = scope) : SumNode(0, scope = scope)
 
       add!(p, n)
       increment!(assign, n, i = assign(node))
       add!(n, node)
+
+      for (di, datum) in enumerate(assign.Z)
+         if node in datum
+            assign!(assign, di, n)
+         end
+      end
+
       remove!(p, findfirst(p.children .== node))
    end
 end
@@ -309,6 +356,8 @@ function mirror!(node::Leaf, assign::Assignments, X::Array, G0::ConjugatePostDis
 		d = BNP.add_data(G, X[scope, node.scope])
 	end
 
+   sort!(scope)
+
    node.scope = scope
 	node.dist = d
 
@@ -318,21 +367,49 @@ end
 function mirror!(node::Node, assign::Assignments, X::Array, G0::ConjugatePostDistribution; mirrored = false)
 
 	function recurseInternal(node::Node)
-		mapreduce(c -> recurseInternal(c), vcat, node.children)
+		mapreduce(c -> c.scope, vcat, node.children)
 	end
 
 	function recurseInternal(node::Leaf)
 		node.scope
 	end
 
-	scope = recurseInternal(node)
+	scope = unique(recurseInternal(node))
+   sort!(scope)
 
    node.scope = scope
 
 end
 
+"Update Weights on Sum Node"
+function update_weights(root::SumNode, assign::Assignments; α = 1.0)
+
+   root.weights = vec( [assign(c) / (assign(root) + α - 1) for c in root.children] )
+
+   # update children
+   for c in root.children
+      update_weights(c, assign, α = α)
+   end
+
+end
+
+"Update Weights"
+function update_weights(root::ProductNode, assign::Assignments; α = 1.0)
+
+   # update children
+   for c in root.children
+      update_weights(c, assign, α = α)
+   end
+
+end
+
+"Update Weights"
+function update_weights(root::Leaf, assign::Assignments; α = 1.0)
+   # nothing to do
+end
+
 "Visualize SPN"
-function draw(spn::SumNode; file="spn.svg")
+function draw(spn::SumNode; file="spn.svg", showBucket = false, assign = nothing)
 
    nodes = order(spn)
 
@@ -349,18 +426,40 @@ function draw(spn::SumNode; file="spn.svg")
             end
          end
 
-         if isa(nodes[i], SumNode)
-            push!(labels, "+")
+         if nodes[i] == spn
+            if showBucket
+               push!(labels, "R+ ($(assign(nodes[i])))")
+            else
+               push!(labels, "R+")
+            end
          else
-            push!(labels, "x")
+            if isa(nodes[i], SumNode)
+               if showBucket
+                  push!(labels, "+ ($(assign(nodes[i])))")
+               else
+                  push!(labels, "+")
+               end
+            else
+               if showBucket
+                  push!(labels, "x ($(assign(nodes[i])))")
+               else
+                  push!(labels, "x")
+               end
+            end
          end
       else
-         push!(labels, "D")
+         if showBucket
+            push!(labels, "O ($(assign(nodes[i])))")
+         else
+            push!(labels, "O")
+         end
       end
    end
 
+   labSize = showBucket ? 10.0 : 20.0
+
    loc_x, loc_y = layout_spring_adj(A)
-   draw_layout_adj(A, loc_x, loc_y, labels=labels, labelsize=20.0, filename=file)
+   draw_layout_adj(A, loc_x, loc_y, labels=labels, labelsize=labSize, filename=file)
 
    adj_list = Vector{Int}[]
    for i in 1:size(A,1)
@@ -374,5 +473,230 @@ function draw(spn::SumNode; file="spn.svg")
    end
 
    #layout_tree(adj_list, labels, cycles=false, filename="tree.svg")
+
+end
+
+"Run a single Gibbs iteration"
+function gibbs_iteration!(root::Node, assign::Assignments,
+   G0::ConjugatePostDistribution, G0Mirror::ConjugatePostDistribution,
+   X::Array; internalIters = 100)
+
+	(D, N) = size(X)
+
+   # for testing
+   toporder = order(root)
+
+   for it in collect(1:internalIters)
+
+   	for id in randperm(N)
+
+   		x = X[:, id]
+   		kdists = assign[id]
+   		toremove = Vector{SPNNode}(0)
+
+         # remove data point and withdraw nodes from datum
+   		for dist in kdists
+
+            if assign(dist) == 0
+               println("woot")
+               #draw(root, file="debug2.svg", showBucket = true, assign = assign)
+            end
+
+            if isa(dist, ProductNode)
+               decrement!(assign, dist, i = Base.length(dist.children))
+            else
+               decrement!(assign, dist)
+            end
+            withdraw!(assign, id, dist)
+
+            if isa(dist, Leaf)
+               remove_data!(dist.dist, x[dist.scope,:])
+            end
+
+            if assign(dist) < 0
+               println(typeof(dist))
+               println(assign(dist))
+
+               println("all: ", Base.length(kdists), " uniques: ", Base.length(unique(kdists)))
+            end
+            #
+            @assert assign(dist) > -1
+
+   			if assign(dist) == 0
+   				push!(toremove, dist)
+   			end
+   		end
+
+   		# clean up
+   		for node in toremove
+   			killChild!(node, assign)
+   		end
+
+   		# set up topological order and data structures
+   		toporder = order(root)
+   		llhval = Dict{SPNNode, Array{Float64}}()
+   		kvals = Dict{SPNNode, Int}()
+
+         # evaluate SPN on datum (including integration and sampling over latent variables)
+   		for node in toporder
+
+   				(llh, newk) = evalWithK(node, x, llhval, assign, G0)
+
+   				llhval[node] = llh
+   				kvals[node] = newk
+
+               if isa(node, SumNode)
+                  #println(newk)
+               end
+   		end
+
+   		# assign datum to
+   		recurseCondK!(root, kvals, x, id, assign, G0)
+
+   	end
+
+   end
+
+	# extend SPN
+	extend!(root, assign)
+
+	# get topological order
+	toporder = order(root)
+
+	# for each product node
+	for child in root.children
+
+      if assign(child) == 1
+         continue
+      end
+
+		toporder = order(child)
+		assignMirror = Assignments(D)
+
+		# set up assignments
+		for node in toporder
+
+			# flip assignment of data to leafs
+			for i in node.scope
+				assign!(assignMirror, i, node)
+			end
+
+			# flip scopes and transpose distributions
+			mirror!(node, assign, X, G0Mirror)
+
+			# flip bucket sizes
+			if isa(node, Leaf)
+
+				bucket = Int[]
+
+				for (zi, z) in enumerate(assignMirror.Z)
+					if node in z
+						push!(bucket, zi)
+					end
+				end
+
+				assignMirror.S[node] = Base.length(bucket)
+			else
+            assignMirror.S[node] = sum(Base.map(c -> assignMirror(c), node.children))
+			end
+		end
+
+         for it in collect(1:internalIters)
+
+   		# gibbs loop on mirrored SPN
+   		for id in randperm(D)
+
+            # current data point
+   			x = X[id, :]'
+   			kdists = assignMirror[id]
+   			toremove = Vector{SPNNode}(0)
+
+            # remove data point / withdraw node from list of nodes for datum
+   			for dist in kdists
+
+               if isa(dist, SumNode)
+                  decrement!(assignMirror, dist, i = Base.length(dist.children))
+               else
+                  decrement!(assignMirror, dist)
+               end
+
+               withdraw!(assignMirror, id, dist)
+
+               # this makes only sense for leaf nodes
+               if isa(dist, Leaf)
+                  remove_data!(dist.dist, x[dist.scope,:])
+               end
+
+               if assignMirror(dist) < 0
+                  println(typeof(dist))
+                  println(assignMirror(dist))
+               end
+               @assert assignMirror(dist) > -1
+
+               # remove empty nodes
+   				if assignMirror(dist) == 0
+                  push!(toremove, dist)
+   				end
+   			end
+
+   			# clean up
+   			for node in toremove
+
+               # clean up references in assign structure
+               for j in child.scope
+                  withdraw!(assign, j, node)
+               end
+
+               killChild!(node, assignMirror)
+   			end
+
+            # compute topological order and initialise data structures
+            toporder = order(child)
+   			llhval = Dict{SPNNode, Array{Float64}}()
+   			kvals = Dict{SPNNode, Int}()
+
+            # evaluate SPN on datum
+   			for node in toporder
+
+   					(llh, newk) = evalWithK(node, x, llhval, assignMirror, G0Mirror, mirror = true)
+
+   					llhval[node] = llh
+   					kvals[node] = newk
+
+   			end
+
+   			# assign datum to nodes
+   			recurseCondK!(child, kvals, x, id, assignMirror, G0Mirror, mirror = true)
+
+   		end
+      end
+
+      toporder = order(child)
+
+      # reassign data points accordingly (houskeeping...)
+		for node in toporder
+
+         inc = Base.length(node.scope)
+
+			mirror!(node, assignMirror, X, G0, mirrored = true)
+
+         if isa(node, Leaf)
+            bucket = get(node.parent).scope
+
+            for item in bucket
+               assign!(assign, item, node)
+            end
+
+            if !haskey(assign.S, node)
+               increment!(assign, node, i = inc)
+            end
+
+         end
+
+		end
+
+	end
+
+   extend!(root, assign, tomirror = false)
 
 end

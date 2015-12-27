@@ -155,13 +155,17 @@ function order(root::Node)
     marking.ordering
 end
 
-# get number of children including (deep)
+"Recursively get number of children including children of children..."
 function deeplength(node::SPNNode)
 
     if isa(node, Leaf)
         return 1
     else
-        return sum([deeplength(child) for child in node.children])
+				if Base.length(node.children) > 0
+        	return sum([deeplength(child) for child in node.children])
+				else
+					return 0
+				end
     end
 
 end
@@ -285,7 +289,7 @@ function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNN
     ids = length(root) - (mapidx % length(root))
     mappath = repmat(root.children, 1, size(data, 2))[ids]
 
-    return (_llh, map, mappath)
+    return (_llh', map, mappath)
 end
 
 """
@@ -295,7 +299,7 @@ This function returns the llh of the data under the model, the maximum a posteri
 function eval{T<:Real}(root::ProductNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
     _llh = [llhvals[c] for c in root.children]
     _llh = reduce(vcat, _llh)
-    return (sum(_llh, 1), sum(_llh, 1), root.children)
+    return (sum(_llh, 1)', sum(_llh, 1), root.children)
 end
 
 """

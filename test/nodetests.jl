@@ -26,6 +26,7 @@ normalize!(root);
 @test root.weights[1] == 1.0
 @test SPN.order(root)[end] == root
 @test llh(root, zeros(D, 1))[1] > llh(root, ones(D, 1))[1]
+llh(root, zeros(D, 2))
 
 println(" * test Multivariate with conjugate prior")
 

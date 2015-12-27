@@ -35,199 +35,61 @@ end
 
 println(" * infinite GMM test")
 
-#srand(41234)
+srand(41234)
+
+using Distributions
 
 # data
-M = 50
-N = M * 2
-D = 2
+X = rand(MultivariateNormal([5.0, 5.0], [1.0 0.0; 0.0 2.0]), 100) # 1
+X = cat(2, X, rand(MultivariateNormal([-5.0, 5.0], [0.5 -0.2; -0.2 1.0]), 100)) # 2
+X = cat(2, X, rand(MultivariateNormal([-5.0, -5.0], [1.0 0.0; 0.0 0.5]), 100)) # 3
+X = cat(2, X, rand(MultivariateNormal([5.0, -5.0], [1.0 0.5; 0.5 0.5]), 100)) # 4
 
-X = cat(2, randn(D, M), randn(D, M) - 10)
+(D, N) = size(X)
 
-# G0
 μ0 = vec( mean(X, 2) )
 κ0 = 1.0
 ν0 = convert(Float64, D)
-Ψ = eye(D) * 10
+Ψ = cov(X, vardim = 2)
 
 G0 = GaussianWishart(μ0, κ0, ν0, Ψ)
 
-# G0Mirror
 μ0 = vec( mean(X, 1) )
 κ0 = 1.0
 ν0 = convert(Float64, N)
-Ψ = eye(N) * 10
+Ψ = eye(N) * 100
 
 G0Mirror = GaussianWishart(μ0, κ0, ν0, Ψ)
 
+# create SPN
 root = SumNode(0, scope = collect(1:D))
 dist = MultivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X), collect(1:D))
 add!(root, dist)
 
 # create Assignments
-assign = SPN.Assignments(N)
+assign = Assignments(N)
 for i in collect(1:N)
-	SPN.assign!(assign, i, dist)
+    assign!(assign, i, root)
+    assign!(assign, i, dist)
 end
 
-# TODO use something else than add
-SPN.add!(assign, root)
-SPN.increment!(assign, root, i = N)
+increment!(assign, root, i = N)
+increment!(assign, dist, i = N)
 
-SPN.add!(assign, dist)
-SPN.increment!(assign, dist, i = N)
+println(" * - Assignments on Root: ", assign(root))
+println(" * - Assignments on Leaf: ", assign(dist))
 
-# single Gibbs step
-println(" * Gibbs sweep test")
+println(" * - Finished initialisation for Gibbs test")
 
-for id in randperm(N)
+# run Gibbs steps
+println(" * - Gibbs sweep test")
 
-	x = X[:, id]
-
-	kdists = assign[id]
-
-	for dist in kdists
-		# - remove "random" data point
-		SPN.decrement!(assign, dist)
-		#SPN.withdraw!(assign, id, dist)
-		remove_data!(dist.dist, x[dist.scope,:])
-	end
-
-	# get k's
-
-	toporder = SPN.order(root)
-
-	llhval = Dict{SPNNode, Array{Float64}}()
-	kvals = Dict{SPNNode, Int}()
-
-	for node in toporder
-
-			(llh, newk) = SPN.evalWithK(node, x, llhval, assign, G0)
-
-			# always open a new table
-			if id % 10 == 0
-				newk = 2
-			end
-
-			llhval[node] = llh
-			kvals[node] = newk
-	end
-
-	# assign datum to
-	SPN.recurseCondK!(root, kvals, x, id, assign, G0)
-
+for i in collect(1:100)
+    println(" * - Iteration #", i)
+    gibbs_iteration!(root, assign, G0, G0Mirror, X, internalIters = 50)
+    println(" * - Draw SPN on iteration #", i)
+    SPN.draw(root, file="SPN_iteration_$(i).svg")
+    println(" * - Recompute weights")
+    SPN.update_weights(root, assign)
+    println(" * - LLH: ", llh(root, X)[1])
 end
-
-println(" * Extend SPN with Product")
-
-SPN.extend!(root, assign)
-
-println(" * Gibbs on mirror SPN")
-
-toporder = SPN.order(root)
-
-println(" * Compute mirrored Assignment for first time...")
-
-# clean up
-for node in toporder
-    # remove if no data points assigned
-    if assign(node) == 0
-        killChild!(node, assign)
-    end
-end
-
-println(" * parallel sweeps.")
-
-# for each product node
-for child in root.children
-
-	if isa(child, ProductNode)
-
-		toporder = SPN.order(child)
-
-		assignMirror = SPN.Assignments(D)
-		assignMirror.S = assign.S
-
-		for node in toporder
-
-			# flip assignment of data to leafs
-			if isa(node, SPN.Leaf)
-				for i in node.scope
-					SPN.assign!(assignMirror, i, node)
-				end
-			end
-
-			# flip scopes and transpose distributions
-			SPN.mirror!(node, assign, X, G0Mirror)
-
-			# flip bucket sizes
-			if isa(node, SPN.Leaf)
-
-				bucket = Int[]
-
-				for (zi, z) in enumerate(assignMirror.Z)
-					if node in z
-						push!(bucket, zi)
-					end
-				end
-
-				assignMirror.S[node] = length(bucket)
-			else
-				assignMirror.S[node] = sum(Base.map(c -> assignMirror(c), node.children))
-			end
-		end
-
-		# mirror all Leafs
-		for node in toporder
-
-			println(assign(node))
-			println(assignMirror(node))
-			println(typeof(node))
-			println(node.scope)
-			println("--")
-
-		end
-
-		for id in randperm(D)
-
-			x = X[id, :]'
-
-			kdists = assignMirror[id]
-
-			for dist in kdists
-				# - remove data point
-				SPN.decrement!(assignMirror, dist)
-				remove_data!(dist.dist, x[dist.scope,:])
-
-			end
-
-			llhval = Dict{SPNNode, Array{Float64}}()
-			kvals = Dict{SPNNode, Int}()
-
-			for node in toporder
-					(llh, newk) = SPN.evalWithK(node, x, llhval, assignMirror, G0Mirror, mirror = true)
-
-					llhval[node] = llh
-					kvals[node] = newk
-			end
-
-			# assign datum to
-			SPN.recurseCondK!(child, kvals, x, id, assignMirror, G0Mirror)
-
-		end
-
-		for node in toporder
-
-			if isa(node, SPN.Leaf)
-				SPN.mirror!(node, assignMirror, X, G0, mirrored = true)
-			end
-
-		end
-
-	end
-
-end
-
-
-println(" * Draw SPN")
-SPN.draw(root)
