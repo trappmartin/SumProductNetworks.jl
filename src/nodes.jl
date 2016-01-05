@@ -318,24 +318,25 @@ function eval{T<:Real}(node::UnivariateNode, data::AbstractArray{T}, llhvals::Di
 
 end
 
+function eval{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
+  eval(node, data)
+end
+
 """
 Evaluate Multivariate Node with ContinuousMultivariateDistribution.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
-function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
 
-    llh = logpdf(node.dist, data[node.scope,:])
-
-    return (llh, llh, Array{SPNNode}(0))
+function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::AbstractArray{T})
+  llh = logpdf(node.dist, data[node.scope,:])
+  return (llh, llh, Array{SPNNode}(0))
 end
 
 """
 Evaluate Multivariate Node with ConjugatePostDistribution.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
-function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-
+function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T})
   llh = logpred(node.dist, data[node.scope,:])
-
   return (llh, llh, Array{SPNNode}(0))
 end

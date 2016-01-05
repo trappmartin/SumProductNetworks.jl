@@ -69,7 +69,6 @@ add!(root, dist)
 # create Assignments
 assign = Assignments(N)
 for i in collect(1:N)
-    assign!(assign, i, root)
     assign!(assign, i, dist)
 end
 
@@ -81,15 +80,70 @@ println(" * - Assignments on Leaf: ", assign(dist))
 
 println(" * - Finished initialisation for Gibbs test")
 
-# run Gibbs steps
-println(" * - Gibbs sweep test")
+# get list of all leaf nodes
+nodes = SPN.order(root)
 
-for i in collect(1:100)
-    println(" * - Iteration #", i)
-    gibbs_iteration!(root, assign, G0, G0Mirror, X, internalIters = 50)
-    println(" * - Draw SPN on iteration #", i)
-    SPN.draw(root, file="SPN_iteration_$(i).svg")
-    println(" * - Recompute weights")
-    SPN.update_weights(root, assign)
-    println(" * - LLH: ", llh(root, X)[1])
+# list of leafs
+leafs = Vector{Leaf}(0)
+
+for node in nodes
+	if isa(node, Leaf)
+		push!(leafs, node)
+	end
 end
+
+@test length(leafs) == 1
+
+# get N / D
+
+(D, N) = size(X)
+
+println(" * - Start parallel worker")
+
+
+for id in [1] #randperm(N)
+
+	x = X[:, id]
+	kdists = assign[id]
+	toremove = Vector{SPNNode}(0)
+
+	# remove data point and withdraw nodes from datum
+	for dist in kdists
+
+		decrement!(assign, dist)
+		SPN.withdraw!(assign, id, dist)
+
+		remove_data!(dist.dist, x[dist.scope,:])
+
+		@test assign(dist) >= 0
+
+		if assign(dist) == 0
+			push!(toremove, dist)
+		end
+	end
+
+	# compute likelihoods of distribution nodes
+	llh = Base.map( k -> SPN.eval(k, x)[1][1], leafs )
+	println(llh)
+
+	# compute prior for all selective SPNs
+	
+
+end
+
+
+# run Gibbs steps
+#println(" * - Gibbs sweep test")
+
+
+
+
+#for i in collect(1:100)
+#    println(" * - Iteration #", i)
+#    gibbs_iteration!(root, assign, G0, G0Mirror, X, internalIters = 50)
+#    println(" * - Draw SPN on iteration #", i)
+#    SPN.draw(root, file="SPN_iteration_$(i).svg")
+#    println(" * - Recompute weights")
+#    SPN.update_weights(root, assign)
+#    println(" * - LLH: ", llh(root, X)[1])
+#end

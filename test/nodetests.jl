@@ -1,5 +1,3 @@
-using Distributions
-
 println(" * test UnivariateNode...")
 
 N = 100

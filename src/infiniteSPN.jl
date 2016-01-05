@@ -2,7 +2,7 @@
 type Assignments
 
 	# datum to leaf assignments
-	Z::Vector{Vector{SPNNode}}
+	Z::Vector{Vector{Leaf}}
 
 	# bucket sizes
 	S::Dict{SPNNode, Int}
