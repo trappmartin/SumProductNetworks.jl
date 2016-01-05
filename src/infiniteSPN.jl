@@ -528,14 +528,15 @@ function gibbs_iteration!(root::Node, assign::Assignments,
    		end
 
    		# clean up
-   		for node in toremove
-   			killChild!(node, assign)
-   		end
 
-   		# set up topological order and data structures
-   		toporder = order(root)
-   		llhval = Dict{SPNNode, Array{Float64}}()
-   		kvals = Dict{SPNNode, Int}()
+         # TODO: Make this "softer"
+
+   		#for node in toremove
+   	   #	killChild!(node, assign)
+   		#end
+
+         # evaluate all leaf nodes in paralel
+
 
          # evaluate SPN on datum (including integration and sampling over latent variables)
    		for node in toporder
