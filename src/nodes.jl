@@ -66,6 +66,16 @@ end
 ## accessing function                                 ##
 ## -------------------------------------------------- ##
 
+# get children
+function children(node::Node)
+	node.children
+end
+
+# get parent
+function parent(node::SPNNode)
+	get(node.parent)
+end
+
 # normalize sum node
 function normalize!(node::SumNode)
   node.weights /= sum(node.weights)
@@ -302,11 +312,15 @@ function eval{T<:Real}(root::ProductNode, data::AbstractArray{T}, llhvals::Dict{
     return (sum(_llh, 1)', sum(_llh, 1), root.children)
 end
 
+function eval{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
+  return eval(node, data)
+end
+
 """
 Evaluate Univariate Node.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
-function eval{T<:Real}(node::UnivariateNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
+function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
     if ndims(data) > 1
         x = sub(data, node.scope, :)
         llh = logpdf(node.dist, x)
@@ -318,8 +332,24 @@ function eval{T<:Real}(node::UnivariateNode, data::AbstractArray{T}, llhvals::Di
 
 end
 
+"""
+Evaluate Univariate Node.
+This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
+"""
+function eval{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
+    if ndims(data) > 1
+        x = sub(data, node.scope, :)
+        llh = logpred(node.dist, x)
+        return (llh, llh, Array{SPNNode}(0))
+    else
+        llh = logpred(node.dist, data)
+        return (llh, llh, Array{SPNNode}(0))
+    end
+
+end
+
 function eval{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  eval(node, data)
+  return eval(node, data)
 end
 
 """

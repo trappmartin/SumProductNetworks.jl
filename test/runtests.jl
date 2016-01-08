@@ -1,3 +1,5 @@
+addprocs(3)
+
 using BNP
 using SPN
 using Base.Test

@@ -9,6 +9,9 @@ module SPN
         GraphLayout
 
 	import Base.getindex
+	import Base.map
+  import Base.parent
+  import Base.length
 
   # include implementations
   include("nodes.jl")
@@ -27,6 +30,9 @@ module SPN
 		Assignments,
 
     # spn functions
+		children,
+		parent,
+    length,
     add!,
     remove!,
     normalize!,

@@ -47,36 +47,69 @@ X = cat(2, X, rand(MultivariateNormal([5.0, -5.0], [1.0 0.5; 0.5 0.5]), 100)) # 
 
 (D, N) = size(X)
 
-μ0 = vec( mean(X, 2) )
-κ0 = 1.0
-ν0 = convert(Float64, D)
-Ψ = cov(X, vardim = 2)
-
-G0 = GaussianWishart(μ0, κ0, ν0, Ψ)
-
-μ0 = vec( mean(X, 1) )
-κ0 = 1.0
-ν0 = convert(Float64, N)
-Ψ = eye(N) * 100
-
-G0Mirror = GaussianWishart(μ0, κ0, ν0, Ψ)
-
-# create SPN
+# create simple SPN
 root = SumNode(0, scope = collect(1:D))
-dist = MultivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X), collect(1:D))
-add!(root, dist)
-
-# create Assignments
 assign = Assignments(N)
-for i in collect(1:N)
-    assign!(assign, i, dist)
-end
+
+# product nodes
+p1 = ProductNode(1)
+p2 = ProductNode(2)
+
+# assign parent ship
+add!(root, p1)
+add!(root, p2)
+
+# test
+@test parent(p1) == root
+@test parent(p2) == root
+
+@test length(root) == 2
 
 increment!(assign, root, i = N)
-increment!(assign, dist, i = N)
+
+# construct nodes
+
+μ0 = mean(X[1,1:100])
+
+G0 = NormalGamma(μ = μ0)
+
+d1 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[1,1:100]), scope = 1)
+d2 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[2,1:100]), scope = 2)
+
+# create Assignments
+for i in collect(1:100)
+    assign!(assign, i, d1)
+		assign!(assign, i, d2)
+end
+
+increment!(assign, d1, i = 100)
+increment!(assign, d2, i = 100)
+
+add!(p1, d1)
+add!(p1, d2)
+
+# construct further nodes
+
+μ0 = mean(X[1,1:100])
+
+G0 = NormalGamma(μ = μ0)
+
+d3 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[1,101:N]), scope = 1)
+d4 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[2,101:N]), scope = 2)
+
+# create Assignments
+for i in collect(101:N)
+    assign!(assign, i, d3)
+		assign!(assign, i, d4)
+end
+
+increment!(assign, d3, i = N-100)
+increment!(assign, d4, i = N-100)
+
+add!(p2, d3)
+add!(p2, d4)
 
 println(" * - Assignments on Root: ", assign(root))
-println(" * - Assignments on Leaf: ", assign(dist))
 
 println(" * - Finished initialisation for Gibbs test")
 
@@ -92,22 +125,19 @@ for node in nodes
 	end
 end
 
-@test length(leafs) == 1
+@test length(leafs) == 4
 
 # get N / D
 
 (D, N) = size(X)
 
-println(" * - Start parallel worker")
-
-
-for id in [1] #randperm(N)
+for id in [1 2] #randperm(N)
 
 	x = X[:, id]
 	kdists = assign[id]
 	toremove = Vector{SPNNode}(0)
 
-	# remove data point and withdraw nodes from datum
+	# remove data point and withdraw
 	for dist in kdists
 
 		decrement!(assign, dist)
@@ -123,11 +153,16 @@ for id in [1] #randperm(N)
 	end
 
 	# compute likelihoods of distribution nodes
-	llh = Base.map( k -> SPN.eval(k, x)[1][1], leafs )
+	@time llh = pmap( k -> SPN.eval(k, x)[1][1], leafs )
+	@time llh = map( k -> SPN.eval(k, x)[1][1], leafs )
+
+
+	println("x: ", x)
+
 	println(llh)
 
 	# compute prior for all selective SPNs
-	
+
 
 end
 
