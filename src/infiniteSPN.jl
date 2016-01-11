@@ -1,13 +1,16 @@
 "Assignment Data Object"
 type Assignments
 
-	# datum to leaf assignments
-	Z::Vector{Vector{Leaf}}
+	# datum to node assignments
+	Z::Vector{Vector{SPNNode}}
+
+   # node sum of squares
+   ZZ::Dict{SPNNode, Vector{Float64}}
 
 	# bucket sizes
 	S::Dict{SPNNode, Int}
 
-	Assignments(N::Int) = new( Base.map(i -> Vector{Leaf}(0), collect(1:N)), Dict{SPNNode, Int}())
+	Assignments(N::Int) = new( Base.map(i -> Vector{SPNNode}(0), collect(1:N)),  Dict{SPNNode, Vector{Float64}}(), Dict{SPNNode, Int}())
 
 end
 
@@ -38,12 +41,15 @@ function decrement!(p::Assignments, n::SPNNode; i = 1)
 end
 
 "Assign datum to leaf node"
-function assign!(p::Assignments, id::Int, n::SPNNode)
+function assign!(p::Assignments, id::Int, n::SPNNode, x::Vector{Float64})
 
 	if isdefined(p.Z[id])
 
       if !(n in p.Z[id])
          push!(p.Z[id], n)
+
+         zz = get(p.ZZ, n, zeros(size(x)))
+         p.ZZ[n] = zz + x
       end
 	else
 		p.Z[id] = [n]
@@ -52,11 +58,14 @@ function assign!(p::Assignments, id::Int, n::SPNNode)
 end
 
 "Withdraw node assignment"
-function withdraw!(p::Assignments, id::Int, n::SPNNode)
+function withdraw!(p::Assignments, id::Int, n::SPNNode, x::Vector{Float64})
 
 	if isdefined(p.Z[id])
       idx = findfirst(p.Z[id] .== n)
       p.Z[id] = p.Z[id][[1:idx-1; idx+1:end]]
+
+      zz = get(p.ZZ, n, zeros(size(x)))
+      p.ZZ[n] = zz - x
 	end
 
 end

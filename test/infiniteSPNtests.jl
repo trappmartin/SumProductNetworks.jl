@@ -24,7 +24,7 @@ SPN.increment!(assign, root, i = N)
 
 # assign data points to leaf node
 for i in collect(1:N)
-	SPN.assign!(assign, i, root.children[1])
+	SPN.assign!(assign, i, root.children[1], X[:, i])
 end
 
 # check if all data points are assigned correctly
@@ -51,9 +51,13 @@ X = cat(2, X, rand(MultivariateNormal([5.0, -5.0], [1.0 0.5; 0.5 0.5]), 100)) # 
 root = SumNode(0, scope = collect(1:D))
 assign = Assignments(N)
 
-# product nodes
+# child nodes
 p1 = ProductNode(1)
-p2 = ProductNode(2)
+p2 = ProductNode(1)
+s1 = SumNode(2)
+
+p11 = ProductNode(3)
+p12 = ProductNode(4)
 
 # assign parent ship
 add!(root, p1)
@@ -69,19 +73,20 @@ increment!(assign, root, i = N)
 
 # construct nodes
 
-μ0 = mean(X[1,1:100])
-
-G0 = NormalGamma(μ = μ0)
-
-d1 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[1,1:100]), scope = 1)
-d2 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[2,1:100]), scope = 2)
+d1 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(X[1,1:100])), X[1,1:100]), scope = 1)
+d2 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(X[2,1:100])), X[2,1:100]), scope = 2)
 
 # create Assignments
 for i in collect(1:100)
-    assign!(assign, i, d1)
-		assign!(assign, i, d2)
+    assign!(assign, i, d1, X[:,i])
+		assign!(assign, i, d2, X[:,i])
+
+		assign!(assign, i, p2, X[:,i])
+
+		assign!(assign, i, root, X[:,i])
 end
 
+increment!(assign, p1, i = 100)
 increment!(assign, d1, i = 100)
 increment!(assign, d2, i = 100)
 
@@ -90,24 +95,58 @@ add!(p1, d2)
 
 # construct further nodes
 
-μ0 = mean(X[1,1:100])
+d11 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(X[1,101:200])), X[1,101:200]), scope = 1)
+d12 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(X[1,101:200])), X[2,101:200]), scope = 2)
 
-G0 = NormalGamma(μ = μ0)
-
-d3 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[1,101:N]), scope = 1)
-d4 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X[2,101:N]), scope = 2)
+d21 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(X[1,201:N])), X[1,201:N]), scope = 1)
+d22 = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(X[1,201:N])), X[2,201:N]), scope = 2)
 
 # create Assignments
-for i in collect(101:N)
-    assign!(assign, i, d3)
-		assign!(assign, i, d4)
+for i in collect(101:200)
+    assign!(assign, i, d11, X[:,i])
+		assign!(assign, i, d12, X[:,i])
+
+		assign!(assign, i, p11, X[:,i])
+
+		assign!(assign, i, s1, X[:,i])
+		assign!(assign, i, p1, X[:,i])
+
+		assign!(assign, i, root, X[:,i])
 end
 
-increment!(assign, d3, i = N-100)
-increment!(assign, d4, i = N-100)
+increment!(assign, p11, i = 100)
+increment!(assign, d11, i = 100)
+increment!(assign, d12, i = 100)
 
-add!(p2, d3)
-add!(p2, d4)
+add!(p11, d11)
+add!(p11, d12)
+
+for i in collect(201:N)
+    assign!(assign, i, d21, X[:,i])
+		assign!(assign, i, d22, X[:,i])
+
+		assign!(assign, i, p12, X[:,i])
+
+		assign!(assign, i, s1, X[:,i])
+		assign!(assign, i, p1, X[:,i])
+
+		assign!(assign, i, root, X[:,i])
+end
+
+increment!(assign, p12, i = N-200)
+increment!(assign, d21, i = N-200)
+increment!(assign, d22, i = N-200)
+
+add!(p12, d21)
+add!(p12, d22)
+
+increment!(assign, s1, i = N-100)
+increment!(assign, p2, i = N-100)
+
+add!(s1, p11)
+add!(s1, p12)
+
+add!(p2, s1)
 
 println(" * - Assignments on Root: ", assign(root))
 
@@ -125,7 +164,180 @@ for node in nodes
 	end
 end
 
-@test length(leafs) == 4
+@test length(leafs) == 6
+
+function remove!(node::Node, assign::Assignments, id::Int, x)
+
+	decrement!(assign, node)
+	SPN.withdraw!(assign, id, node, x)
+
+	@assert assign(node) >= 0
+
+	return false
+
+end
+
+function remove!(node::Leaf, assign::Assignments, id::Int, x)
+
+	decrement!(assign, node)
+	SPN.withdraw!(assign, id, node, x)
+
+	remove_data!(node.dist, x[node.scope,:])
+
+	@assert assign(node) >= 0
+
+	return assign(node) == 0
+
+end
+
+"Copmute posterior predictive using selective tree CRP and conjugate priors."
+function posterior_predictive(node::SumNode, assign::Assignments, x; α = 1.0, mirror = false)
+
+	if !mirror
+
+		# use pmap at this position for parallel computations
+		ch = map(child -> eval_topdown(child, x, assign, α = α, mirror = mirror), children(node))
+
+		p = map(child -> child[1], ch)
+
+		# compute pathes (selective spns)
+		s = map(child -> child[2], ch)
+
+		# get G0 parameter
+		μ0 = assign.ZZ[node] ./ assign(node)
+
+		# get G0 prediction
+		pp = sum(map(scope -> logpred(NormalGamma(μ = μ0[scope]), x[scope, :])[1], node.scope))
+		p = push!(p, collect(pp))
+
+		# compute weights
+		w = map(child -> log(assign(child)), children(node))
+		push!(w, log(α) )
+
+		return (reduce(vcat, w .+ p), s)
+
+	end
+
+end
+
+function eval_topdown{T<:Real}(node::SumNode, x::AbstractArray{T},
+		assign::Assignments;
+		α = 1.0,
+		mirror = false)
+
+		if !mirror
+
+			ch = map(child -> eval_topdown(child, x, assign, α = α, mirror = mirror), children(node))
+
+			p = map(child -> child[1], ch)
+
+			# compute pathes (selective spns)
+			s = map(child -> child[2], ch)
+
+			# get G0 parameter
+			μ0 = assign.ZZ[node] ./ assign(node)
+
+			# get G0 prediction
+			pp = sum(map(scope -> logpred(NormalGamma(μ = μ0[scope]), x[scope, :])[1], node.scope))
+			p = push!(p, collect(pp))
+
+			# compute weights
+			w = map(child -> log(assign(child)), children(node))
+			push!(w, log(α) )
+
+			return (reduce(vcat, w .+ p), s)
+		end
+end
+
+function elwlogprod(data::Array)
+	if length(data) >= 2
+
+		d1 = data[1]
+		d2 = elwlogprod(data[2:end])
+
+		r = zeros(length(d1) * length(d2))
+		i = 1
+
+		for x1 in d1
+			for x2 in d2
+				r[i] = x1 + x2
+			end
+		end
+
+		return r
+
+	else
+		return data[1]
+	end
+end
+
+function elwpathext(data::Array)
+	if length(data) >= 2
+
+		d1 = data[1]
+		d2 = elwpathext(data[2:end])
+
+		println(size(d1))
+		println(typeof(d1))
+
+		#r = Vector{Vector{SPNNode}}()
+		#i = 1
+
+		return d1
+
+	else
+		return data[1]
+	end
+end
+
+"Each product node produces prod_{j ∈ children(node)} dim_j dimensional output."
+function eval_topdown{T<:Real}(node::ProductNode, x::AbstractArray{T},
+		assign::Assignments;
+		α = 1.0,
+		mirror = false)
+
+		if !mirror
+
+			ch = map(child -> eval_topdown(child, x, assign, α = α, mirror = mirror), children(node))
+
+			# compute element wise product in log space
+			p = elwlogprod(map(child -> child[1], ch))
+
+			# compute pathes (selective spns)
+			s = elwpathext(map(child -> child[2], ch))
+			#println(s)
+
+			return (p, s)
+		end
+
+end
+
+
+function eval_topdown{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U},
+   data::AbstractArray{T},
+   assign::Assignments;
+   α = 1.0,
+   mirror = false)
+
+	 llh = logpred(node.dist, sub(data, node.scope, :))
+	 @assert !isnan(llh[1])
+
+	 return (llh, collect([node]))
+
+end
+
+function eval_topdown{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U},
+   data::AbstractArray{T},
+   assign::Assignments;
+   α = 1.0,
+   mirror = false)
+
+	 llh = logpred(node.dist, data[node.scope,:])
+	 @assert !isnan(llh[1])
+
+	 return (llh, collect([node]))
+
+end
 
 # get N / D
 
@@ -134,32 +346,21 @@ end
 for id in [1 2] #randperm(N)
 
 	x = X[:, id]
-	kdists = assign[id]
+	nodes = assign[id]
 	toremove = Vector{SPNNode}(0)
 
 	# remove data point and withdraw
-	for dist in kdists
-
-		decrement!(assign, dist)
-		SPN.withdraw!(assign, id, dist)
-
-		remove_data!(dist.dist, x[dist.scope,:])
-
-		@test assign(dist) >= 0
-
-		if assign(dist) == 0
+	for node in nodes
+		if remove!(node, assign, id, x)
 			push!(toremove, dist)
 		end
 	end
 
-	# compute likelihoods of distribution nodes
-	@time llh = pmap( k -> SPN.eval(k, x)[1][1], leafs )
-	@time llh = map( k -> SPN.eval(k, x)[1][1], leafs )
-
+	llh = posterior_predictive(root, assign, x)
 
 	println("x: ", x)
 
-	println(llh)
+	println(llh[1])
 
 	# compute prior for all selective SPNs
 
