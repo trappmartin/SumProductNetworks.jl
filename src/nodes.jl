@@ -15,6 +15,7 @@ end
 type SumNode <: Node
 
   # SumNode fields
+	inSPN::Bool
   uid::Int
 	parent::Nullable{SPNNode}
   children::Vector{SPNNode}
@@ -22,8 +23,8 @@ type SumNode <: Node
 
   scope::Vector{Int}
 
-  SumNode(id::Int; parent = Nullable{SPNNode}(), scope = Vector{Int}(0)) = new(id, parent, SPNNode[], Float64[], scope)
-  SumNode(id::Int, children::Vector{SPNNode}, w::Vector{Float64}; parent = Nullable{SPNNode}()) = new(id, parent, children, w, Vector{Int}(0))
+  SumNode(id::Int; parent = Nullable{SPNNode}(), scope = Vector{Int}(0)) = new(false, id, parent, SPNNode[], Float64[], scope)
+  SumNode(id::Int, children::Vector{SPNNode}, w::Vector{Float64}; parent = Nullable{SPNNode}()) = new(false, id, parent, children, w, Vector{Int}(0))
 
 end
 
@@ -31,6 +32,7 @@ end
 type ProductNode <: Node
 
   # ProductNode fields
+	inSPN::Bool
   uid::Int32
 	parent::Nullable{SPNNode}
   children::Vector{SPNNode}
@@ -38,27 +40,29 @@ type ProductNode <: Node
 
   scope::Vector{Int}
 
-  ProductNode(id::Int; parent = Nullable{SPNNode}(), children = SPNNode[], class = Nullable{ClassNode}(), scope = Vector{Int}(0)) = new(id, parent, children, class, scope)
+  ProductNode(id::Int; parent = Nullable{SPNNode}(), children = SPNNode[], class = Nullable{ClassNode}(), scope = Vector{Int}(0)) = new(false, id, parent, children, class, scope)
 end
 
 # definition of a Univariate Node
 type UnivariateNode{T} <: Leaf
 
+	inSPN::Bool
 	parent::Nullable{SPNNode}
   dist::T
   scope::Int
 
-  UnivariateNode{T}(D::T; parent = Nullable{SPNNode}(), scope = 0) = new(parent, D, scope)
+  UnivariateNode{T}(D::T; parent = Nullable{SPNNode}(), scope = 0) = new(false, parent, D, scope)
 end
 
 # definition of a Multivariate Node
 type MultivariateNode{T} <: Leaf
 
+	inSPN::Bool
 	parent::Nullable{SPNNode}
   dist::T
   scope::Vector{Int}
 
-  MultivariateNode{T}(D::T, scope::Vector{Int}; parent = Nullable{SPNNode}()) = new(parent, D, scope)
+  MultivariateNode{T}(D::T, scope::Vector{Int}; parent = Nullable{SPNNode}()) = new(false, parent, D, scope)
 
 end
 
@@ -93,7 +97,7 @@ function add!(parent::SumNode, child::SPNNode, weight::Float64)
   push!(parent.children, child)
   push!(parent.weights, weight)
   child.parent = parent
-
+	child.inSPN = true
   parent
 end
 
@@ -101,7 +105,7 @@ end
 function add!(parent::ProductNode, child::SPNNode)
   push!(parent.children, child)
   child.parent = parent
-
+  child.inSPN = true
   parent
 end
 

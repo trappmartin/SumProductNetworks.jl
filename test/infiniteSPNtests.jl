@@ -200,21 +200,37 @@ function posterior_predictive(node::SumNode, assign::Assignments, x; α = 1.0, m
 
 		p = map(child -> child[1], ch)
 
-		# compute pathes (selective spns)
-		s = map(child -> child[2], ch)
+		# compute selective tree paths
+		selectiveTrees = map(child -> child[2], ch)
+		selectiveTrees = reduce(vcat, selectiveTrees)
+
+		# construct "new" child
+		nch = ProductNode(0)
+		nch.parent = node
 
 		# get G0 parameter
 		μ0 = assign.ZZ[node] ./ assign(node)
 
-		# get G0 prediction
-		pp = sum(map(scope -> logpred(NormalGamma(μ = μ0[scope]), x[scope, :])[1], node.scope))
-		p = push!(p, collect(pp))
+		for scope in node.scope
+			add!(nch, UnivariateNode{ConjugatePostDistribution}(NormalGamma(μ = μ0[scope]), scope = scope))
+		end
+
+		nchp = eval_topdown(nch, x, assign)
+
+		push!(p, nchp[1])
+		println(length(nchp[2]))
+		push!(selectiveTrees, nchp[2])
+
+		# add node to all selectiveTrees
+		for tree in selectiveTrees
+			push!(tree, node)
+		end
 
 		# compute weights
 		w = map(child -> log(assign(child)), children(node))
 		push!(w, log(α) )
 
-		return (reduce(vcat, w .+ p), s)
+		return (reduce(vcat, w .+ p), selectiveTrees)
 
 	end
 
@@ -232,7 +248,14 @@ function eval_topdown{T<:Real}(node::SumNode, x::AbstractArray{T},
 			p = map(child -> child[1], ch)
 
 			# compute pathes (selective spns)
-			s = map(child -> child[2], ch)
+			selectiveTrees = map(child -> child[2], ch)
+			selectiveTrees = reduce(vcat, selectiveTrees)
+			push!(selectiveTrees, Set{SPNNode}())
+
+			# add node to all selectiveTrees
+			for tree in selectiveTrees
+				push!(tree, node)
+			end
 
 			# get G0 parameter
 			μ0 = assign.ZZ[node] ./ assign(node)
@@ -245,7 +268,7 @@ function eval_topdown{T<:Real}(node::SumNode, x::AbstractArray{T},
 			w = map(child -> log(assign(child)), children(node))
 			push!(w, log(α) )
 
-			return (reduce(vcat, w .+ p), s)
+			return (reduce(vcat, w .+ p), selectiveTrees)
 		end
 end
 
@@ -271,23 +294,54 @@ function elwlogprod(data::Array)
 	end
 end
 
-function elwpathext(data::Array)
-	if length(data) >= 2
+function elwpathext(data::Array, node::SPNNode)
 
-		d1 = data[1]
-		d2 = elwpathext(data[2:end])
+	result = Array{Set{SPNNode}}(0)
 
-		println(size(d1))
-		println(typeof(d1))
-
-		#r = Vector{Vector{SPNNode}}()
-		#i = 1
-
-		return d1
-
-	else
+	if length(data) == 1
 		return data[1]
 	end
+
+	counter = ones(Int, length(data))
+	max = map(child -> length(child), data)
+
+	canIncrease = true
+	while canIncrease
+
+		println(counter)
+		println(data[1][counter[1]])
+		t = copy(data[1][counter[1]])
+
+		for child in collect(2:length(data))
+			# join sets
+			union!(t, data[child][counter[child]])
+		end
+
+		# push to results
+		push!(result, t)
+
+		# increase counter
+		increased = false
+		pos = length(counter)
+		while !increased | pos != 0
+
+			if (counter[pos] + 1) <= max[pos]
+				counter[pos] += 1
+				increased = true
+			else
+				counter[pos] = 1
+				pos -= 1
+			end
+
+		end
+
+		canIncrease = increased
+
+	end
+
+	println(length(result))
+
+	return result
 end
 
 "Each product node produces prod_{j ∈ children(node)} dim_j dimensional output."
@@ -304,7 +358,7 @@ function eval_topdown{T<:Real}(node::ProductNode, x::AbstractArray{T},
 			p = elwlogprod(map(child -> child[1], ch))
 
 			# compute pathes (selective spns)
-			s = elwpathext(map(child -> child[2], ch))
+			s = elwpathext(map(child -> child[2], ch), node)
 			#println(s)
 
 			return (p, s)
@@ -322,7 +376,10 @@ function eval_topdown{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNod
 	 llh = logpred(node.dist, sub(data, node.scope, :))
 	 @assert !isnan(llh[1])
 
-	 return (llh, collect([node]))
+	 tree = Array{Set{SPNNode}}(1)
+	 tree[1] = Set{SPNNode}(collect([node]))
+
+	 return (llh, tree)
 
 end
 
@@ -335,7 +392,10 @@ function eval_topdown{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateN
 	 llh = logpred(node.dist, data[node.scope,:])
 	 @assert !isnan(llh[1])
 
-	 return (llh, collect([node]))
+	 tree = Array{Set{SPNNode}}(1)
+	 tree[1] = Set{SPNNode}(collect([node]))
+
+	 return (llh, tree)
 
 end
 
@@ -356,11 +416,14 @@ for id in [1 2] #randperm(N)
 		end
 	end
 
-	llh = posterior_predictive(root, assign, x)
+	draw(root)
+
+	(llh, selectiveTrees) = posterior_predictive(root, assign, x)
 
 	println("x: ", x)
 
-	println(llh[1])
+	println("llh: ", llh)
+	println("# trees: ", size(selectiveTrees))
 
 	# compute prior for all selective SPNs
 
