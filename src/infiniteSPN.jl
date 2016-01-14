@@ -485,6 +485,57 @@ function draw(spn::SumNode; file="spn.svg", showBucket = false, assign = nothing
 
 end
 
+"Visualize SPN"
+function draw(spn::SumNode, nodeset::Set{SPNNode}; file="spn.svg")
+
+   nodes = order(spn)
+
+   labels = AbstractString[]
+   A = zeros(Base.length(nodes), Base.length(nodes))
+
+   reverse!(nodes)
+
+   for i in collect(1:Base.length(nodes))
+      if isa(nodes[i], Node)
+         for j in collect(1:Base.length(nodes))
+            if nodes[j] in nodes[i].children
+               A[i, j] = 1
+            end
+         end
+
+         if nodes[i] == spn
+            push!(labels, "R+")
+         else
+            if isa(nodes[i], SumNode)
+               if nodes[i] in nodeset
+                  push!(labels, "[+]")
+               else
+                  push!(labels, "+")
+               end
+            else
+               if nodes[i] in nodeset
+                  push!(labels, "[x]")
+               else
+                  push!(labels, "x")
+               end
+            end
+         end
+      else
+         if nodes[i] in nodeset
+            push!(labels, "[O]")
+         else
+            push!(labels, "O")
+         end
+      end
+   end
+
+   labSize = 10.0
+
+   loc_x, loc_y = layout_spring_adj(A)
+   draw_layout_adj(A, loc_x, loc_y, labels=labels, labelsize=labSize, filename=file)
+
+end
+
 "Run a single Gibbs iteration"
 function gibbs_iteration!(root::Node, assign::Assignments,
    G0::ConjugatePostDistribution, G0Mirror::ConjugatePostDistribution,

@@ -54,7 +54,7 @@ assign = Assignments(N)
 # child nodes
 p1 = ProductNode(1)
 p2 = ProductNode(1)
-s1 = SumNode(2)
+s1 = SumNode(2, scope = collect(1:D))
 
 p11 = ProductNode(3)
 p12 = ProductNode(4)
@@ -190,48 +190,55 @@ function remove!(node::Leaf, assign::Assignments, id::Int, x)
 
 end
 
+function sumeval_topdown(node::Node, assign::Assignments, x; α = 1.0, mirror = false, parallel = false)
+
+	# use pmap at this position for parallel computations
+	if parallel
+		ch = pmap(child -> eval_topdown(child, x, assign, α = α, mirror = mirror), children(node))
+	else
+		ch = map(child -> eval_topdown(child, x, assign, α = α, mirror = mirror), children(node))
+	end
+
+	p = map(child -> child[1], ch)
+
+	# compute selective tree paths
+	selectiveTrees = map(child -> child[2], ch)
+	selectiveTrees = reduce(vcat, selectiveTrees)
+
+	# construct "new" child
+	nch = ProductNode(0)
+	nch.parent = node
+
+	# get G0 parameter
+	μ0 = assign.ZZ[node] ./ assign(node)
+
+	for scope in node.scope
+		add!(nch, UnivariateNode{ConjugatePostDistribution}(NormalGamma(μ = μ0[scope]), scope = scope))
+	end
+
+	nchp = eval_topdown(nch, x, assign)
+
+	push!(p, nchp[1])
+	push!(selectiveTrees, nchp[2][1])
+
+	# add node to all selectiveTrees
+	for tree in selectiveTrees
+		push!(tree, node)
+	end
+
+	# compute weights
+	w = map(child -> log(assign(child)), children(node))
+	push!(w, log(α) )
+
+	return (reduce(vcat, w .+ p), selectiveTrees)
+
+end
+
 "Copmute posterior predictive using selective tree CRP and conjugate priors."
 function posterior_predictive(node::SumNode, assign::Assignments, x; α = 1.0, mirror = false)
 
 	if !mirror
-
-		# use pmap at this position for parallel computations
-		ch = map(child -> eval_topdown(child, x, assign, α = α, mirror = mirror), children(node))
-
-		p = map(child -> child[1], ch)
-
-		# compute selective tree paths
-		selectiveTrees = map(child -> child[2], ch)
-		selectiveTrees = reduce(vcat, selectiveTrees)
-
-		# construct "new" child
-		nch = ProductNode(0)
-		nch.parent = node
-
-		# get G0 parameter
-		μ0 = assign.ZZ[node] ./ assign(node)
-
-		for scope in node.scope
-			add!(nch, UnivariateNode{ConjugatePostDistribution}(NormalGamma(μ = μ0[scope]), scope = scope))
-		end
-
-		nchp = eval_topdown(nch, x, assign)
-
-		push!(p, nchp[1])
-		println(length(nchp[2]))
-		push!(selectiveTrees, nchp[2])
-
-		# add node to all selectiveTrees
-		for tree in selectiveTrees
-			push!(tree, node)
-		end
-
-		# compute weights
-		w = map(child -> log(assign(child)), children(node))
-		push!(w, log(α) )
-
-		return (reduce(vcat, w .+ p), selectiveTrees)
-
+		return sumeval_topdown(node, assign, x, α = α, mirror = mirror)#, parallel = true)
 	end
 
 end
@@ -242,33 +249,7 @@ function eval_topdown{T<:Real}(node::SumNode, x::AbstractArray{T},
 		mirror = false)
 
 		if !mirror
-
-			ch = map(child -> eval_topdown(child, x, assign, α = α, mirror = mirror), children(node))
-
-			p = map(child -> child[1], ch)
-
-			# compute pathes (selective spns)
-			selectiveTrees = map(child -> child[2], ch)
-			selectiveTrees = reduce(vcat, selectiveTrees)
-			push!(selectiveTrees, Set{SPNNode}())
-
-			# add node to all selectiveTrees
-			for tree in selectiveTrees
-				push!(tree, node)
-			end
-
-			# get G0 parameter
-			μ0 = assign.ZZ[node] ./ assign(node)
-
-			# get G0 prediction
-			pp = sum(map(scope -> logpred(NormalGamma(μ = μ0[scope]), x[scope, :])[1], node.scope))
-			p = push!(p, collect(pp))
-
-			# compute weights
-			w = map(child -> log(assign(child)), children(node))
-			push!(w, log(α) )
-
-			return (reduce(vcat, w .+ p), selectiveTrees)
+			return sumeval_topdown(node, assign, x, α = α, mirror = mirror)
 		end
 end
 
@@ -299,37 +280,41 @@ function elwpathext(data::Array, node::SPNNode)
 	result = Array{Set{SPNNode}}(0)
 
 	if length(data) == 1
+
+		for tree in data[1]
+			push!(tree, node)
+		end
+
 		return data[1]
 	end
 
-	counter = ones(Int, length(data))
+	idx = ones(Int, length(data))
 	max = map(child -> length(child), data)
 
 	canIncrease = true
 	while canIncrease
 
-		println(counter)
-		println(data[1][counter[1]])
-		t = copy(data[1][counter[1]])
+		t = copy(data[1][idx[1]])
 
 		for child in collect(2:length(data))
 			# join sets
-			union!(t, data[child][counter[child]])
+			union!(t, data[child][idx[child]])
 		end
 
 		# push to results
+		push!(t, node)
 		push!(result, t)
 
 		# increase counter
 		increased = false
-		pos = length(counter)
-		while !increased | pos != 0
+		pos = length(idx)
+		while !increased & pos != 0
 
-			if (counter[pos] + 1) <= max[pos]
-				counter[pos] += 1
+			if (idx[pos] + 1) <= max[pos]
+				idx[pos] += 1
 				increased = true
 			else
-				counter[pos] = 1
+				idx[pos] = 1
 				pos -= 1
 			end
 
@@ -338,8 +323,6 @@ function elwpathext(data::Array, node::SPNNode)
 		canIncrease = increased
 
 	end
-
-	println(length(result))
 
 	return result
 end
@@ -359,7 +342,6 @@ function eval_topdown{T<:Real}(node::ProductNode, x::AbstractArray{T},
 
 			# compute pathes (selective spns)
 			s = elwpathext(map(child -> child[2], ch), node)
-			#println(s)
 
 			return (p, s)
 		end
@@ -403,7 +385,7 @@ end
 
 (D, N) = size(X)
 
-for id in [1 2] #randperm(N)
+for id in randperm(N)
 
 	x = X[:, id]
 	nodes = assign[id]
@@ -416,33 +398,33 @@ for id in [1 2] #randperm(N)
 		end
 	end
 
-	draw(root)
+	# actually remove node from structure
+	for node in toremove
+		remove!(get(node.parent), node)
+	end
 
-	(llh, selectiveTrees) = posterior_predictive(root, assign, x)
+	@time (llh, selectiveTrees) = posterior_predictive(root, assign, x)
 
-	println("x: ", x)
+	# coin tossing
+	max = maximum(llh)
+	k = BNP.rand_indices(exp(llh - max))
 
-	println("llh: ", llh)
-	println("# trees: ", size(selectiveTrees))
+	#draw(root, selectiveTrees[k])
 
-	# compute prior for all selective SPNs
+	# add datum to selective tree (add sub tree if required)
+	for node in selectiveTrees[k]
+		if isa(node, Leaf)
+			add_data!(node.dist, x[node.scope,:])
+		end
 
+		assign!(assign, id, node, x)
+		increment!(assign, node)
+
+		# add to spn if its a new subtree
+		if !isnull(node.parent) & !node.inSPN
+			add!(get(node.parent), node)
+		end
+
+	end
 
 end
-
-
-# run Gibbs steps
-#println(" * - Gibbs sweep test")
-
-
-
-
-#for i in collect(1:100)
-#    println(" * - Iteration #", i)
-#    gibbs_iteration!(root, assign, G0, G0Mirror, X, internalIters = 50)
-#    println(" * - Draw SPN on iteration #", i)
-#    SPN.draw(root, file="SPN_iteration_$(i).svg")
-#    println(" * - Recompute weights")
-#    SPN.update_weights(root, assign)
-#    println(" * - LLH: ", llh(root, X)[1])
-#end
