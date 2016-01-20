@@ -81,7 +81,7 @@ for i in collect(1:100)
     assign!(assign, i, d1, X[:,i])
 		assign!(assign, i, d2, X[:,i])
 
-		assign!(assign, i, p2, X[:,i])
+		assign!(assign, i, p1, X[:,i])
 
 		assign!(assign, i, root, X[:,i])
 end
@@ -109,7 +109,7 @@ for i in collect(101:200)
 		assign!(assign, i, p11, X[:,i])
 
 		assign!(assign, i, s1, X[:,i])
-		assign!(assign, i, p1, X[:,i])
+		assign!(assign, i, p2, X[:,i])
 
 		assign!(assign, i, root, X[:,i])
 end
@@ -128,7 +128,7 @@ for i in collect(201:N)
 		assign!(assign, i, p12, X[:,i])
 
 		assign!(assign, i, s1, X[:,i])
-		assign!(assign, i, p1, X[:,i])
+		assign!(assign, i, p2, X[:,i])
 
 		assign!(assign, i, root, X[:,i])
 end
@@ -171,7 +171,12 @@ function remove!(node::Node, assign::Assignments, id::Int, x)
 	decrement!(assign, node)
 	SPN.withdraw!(assign, id, node, x)
 
+	if assign(node) < 0
+		println(node)
+	end
+
 	@assert assign(node) >= 0
+
 
 	return false
 
@@ -340,7 +345,7 @@ function eval_topdown{T<:Real}(node::ProductNode, x::AbstractArray{T},
 			# compute element wise product in log space
 			p = elwlogprod(map(child -> child[1], ch))
 
-			# compute pathes (selective spns)
+			# compute (selective trees)
 			s = elwpathext(map(child -> child[2], ch), node)
 
 			return (p, s)
@@ -385,7 +390,12 @@ end
 
 (D, N) = size(X)
 
+println("processing ", N, " samples..")
+i = 0
+
 for id in randperm(N)
+
+	i += 1
 
 	x = X[:, id]
 	nodes = assign[id]
@@ -409,7 +419,10 @@ for id in randperm(N)
 	max = maximum(llh)
 	k = BNP.rand_indices(exp(llh - max))
 
-	#draw(root, selectiveTrees[k])
+	if (i % 50) == 0
+		draw(root, selectiveTrees[k], file = "selectived_tree_$(i).svg")
+		draw(root, file = "spn_$(i).svg", showBucket = true, assign = assign)
+	end
 
 	# add datum to selective tree (add sub tree if required)
 	for node in selectiveTrees[k]
@@ -423,6 +436,10 @@ for id in randperm(N)
 		# add to spn if its a new subtree
 		if !isnull(node.parent) & !node.inSPN
 			add!(get(node.parent), node)
+
+			println(" # SPN chang..")
+			draw(root, selectiveTrees[k], file = "selectived_tree_$(i).svg")
+			draw(root, file = "spn_$(i).svg", showBucket = true, assign = assign)
 		end
 
 	end
