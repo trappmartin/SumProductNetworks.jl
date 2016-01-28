@@ -6,6 +6,7 @@ module SPN
   using Distributions,
         Base,
         BNP,
+        HSIC,
         GraphLayout
 
 	import Base.getindex
@@ -16,6 +17,7 @@ module SPN
   # include implementations
   include("nodes.jl")
   include("utils.jl")
+	include("gens.jl")
   include("infiniteSPN.jl")
 
   export
