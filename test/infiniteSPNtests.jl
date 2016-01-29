@@ -3,7 +3,7 @@ println(" * create initial SPN using learnSPN")
 using RDatasets
 iris = dataset("datasets", "iris")
 
-X = convet(Array, iris[[:SepalLength, :SepalWidth, :PetalLength, :PetalWidth]])
+X = convert(Array, iris[[:SepalLength, :SepalWidth, :PetalLength, :PetalWidth]])
 
 (D, N) = size(X)
 

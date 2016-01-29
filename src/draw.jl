@@ -124,14 +124,6 @@ function layoutSPN{T}(adj_list::Vector{Vector{T}},
     # - Therefore one unit = ...
     ratio = (scale*max_y)/(max_y+max_h)
 
-    println("ration: ", ratio)
-    println("scale: ", scale)
-    println("labelpad: ", labelpad)
-    println("max_y: ", max_y)
-    println("max_h: ", max_h)
-    println("max_x: ", max_x)
-    println("max_w: ", max_w)
-
     #
     #   inchs.
     # - Now we want to scale the text size, in inches, so that
