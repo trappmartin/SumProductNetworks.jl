@@ -42,4 +42,4 @@ root = SPN.learnSPN(X, mapping)
 
 println(" * draw SPN")
 
-draw(root, file = "learnSPN.svg")
+drawSPN(root, file = "learnSPN.svg")

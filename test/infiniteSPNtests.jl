@@ -1,51 +1,23 @@
+println(" * create initial SPN using learnSPN")
 
-println(" * simple 2D assignment tests")
-# simple test
-N = 10
-D = 2
-X = randn(D, N)
+using RDatasets
+iris = dataset("datasets", "iris")
 
-# create Assignments
-assign = SPN.Assignments(N)
-
-# create simple structure (sum node and one leaf)
-root = SumNode(0)
-add!(root, MultivariateNode{MvNormal}(fit(MvNormal, X), collect(1:2)))
-
-SPN.add!(assign, root)
-
-# bucket size should be 0
-@test assign(root) == 0
-
-SPN.increment!(assign, root, i = N)
-
-# bucket size should be N
-@test assign(root) == N
-
-# assign data points to leaf node
-for i in collect(1:N)
-	SPN.assign!(assign, i, root.children[1], X[:, i])
-end
-
-# check if all data points are assigned correctly
-for i in collect(1:N)
-	@test length(assign[i]) == 1
-	@test assign[i][1] == root.children[1]
-end
-
-println(" * infinite GMM test")
-
-srand(41234)
-
-using Distributions
-
-# data
-X = rand(MultivariateNormal([5.0, 5.0], [1.0 0.0; 0.0 2.0]), 100) # 1
-X = cat(2, X, rand(MultivariateNormal([-5.0, 5.0], [0.5 -0.2; -0.2 1.0]), 100)) # 2
-X = cat(2, X, rand(MultivariateNormal([-5.0, -5.0], [1.0 0.0; 0.0 0.5]), 100)) # 3
-X = cat(2, X, rand(MultivariateNormal([5.0, -5.0], [1.0 0.5; 0.5 0.5]), 100)) # 4
+X = convet(Array, iris[[:SepalLength, :SepalWidth, :PetalLength, :PetalWidth]])
 
 (D, N) = size(X)
+
+mapping = Dict{Int, Int}([convert(Int, d) => convert(Int, d) for d in 1:D])
+root = SPN.learnSPN(X, mapping)
+
+# draw initial solution
+
+println(" * draw initial SPN")
+drawSPN(root, file = "initialSPN.svg")
+
+# dsts
+
+#=
 
 # create simple SPN
 root = SumNode(0, scope = collect(1:D))
@@ -445,3 +417,4 @@ for id in randperm(N)
 	end
 
 end
+=#

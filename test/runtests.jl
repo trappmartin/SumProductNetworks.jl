@@ -15,8 +15,6 @@ println("# starting: Gens structure learning tests...")
 include("genstests.jl")
 println("# finished: Gens structure learning tests.")
 
-
-
-#println("# starting: infinite SPN tests...")
-#include("infiniteSPNtests.jl")
-#println("# finished: infinite SPN tests...")
+println("# starting: infinite SPN tests...")
+include("infiniteSPNtests.jl")
+println("# finished: infinite SPN tests...")

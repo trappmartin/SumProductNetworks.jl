@@ -7,7 +7,10 @@ module SPN
         Base,
         BNP,
         HSIC,
-        GraphLayout
+        JuMP,
+        GraphLayout,
+        Compose,
+        Colors
 
 	import Base.getindex
 	import Base.map
@@ -17,6 +20,7 @@ module SPN
   # include implementations
   include("nodes.jl")
   include("utils.jl")
+	include("draw.jl")
 	include("gens.jl")
   include("infiniteSPN.jl")
 
@@ -49,7 +53,8 @@ module SPN
 		recurseCondK!,
 		extend!,
 		mirror!,
-		draw,
+		#draw,
+		drawSPN,
 		gibbs_iteration!
 
 end # module
