@@ -36,9 +36,11 @@ println(" * learn SPN using learnSPN..")
 
 (D, N) = size(X)
 
-mapping = Dict{Int, Int}([convert(Int, d) => convert(Int, d) for d in 1:D])
+dimMapping = Dict{Int, Int}([convert(Int, d) => convert(Int, d) for d in 1:D])
+obsMapping = Dict{Int, Int}([convert(Int, n) => convert(Int, n) for n in 1:N])
+assignments = Assignment()
 
-root = SPN.learnSPN(X, mapping)
+root = SPN.learnSPN(X, dimMapping, obsMapping, assignments)
 
 println(" * draw SPN")
 

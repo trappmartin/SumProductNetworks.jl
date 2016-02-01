@@ -21,8 +21,8 @@ module SPN
   include("nodes.jl")
   include("utils.jl")
 	include("draw.jl")
+	include("infiniteSPN.jl")
 	include("gens.jl")
-  include("infiniteSPN.jl")
 
   export
     # types
@@ -33,7 +33,12 @@ module SPN
     ProductNode,
     UnivariateNode,
     MultivariateNode,
-		Assignments,
+		Assignment,
+    Partition,
+    Region,
+    SumRegion,
+    LeafRegion,
+    SPNStructure,
 
     # spn functions
 		children,
@@ -54,7 +59,11 @@ module SPN
 		extend!,
 		mirror!,
 		#draw,
-		drawSPN,
-		gibbs_iteration!
+		gibbs_iteration!,
+    findPartition,
+
+    # utilities
+    drawSPN,
+    adjustedRandIndex
 
 end # module

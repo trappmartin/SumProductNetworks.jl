@@ -3,22 +3,180 @@ println(" * create initial SPN using learnSPN")
 using RDatasets
 iris = dataset("datasets", "iris")
 
-X = convert(Array, iris[[:SepalLength, :SepalWidth, :PetalLength, :PetalWidth]])
+X = convert(Array, iris[[:SepalLength, :SepalWidth, :PetalWidth]])'
 
 (D, N) = size(X)
 
-mapping = Dict{Int, Int}([convert(Int, d) => convert(Int, d) for d in 1:D])
-root = SPN.learnSPN(X, mapping)
+println(" * using dataset 'iris' with ", N, " observations and ", D, " variables.")
+
+dimMapping = Dict{Int, Int}([convert(Int, d) => convert(Int, d) for d in 1:D])
+obsMapping = Dict{Int, Int}([convert(Int, n) => convert(Int, n) for n in 1:N])
+assignments = Assignment()
+
+root = SPN.learnSPN(X, dimMapping, obsMapping, assignments)
 
 # draw initial solution
 
-println(" * draw initial SPN")
-drawSPN(root, file = "initialSPN.svg")
+#println(" * draw initial SPN")
+#drawSPN(root, file = "initialSPN.svg")
 
-# dsts
+
+# transform SPN to regions and partitions
+println(" * transform SPN into regions and partitions")
+
+function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignment)
+
+	nscope = Set(node.scope)
+
+	for region in spn.regions
+
+		# check nodes have same scope
+		if nscope == region.scope
+			# scope matches
+
+			region.popularity[node] = length(assignments(node))
+			region.N += length(assignments(node))
+
+			return
+
+		end
+
+	end
+
+	# not found => make new region
+
+	region = SumRegion()
+	spn.regionConnections[region] = Vector{Partition}(0)
+
+	region.scope = nscope
+
+	# add new partition
+	partitions = extendPartitions(node, spn, region, assignments)
+
+	println(partitions)
+	region.weights = [part => node.weights[pi] for (pi, part) in enumerate(partitions)]
+
+	region.popularity[node] = length(assignments(node))
+	region.N += length(assignments(node))
+
+	# add partition
+
+
+	push!(spn.regions, region)
+
+end
+
+function extendPartitions(node::SumNode, spn::SPNStructure, region::SumRegion, assignments::Assignment)
+
+	r = Vector{Partition}(length(node.children))
+
+	# connect children
+	for child in node.children
+
+		# get indexing function
+		idxFun = Dict{Int64, Int64}()
+
+		for (ci, c) in enumerate(child.children)
+			for s in c.scope
+				idxFun[s] = ci
+			end
+		end
+
+		id = findPartition(Set(child.scope), idxFun, spn)
+
+		if id == -1
+
+			# create new one
+			partition = Partition()
+			partition.scope = Set(child.scope)
+			partition.indexFunction = idxFun
+			partition.popularity = length(assignments(child))
+
+			push!(r, partition)
+			push!(spn.regionConnections[region], partition)
+
+		else
+
+			spn.partitions[id].popularity += length(assignments(child))
+
+			push!(r, spn.partitions[id])
+
+			if !spn.partitions[id] in spn.regionConnections[region]
+				push!(spn.regionConnections[region], spn.partitions[id])
+			end
+
+		end
+
+	end
+
+	# connect parents
+	if !isnull(node.parent)
+
+		p = get(node.parent)
+
+
+	end
+
+	return r
+
+end
+
+function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment)
+
+	nscope = node.scope[1]
+
+	for region in spn.regions
+
+		# check nodes have same scope
+		if nscope == region.scope
+			# scope matches
+
+			idx = size(region.nodes, 1) + 1
+
+			push!(region.nodes, node)
+			region.popularity[idx] = length(assignments(node))
+			region.N += length(assignments(node))
+
+			return
+
+		end
+
+	end
+
+	# not found => make new region
+
+	region = LeafRegion(nscope)
+
+	idx = size(region.nodes, 1) + 1
+
+	push!(region.nodes, node)
+	region.popularity[idx] = length(assignments(node))
+	region.N += length(assignments(node))
+
+	push!(spn.regions, region)
+
+end
+
+# get top order
+nodes = SPN.order(root)
+
+spn = SPNStructure()
+
+for node in nodes
+
+	if isa(node, SumNode) | isa(node, Leaf)
+		extendRegions!(node, spn, assignments)
+	end
+
+end
+
+for region in spn.regions
+	println("scope: ", region.scope)
+	println("nodes: ", size(region.nodes))
+end
 
 #=
-
+S
 # create simple SPN
 root = SumNode(0, scope = collect(1:D))
 assign = Assignments(N)
