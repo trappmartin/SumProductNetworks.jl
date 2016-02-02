@@ -88,5 +88,9 @@ function adjustedRandIndex(c1::Vector{Int}, c2::Vector{Int})
     prodComb = (combC * combK) / comb2(N)
     meanComb = (combC + combK) / 2
 
+	if (meanComb - prodComb) == 0
+        return 1.0
+    end
+
     return ((sumComb - prodComb) / (meanComb - prodComb))
 end

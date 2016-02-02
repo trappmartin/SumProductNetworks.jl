@@ -231,8 +231,7 @@ Compute the log likelihood of the data under the model.
 This function evaluates leaf nodes only.
 """
 function llh{T<:Real}(root::Leaf, data::Array{T})
-    llhval = Dict{SPNNode, Array{Float64}}()
-    return eval(root, data, llhval)[1]
+    return eval(root, data)[1]
 end
 
 "Extract MAP path, this implementation is possibly slow!"

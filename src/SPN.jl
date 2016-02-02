@@ -16,13 +16,21 @@ module SPN
 	import Base.map
   import Base.parent
   import Base.length
+	import Base.show
 
-  # include implementations
+  # include general implementations
   include("nodes.jl")
   include("utils.jl")
-	include("draw.jl")
+
+  # include approach specific implementations
 	include("infiniteSPN.jl")
+  include("infiniteSPNGibbs.jl")
 	include("gens.jl")
+
+  # include visualization implementations
+  include("draw.jl")
+	include("show.jl")
+
 
   export
     # types
@@ -60,7 +68,7 @@ module SPN
 		mirror!,
 		#draw,
 		gibbs_iteration!,
-    findPartition,
+    transformToRegionPartition,
 
     # utilities
     drawSPN,

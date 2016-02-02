@@ -1,13 +1,19 @@
 println(" * create initial SPN using learnSPN")
 
-using RDatasets
-iris = dataset("datasets", "iris")
+#using RDatasets
+#iris = dataset("datasets", "iris")
 
-X = convert(Array, iris[[:SepalLength, :SepalWidth, :PetalWidth]])'
+#X = convert(Array, iris[[:SepalLength, :SepalWidth, :PetalWidth]])'
+
+# data
+X = rand(MultivariateNormal([5.0, 5.0], [1.0 0.0; 0.0 2.0]), 100) # 1
+X = cat(2, X, rand(MultivariateNormal([-2.5, 2.5], [0.5 -0.2; -0.2 1.0]), 100)) # 2
+X = cat(2, X, rand(MultivariateNormal([-2.5, -2.5], [1.0 0.0; 0.0 0.5]), 100)) # 3
+X = cat(2, X, rand(MultivariateNormal([5.0, -5.0], [1.0 0.5; 0.5 0.5]), 100)) # 4
 
 (D, N) = size(X)
 
-println(" * using dataset 'iris' with ", N, " observations and ", D, " variables.")
+println(" * using dataset 'test' with ", N, " observations and ", D, " variables.")
 
 dimMapping = Dict{Int, Int}([convert(Int, d) => convert(Int, d) for d in 1:D])
 obsMapping = Dict{Int, Int}([convert(Int, n) => convert(Int, n) for n in 1:N])
@@ -16,164 +22,122 @@ assignments = Assignment()
 root = SPN.learnSPN(X, dimMapping, obsMapping, assignments)
 
 # draw initial solution
-
-#println(" * draw initial SPN")
-#drawSPN(root, file = "initialSPN.svg")
-
+println(" * draw initial SPN")
+drawSPN(root, file = "initialSPN.svg")
 
 # transform SPN to regions and partitions
 println(" * transform SPN into regions and partitions")
+spn = transformToRegionPartition(root, assignments)
 
-function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignment)
+@test size(spn.partitions, 1) == 1
+@test size(spn.regions, 1) >= 3
 
-	nscope = Set(node.scope)
+# draw region graph (TODO)
+println(" * draw transformed SPN")
+drawSPN(spn, file = "transformedSPN.svg")
 
-	for region in spn.regions
+println(" * run Gibbs sweep on a sample using SPN in regions and partitions representation")
 
-		# check nodes have same scope
-		if nscope == region.scope
-			# scope matches
+x = X[:,1]
 
-			region.popularity[node] = length(assignments(node))
-			region.N += length(assignments(node))
+# evaluate all leaf regions
 
-			return
+# 1.) get sample trees which are existing in the SPN
+c = Dict{Region, Int}()
+cMax = Dict{Region, Int}()
 
-		end
+for region in spn.regions
+	c[region] = 1
 
+	if isa(region, LeafRegion)
+		cMax[region] = size(region.nodes, 1)
+	else
+		cMax[region] = size(region.weights, 1)
 	end
-
-	# not found => make new region
-
-	region = SumRegion()
-	spn.regionConnections[region] = Vector{Partition}(0)
-
-	region.scope = nscope
-
-	# add new partition
-	partitions = extendPartitions(node, spn, region, assignments)
-
-	println(partitions)
-	region.weights = [part => node.weights[pi] for (pi, part) in enumerate(partitions)]
-
-	region.popularity[node] = length(assignments(node))
-	region.N += length(assignments(node))
-
-	# add partition
-
-
-	push!(spn.regions, region)
 
 end
 
-function extendPartitions(node::SumNode, spn::SPNStructure, region::SumRegion, assignments::Assignment)
+println(cMax)
 
-	r = Vector{Partition}(length(node.children))
+canIncrease = true
 
-	# connect children
-	for child in node.children
+while canIncrease
 
-		# get indexing function
-		idxFun = Dict{Int64, Int64}()
+	llh = 0.0
+	lw = 0.0
 
-		for (ci, c) in enumerate(child.children)
-			for s in c.scope
-				idxFun[s] = ci
-			end
-		end
+	# get list of regions in sample tree
+	sampleTree = spn.regions
 
-		id = findPartition(Set(child.scope), idxFun, spn)
+	for region in sampleTree
 
-		if id == -1
+		# get selection
+		cR = c[region]
 
-			# create new one
-			partition = Partition()
-			partition.scope = Set(child.scope)
-			partition.indexFunction = idxFun
-			partition.popularity = length(assignments(child))
+		if isa(region, LeafRegion)
+			# get llh values
+			llh += logpred(region.nodes[cR].dist, sub(x, region.nodes[cR].scope, :))[1]
 
-			push!(r, partition)
-			push!(spn.regionConnections[region], partition)
-
+			# get log(weights)
+			lw += log(region.popularity[cR] / region.N)
 		else
 
-			spn.partitions[id].popularity += length(assignments(child))
+			# get log(weights) of the partition
+			# TODO
+			#lw += map(partition -> map(w -> log(get(w, partition, 0.0)), region.weights), spn.regionConnections[region])
+			#println(llh)
 
-			push!(r, spn.partitions[id])
-
-			if !spn.partitions[id] in spn.regionConnections[region]
-				push!(spn.regionConnections[region], spn.partitions[id])
-			end
-
-		end
-
-	end
-
-	# connect parents
-	if !isnull(node.parent)
-
-		p = get(node.parent)
-
-
-	end
-
-	return r
-
-end
-
-function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment)
-
-	nscope = node.scope[1]
-
-	for region in spn.regions
-
-		# check nodes have same scope
-		if nscope == region.scope
-			# scope matches
-
-			idx = size(region.nodes, 1) + 1
-
-			push!(region.nodes, node)
-			region.popularity[idx] = length(assignments(node))
-			region.N += length(assignments(node))
-
-			return
+			# get log(weights)
+			lw =+ log(region.popularity[cR] / region.N)
 
 		end
 
 	end
 
-	# not found => make new region
+	println(llh)
+	println(lw)
 
-	region = LeafRegion(nscope)
-
-	idx = size(region.nodes, 1) + 1
-
-	push!(region.nodes, node)
-	region.popularity[idx] = length(assignments(node))
-	region.N += length(assignments(node))
-
-	push!(spn.regions, region)
-
-end
-
-# get top order
-nodes = SPN.order(root)
-
-spn = SPNStructure()
-
-for node in nodes
-
-	if isa(node, SumNode) | isa(node, Leaf)
-		extendRegions!(node, spn, assignments)
-	end
+	canIncrease = false
 
 end
 
 for region in spn.regions
-	println("scope: ", region.scope)
-	println("nodes: ", size(region.nodes))
+
+	if isa(region, LeafRegion)
+
+		println(region)
+
+		# get llh values for all nodes in the region
+		llh = map(node -> logpred(node.dist, sub(x, node.scope, :))[1], region.nodes)
+		println(llh)
+
+		# get log(weights) of the nodes in the region
+		lw = map(i -> log(region.popularity[i] / region.N), 1:size(region.nodes, 1))
+		println(lw)
+
+		# resulting values are llh + llhw
+
+	end
+
+
+	if isa(region, SumRegion)
+
+		println(region)
+
+		# get log(weights) of the partitions for all nodes in the region
+		llh = map(partition -> map(w -> log(get(w, partition, 0.0)), region.weights), spn.regionConnections[region])
+		println(llh)
+
+		# get log(weights) of the nodes in the region
+		lw = map(i -> log(region.popularity[i] / region.N), 1:size(region.weights, 1))
+		println(lw)
+
+	end
+
+
 end
+
+
 
 #=
 S

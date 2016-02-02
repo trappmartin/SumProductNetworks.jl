@@ -39,6 +39,15 @@ function drawSPN(spn::SumNode; file="spn.svg")
 
 end
 
+function drawSPN(spn::SPNStructure; file="spn.svg")
+
+   nodeTypes = Vector{Symbol}(0)
+   
+
+   #layoutSPN(adj_list, nodeTypes, cycles=false, filename=file)
+
+end
+
 function layoutSPN{T}(adj_list::Vector{Vector{T}},
                         nodeTypes::Vector{Symbol};
                         filename    = "",
