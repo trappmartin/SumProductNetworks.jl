@@ -2,12 +2,12 @@ VERSION >= v"0.4.0" && __precompile__(true)
 
 module SPN
 
-  # load dependencies into workspace
+  # loading dependencies into workspaces
   using Distributions,
         Base,
         BNP,
         HSIC,
-        JuMP,
+				JuMP,
         GraphLayout,
         Compose,
         Colors

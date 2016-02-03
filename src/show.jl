@@ -1,5 +1,5 @@
 function Base.show(io::IO, m::SumRegion)
-  print(io, "SumRegion => [scope: $(m.scope), #children: $(size(m.weights, 1)), #observations: $(m.N)]")
+  print(io, "SumRegion => [scope: $(m.scope), #children: $(size(m.partitionPopularity, 1)), #observations: $(m.N)]")
 end
 
 function Base.show(io::IO, m::LeafRegion)

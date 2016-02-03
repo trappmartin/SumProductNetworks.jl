@@ -27,7 +27,7 @@ drawSPN(root, file = "initialSPN.svg")
 
 # transform SPN to regions and partitions
 println(" * transform SPN into regions and partitions")
-spn = transformToRegionPartition(root, assignments)
+(spn, assign) = transformToRegionPartition(root, assignments, N)
 
 @test size(spn.partitions, 1) == 1
 @test size(spn.regions, 1) >= 3
@@ -38,26 +38,131 @@ drawSPN(spn, file = "transformedSPN.svg")
 
 println(" * run Gibbs sweep on a sample using SPN in regions and partitions representation")
 
-x = X[:,1]
+observation = 1
+
+x = X[:,observation]
+
+# parameters
+α = 1.0
 
 # evaluate all leaf regions
 
-# 1.) get sample trees which are existing in the SPN
-c = Dict{Region, Int}()
-cMax = Dict{Region, Int}()
+# 0.) remove observation from SPN
+activeRegions = assign.regionAssignments[observation]
+regionIdMapping = Dict{Region, Int}()
+activePartitions = assign.partitionAssignments[observation]
 
-for region in spn.regions
-	c[region] = 1
+# remove observation from regions and Distributions
+for (region, cNode) in activeRegions
 
 	if isa(region, LeafRegion)
-		cMax[region] = size(region.nodes, 1)
-	else
-		cMax[region] = size(region.weights, 1)
+
+		# decrease popularity
+		region.popularity[cNode] -= 1
+		region.N -= 1
+
+		# remove from Distribution
+		remove_data!(region.nodes[cNode].dist, x[region.nodes[cNode].scope,:])
+
+		# remove node if the node is now empty
+		if region.popularity[cNode] == 0
+			# TODO ?!?
+		end
+
+	end
+
+	if isa(region, SumRegion)
+
+		# decrease popularity
+		region.popularity[cNode] -= 1
+		region.N -= 1
+
+		# we need this for removal of partition assignments
+		regionIdMapping[region] = cNode
+
 	end
 
 end
 
-println(cMax)
+# remove observation from regions -> partition assignments
+for (region, partition) in activePartitions
+
+	if isa(region, SumRegion)
+
+		# decrease popularity
+		region.partitionPopularity[regionIdMapping[region]][partition] -= 1
+
+	end
+
+end
+
+# 1.) get sample trees in the SPN
+c = Dict{Region, Vector{Int}}()
+cMax = Dict{Region, Vector{Int}}()
+
+for region in spn.regions
+
+	if isa(region, LeafRegion)
+		c[region] = ones(Int, 1)
+		cMax[region] = [size(region.nodes, 1)] # all nodes
+	else
+		c[region] = ones(Int, 2)
+		cMax[region] = [size(region.partitionPopularity, 1), # all pseudo-nodes
+										size(spn.regionConnections[region], 1)]
+	end
+
+end
+
+@doc doc"""
+Extract sample tree from configuration.
+""" ->
+function extractSampleTree(config::Dict{Region, Vector{Int}}, spn::SPNStructure)
+
+	tree = Vector{Region}(0)
+
+	for region in spn.regions
+
+		# check if region is root (heuristic: no previous partition)
+		isRoot = true
+
+		for partition in spn.partitions
+			isRoot &= !(region in spn.partitionConnections[partition])
+		end
+
+		if isRoot
+			push!(tree, region)
+		else
+
+			# find out if region is inside tree
+			foundSelection = false
+			for partition in spn.partitions
+				if region in spn.partitionConnections[partition]
+					# check if the partition is selected by any region
+					for r2 in spn.regions
+						if partition in spn.regionConnections[r2]
+							# partition is connected to region r2
+
+							# is it selected?
+							foundSelection |= (config[r2][2] == findfirst(spn.regionConnections[r2], partition))
+						end
+					end
+				end
+			end
+
+			if foundSelection
+				push!(tree, region)
+			end
+		end
+
+	end
+
+	return tree
+
+end
+
+# 2.) iterate over sample trees in the SPN
+LLH = Vector{Float64}(0)
+configurations = Vector{Dict{Region, Vector{Int}}}(0)
 
 canIncrease = true
 
@@ -67,80 +172,93 @@ while canIncrease
 	lw = 0.0
 
 	# get list of regions in sample tree
-	sampleTree = spn.regions
+	sampleTree = extractSampleTree(c, spn)
+
+	config = Dict{Region, Vector{Int}}()
 
 	for region in sampleTree
 
 		# get selection
-		cR = c[region]
+		cRs = c[region]
+
+		config[region] = cRs
 
 		if isa(region, LeafRegion)
-			# get llh values
-			llh += logpred(region.nodes[cR].dist, sub(x, region.nodes[cR].scope, :))[1]
 
-			# get log(weights)
-			lw += log(region.popularity[cR] / region.N)
+			cNode = cRs[1]
+			# get llh values
+			llh += logpred(region.nodes[cNode].dist, sub(x, region.nodes[cNode].scope, :))[1]
+
+			# TODO: replace with correct formula
+
+			# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+			lw += log(region.popularity[cNode] / (region.N - 1 + α) )
 		else
 
-			# get log(weights) of the partition
-			# TODO
-			#lw += map(partition -> map(w -> log(get(w, partition, 0.0)), region.weights), spn.regionConnections[region])
-			#println(llh)
+			cNode = cRs[1]
+			cPartition = cRs[2]
 
-			# get log(weights)
-			lw =+ log(region.popularity[cR] / region.N)
+			# TODO: replace with correct formula
+
+			# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+			lw =+ log(region.popularity[cNode] / (region.N - 1 + α) )
+
+			#p(c_{i, S} = j | c_{-i, S}, \alpha)
+			lw += log(region.partitionPopularity[cNode][spn.regionConnections[region][cPartition]] / (region.popularity[cNode] - 1 + α) )
 
 		end
 
 	end
 
-	println(llh)
-	println(lw)
+	if (llh + lw) in LLH
+		println(" # exact same value exists already...")
+		println(" # skipping")
+	else
+		push!(LLH, llh + lw)
+		push!(configurations, config)
+	end
 
-	canIncrease = false
+	#println("llh: ", llh + lw)
 
-end
+	# increase configuration if possible
+	increased = false
+	pos = size(spn.regions, 1)
 
-for region in spn.regions
+	while (!increased) & (pos != 0)
 
-	if isa(region, LeafRegion)
+		# check all settings in a region (1 if leafRegion, and 2 if sumRegion)
+		posI = size(c[spn.regions[pos]], 1)
+		for i in 1:posI
 
-		println(region)
+			if increased
+				continue
+			end
 
-		# get llh values for all nodes in the region
-		llh = map(node -> logpred(node.dist, sub(x, node.scope, :))[1], region.nodes)
-		println(llh)
+			if (c[spn.regions[pos]][i] + 1) <= cMax[spn.regions[pos]][i]
+				c[spn.regions[pos]][i] += 1
+				increased = true
+			else
+				c[spn.regions[pos]][i] = 1
+			end
+		end
 
-		# get log(weights) of the nodes in the region
-		lw = map(i -> log(region.popularity[i] / region.N), 1:size(region.nodes, 1))
-		println(lw)
-
-		# resulting values are llh + llhw
+		if !increased
+			pos -= 1
+		end
 
 	end
 
-
-	if isa(region, SumRegion)
-
-		println(region)
-
-		# get log(weights) of the partitions for all nodes in the region
-		llh = map(partition -> map(w -> log(get(w, partition, 0.0)), region.weights), spn.regionConnections[region])
-		println(llh)
-
-		# get log(weights) of the nodes in the region
-		lw = map(i -> log(region.popularity[i] / region.N), 1:size(region.weights, 1))
-		println(lw)
-
-	end
-
+	canIncrease = increased
 
 end
 
+println(" * finished computation of llh values for existing sample trees")
+println(" * - finished ", length(LLH), " computations of sample trees")
+println(" * - p(x, T | Θ) = ", exp(LLH))
+println(" * - best configutation: ", configurations[indmax(LLH)])
 
 
 #=
-S
 # create simple SPN
 root = SumNode(0, scope = collect(1:D))
 assign = Assignments(N)
