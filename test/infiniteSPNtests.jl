@@ -176,35 +176,128 @@ while canIncrease
 
 	config = Dict{Region, Vector{Int}}()
 
-	for region in sampleTree
+	for region in sampleTree # LOOP
 
 		# get selection
 		cRs = c[region]
+		cRMax = cMax[region]
 
 		config[region] = cRs
 
 		if isa(region, LeafRegion)
 
 			cNode = cRs[1]
-			# get llh values
-			llh += logpred(region.nodes[cNode].dist, sub(x, region.nodes[cNode].scope, :))[1]
 
-			# TODO: replace with correct formula
+			# check this is a new node
+			if cNode > cRMax[1]
 
-			# p(c_{i, Rg} = j | c_{-i, Rg}, α)
-			lw += log(region.popularity[cNode] / (region.N - 1 + α) )
+				# get llh values
+				# 1. get all observation that
+
+				SS = 0.0
+				C = 0.0
+
+				for partition in spn.partitions # LOOP
+					if region in spn.partitionConnections[partition]
+						# check if the partition is selected by any region in the tree
+
+						for r2 in sampleTree # LOOP
+							if partition in spn.regionConnections[r2]
+								# partition is connected to region r2
+
+								# is it selected?
+								if (c[r2][2] == findfirst(spn.regionConnections[r2], partition))
+
+									# get all observations that are inside that partition and region r2
+
+									for obs in 1:N # LOOP
+
+										if (r2, partition) in assign.partitionAssignments[obs]
+
+											SS += X[region.scope, obs]
+											C += 1
+
+										end
+
+									end
+
+								end
+
+							end
+						end
+					end
+				end
+
+				println(length(LLH), " is new...")
+
+				# 2. compute llh using adjusted mean0
+				llh += logpred(NormalGamma(μ = SS / C), sub(x, region.scope, :))[1]
+
+				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+				lw += log(α / (region.N - 1 + α) )
+
+			else
+
+				# get llh values
+				llh += logpred(region.nodes[cNode].dist, sub(x, region.nodes[cNode].scope, :))[1]
+
+				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+				lw += log(region.popularity[cNode] / (region.N - 1 + α) )
+
+			end
 		else
 
 			cNode = cRs[1]
 			cPartition = cRs[2]
 
-			# TODO: replace with correct formula
+			# NOTE: We assume in allways that region.N > 0 !!!
 
-			# p(c_{i, Rg} = j | c_{-i, Rg}, α)
-			lw =+ log(region.popularity[cNode] / (region.N - 1 + α) )
+			if (cNode > cRMax[1]) & (cPartition <= cRMax[2])
 
-			#p(c_{i, S} = j | c_{-i, S}, \alpha)
-			lw += log(region.partitionPopularity[cNode][spn.regionConnections[region][cPartition]] / (region.popularity[cNode] - 1 + α) )
+				# .) new sum node
+
+				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+				lw =+ log(α / (region.N - 1 + α) )
+
+				# p(c_{i, S} = j | c_{-i, S}, \alpha)
+				# NOTE: Not sure this is correct...
+				# Assumption that this is an iterative process.. meaning:
+				# The sum node has been created and therefore the count for observation
+				# in the observations is 1 => no division with 0.
+				lw += log(α / (1 - 1 + α) )
+
+			elseif (cNode <= cRMax[1]) & (cPartition <= cRMax[2])
+
+				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+				lw =+ log(region.popularity[cNode] / (region.N - 1 + α) )
+
+				# p(c_{i, S} = j | c_{-i, S}, \alpha)
+				lw += log(region.partitionPopularity[cNode][spn.regionConnections[region][cPartition]] / (region.popularity[cNode] - 1 + α) )
+
+			elseif (cNode <= cRMax[1]) & (cPartition > cRMax[2])
+
+				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+				lw =+ log(region.popularity[cNode] / (region.N - 1 + α) )
+
+				# p(c_{i, S} = j | c_{-i, S}, \alpha)
+				lw += log(α / (region.popularity[cNode] - 1 + α) )
+				# NOTE make sure this partition is connected to something....
+
+			else
+
+				# BAD things happen...
+
+				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+				lw =+ log(α / (region.N - 1 + α) )
+
+				# p(c_{i, S} = j | c_{-i, S}, \alpha)
+				# NOTE: Not sure this is correct...
+				# Assumption that this is an iterative process.. meaning:
+				# The sum node has been created and therefore the count for observation
+				# in the observations is 1 => no division with 0.
+				lw += log(α / (1 - 1 + α) )
+
+			end
 
 		end
 
@@ -226,19 +319,27 @@ while canIncrease
 
 	while (!increased) & (pos != 0)
 
-		# check all settings in a region (1 if leafRegion, and 2 if sumRegion)
-		posI = size(c[spn.regions[pos]], 1)
-		for i in 1:posI
-
-			if increased
-				continue
-			end
-
-			if (c[spn.regions[pos]][i] + 1) <= cMax[spn.regions[pos]][i]
-				c[spn.regions[pos]][i] += 1
+		if isa(spn.regions[pos], LeafRegion)
+			if (c[spn.regions[pos]][1] + 1) <= cMax[spn.regions[pos]][1] + 1 # +1 is new node!
+				c[spn.regions[pos]][1] += 1
 				increased = true
 			else
-				c[spn.regions[pos]][i] = 1
+				c[spn.regions[pos]][1] = 1
+			end
+
+		else # SumRegion
+			for i in 1:2
+
+				if increased
+					continue
+				end
+
+				if (c[spn.regions[pos]][i] + 1) <= cMax[spn.regions[pos]][i]
+					c[spn.regions[pos]][i] += 1
+					increased = true
+				else
+					c[spn.regions[pos]][i] = 1
+				end
 			end
 		end
 
@@ -257,6 +358,10 @@ println(" * - finished ", length(LLH), " computations of sample trees")
 println(" * - p(x, T | Θ) = ", exp(LLH))
 println(" * - best configutation: ", configurations[indmax(LLH)])
 
+# 2.) get new sample trees extending the current SPN
+
+
+# dsf
 
 #=
 # create simple SPN
