@@ -7,7 +7,7 @@ function Base.show(io::IO, m::LeafRegion)
 end
 
 function Base.show(io::IO, m::Partition)
-  print(io, "Partition => [scope: $(m.scope), indexFunction: $(m.indexFunction), popularity: $(m.popularity)]")
+  print(io, "Partition => [scope: $(m.scope), indexFunction: $(m.indexFunction)]")
 end
 
 function Base.show(io::IO, m::SPNStructure)

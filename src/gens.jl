@@ -3,7 +3,7 @@ function learnSumNode{T <: Real}(X::Array{T}, G0::ConjugatePostDistribution; ite
 	(D, N) = size(X)
 
 	if N < minN
-		return ([1 => 1.0], ones(Int, N))
+		return (1 => 1.0, ones(Int, N))
 	end
 
 	models = train(DPM(G0), Gibbs(maxiter = iterations), KMeansInitialisation(k = 10), X)

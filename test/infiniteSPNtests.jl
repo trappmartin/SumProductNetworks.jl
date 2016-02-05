@@ -1,15 +1,15 @@
 println(" * create initial SPN using learnSPN")
 
-#using RDatasets
-#iris = dataset("datasets", "iris")
+using RDatasets
+iris = dataset("datasets", "iris")
 
-#X = convert(Array, iris[[:SepalLength, :SepalWidth, :PetalWidth]])'
+X = convert(Array, iris[[:SepalLength, :SepalWidth, :PetalWidth]])'
 
 # data
-X = rand(MultivariateNormal([5.0, 5.0], [1.0 0.0; 0.0 2.0]), 100) # 1
-X = cat(2, X, rand(MultivariateNormal([-2.5, 2.5], [0.5 -0.2; -0.2 1.0]), 100)) # 2
-X = cat(2, X, rand(MultivariateNormal([-2.5, -2.5], [1.0 0.0; 0.0 0.5]), 100)) # 3
-X = cat(2, X, rand(MultivariateNormal([5.0, -5.0], [1.0 0.5; 0.5 0.5]), 100)) # 4
+#X = rand(MultivariateNormal([5.0, 5.0], [1.0 0.0; 0.0 2.0]), 100) # 1
+#X = cat(2, X, rand(MultivariateNormal([-2.5, 2.5], [0.5 -0.2; -0.2 1.0]), 100)) # 2
+#X = cat(2, X, rand(MultivariateNormal([-2.5, -2.5], [1.0 0.0; 0.0 0.5]), 100)) # 3
+#X = cat(2, X, rand(MultivariateNormal([5.0, -5.0], [1.0 0.5; 0.5 0.5]), 100)) # 4
 
 (D, N) = size(X)
 
@@ -42,9 +42,6 @@ observation = 1
 
 x = X[:,observation]
 
-# parameters
-α = 1.0
-
 # evaluate all leaf regions
 
 # 0.) remove observation from SPN
@@ -66,7 +63,7 @@ for (region, cNode) in activeRegions
 
 		# remove node if the node is now empty
 		if region.popularity[cNode] == 0
-			# TODO ?!?
+			# TODO ?!
 		end
 
 	end
@@ -97,259 +94,42 @@ for (region, partition) in activePartitions
 end
 
 # 1.) get sample trees in the SPN
-c = Dict{Region, Vector{Int}}()
-cMax = Dict{Region, Vector{Int}}()
+c = SPNConfiguration(Vector{Vector{Int}}(size(spn.regions, 1)))
+cMax = SPNConfiguration(Vector{Vector{Int}}(size(spn.regions, 1)))
 
-for region in spn.regions
-
+for (ri, region) in enumerate(spn.regions)
 	if isa(region, LeafRegion)
-		c[region] = ones(Int, 1)
-		cMax[region] = [size(region.nodes, 1)] # all nodes
+		c.c[ri] = [1]
+		cMax.c[ri] = [size(region.nodes, 1)] # all nodes
 	else
-		c[region] = ones(Int, 2)
-		cMax[region] = [size(region.partitionPopularity, 1), # all pseudo-nodes
-										size(spn.regionConnections[region], 1)]
+		c.c[ri] = [1, 1]
+		cMax.c[ri] = [size(region.partitionPopularity, 1), # all pseudo-nodes
+															size(spn.regionConnections[region], 1)]
 	end
-
-end
-
-@doc doc"""
-Extract sample tree from configuration.
-""" ->
-function extractSampleTree(config::Dict{Region, Vector{Int}}, spn::SPNStructure)
-
-	tree = Vector{Region}(0)
-
-	for region in spn.regions
-
-		# check if region is root (heuristic: no previous partition)
-		isRoot = true
-
-		for partition in spn.partitions
-			isRoot &= !(region in spn.partitionConnections[partition])
-		end
-
-		if isRoot
-			push!(tree, region)
-		else
-
-			# find out if region is inside tree
-			foundSelection = false
-			for partition in spn.partitions
-				if region in spn.partitionConnections[partition]
-					# check if the partition is selected by any region
-					for r2 in spn.regions
-						if partition in spn.regionConnections[r2]
-							# partition is connected to region r2
-
-							# is it selected?
-							foundSelection |= (config[r2][2] == findfirst(spn.regionConnections[r2], partition))
-						end
-					end
-				end
-			end
-
-			if foundSelection
-				push!(tree, region)
-			end
-		end
-
-	end
-
-	return tree
-
 end
 
 # 2.) iterate over sample trees in the SPN
 LLH = Vector{Float64}(0)
-configurations = Vector{Dict{Region, Vector{Int}}}(0)
+#configurations = Vector{Dict{Region, Vector{Int}}}(0)
 
-canIncrease = true
+configs = SPN.findConfigurations(c, cMax, spn)
 
-while canIncrease
+println(length(configs))
 
-	llh = 0.0
-	lw = 0.0
+for configuration in configs
+
+	postpred = 0.0
 
 	# get list of regions in sample tree
-	sampleTree = extractSampleTree(c, spn)
+	sampleTree = SPN.extractSampleTree(configuration, spn)
 
-	config = Dict{Region, Vector{Int}}()
+	#config = Dict{Region, Vector{Int}}()
 
-	for region in sampleTree # LOOP
-
-		# get selection
-		cRs = c[region]
-		cRMax = cMax[region]
-
-		config[region] = cRs
-
-		if isa(region, LeafRegion)
-
-			cNode = cRs[1]
-
-			# check this is a new node
-			if cNode > cRMax[1]
-
-				# get llh values
-				# 1. get all observation that
-
-				SS = 0.0
-				C = 0.0
-
-				for partition in spn.partitions # LOOP
-					if region in spn.partitionConnections[partition]
-						# check if the partition is selected by any region in the tree
-
-						for r2 in sampleTree # LOOP
-							if partition in spn.regionConnections[r2]
-								# partition is connected to region r2
-
-								# is it selected?
-								if (c[r2][2] == findfirst(spn.regionConnections[r2], partition))
-
-									# get all observations that are inside that partition and region r2
-
-									for obs in 1:N # LOOP
-
-										if (r2, partition) in assign.partitionAssignments[obs]
-
-											SS += X[region.scope, obs]
-											C += 1
-
-										end
-
-									end
-
-								end
-
-							end
-						end
-					end
-				end
-
-				println(length(LLH), " is new...")
-
-				# 2. compute llh using adjusted mean0
-				llh += logpred(NormalGamma(μ = SS / C), sub(x, region.scope, :))[1]
-
-				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
-				lw += log(α / (region.N - 1 + α) )
-
-			else
-
-				# get llh values
-				llh += logpred(region.nodes[cNode].dist, sub(x, region.nodes[cNode].scope, :))[1]
-
-				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
-				lw += log(region.popularity[cNode] / (region.N - 1 + α) )
-
-			end
-		else
-
-			cNode = cRs[1]
-			cPartition = cRs[2]
-
-			# NOTE: We assume in allways that region.N > 0 !!!
-
-			if (cNode > cRMax[1]) & (cPartition <= cRMax[2])
-
-				# .) new sum node
-
-				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
-				lw =+ log(α / (region.N - 1 + α) )
-
-				# p(c_{i, S} = j | c_{-i, S}, \alpha)
-				# NOTE: Not sure this is correct...
-				# Assumption that this is an iterative process.. meaning:
-				# The sum node has been created and therefore the count for observation
-				# in the observations is 1 => no division with 0.
-				lw += log(α / (1 - 1 + α) )
-
-			elseif (cNode <= cRMax[1]) & (cPartition <= cRMax[2])
-
-				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
-				lw =+ log(region.popularity[cNode] / (region.N - 1 + α) )
-
-				# p(c_{i, S} = j | c_{-i, S}, \alpha)
-				lw += log(region.partitionPopularity[cNode][spn.regionConnections[region][cPartition]] / (region.popularity[cNode] - 1 + α) )
-
-			elseif (cNode <= cRMax[1]) & (cPartition > cRMax[2])
-
-				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
-				lw =+ log(region.popularity[cNode] / (region.N - 1 + α) )
-
-				# p(c_{i, S} = j | c_{-i, S}, \alpha)
-				lw += log(α / (region.popularity[cNode] - 1 + α) )
-				# NOTE make sure this partition is connected to something....
-
-			else
-
-				# BAD things happen...
-
-				# p(c_{i, Rg} = j | c_{-i, Rg}, α)
-				lw =+ log(α / (region.N - 1 + α) )
-
-				# p(c_{i, S} = j | c_{-i, S}, \alpha)
-				# NOTE: Not sure this is correct...
-				# Assumption that this is an iterative process.. meaning:
-				# The sum node has been created and therefore the count for observation
-				# in the observations is 1 => no division with 0.
-				lw += log(α / (1 - 1 + α) )
-
-			end
-
-		end
-
+	for regionId in sampleTree # LOOP
+		postpred += SPN.posteriorPredictive(spn.regions[regionId], regionId, sampleTree, configuration, cMax, spn, x)
 	end
 
-	if (llh + lw) in LLH
-		println(" # exact same value exists already...")
-		println(" # skipping")
-	else
-		push!(LLH, llh + lw)
-		push!(configurations, config)
-	end
-
-	#println("llh: ", llh + lw)
-
-	# increase configuration if possible
-	increased = false
-	pos = size(spn.regions, 1)
-
-	while (!increased) & (pos != 0)
-
-		if isa(spn.regions[pos], LeafRegion)
-			if (c[spn.regions[pos]][1] + 1) <= cMax[spn.regions[pos]][1] + 1 # +1 is new node!
-				c[spn.regions[pos]][1] += 1
-				increased = true
-			else
-				c[spn.regions[pos]][1] = 1
-			end
-
-		else # SumRegion
-			for i in 1:2
-
-				if increased
-					continue
-				end
-
-				if (c[spn.regions[pos]][i] + 1) <= cMax[spn.regions[pos]][i]
-					c[spn.regions[pos]][i] += 1
-					increased = true
-				else
-					c[spn.regions[pos]][i] = 1
-				end
-			end
-		end
-
-		if !increased
-			pos -= 1
-		end
-
-	end
-
-	canIncrease = increased
+	println(postpred)
 
 end
 
@@ -360,8 +140,6 @@ println(" * - best configutation: ", configurations[indmax(LLH)])
 
 # 2.) get new sample trees extending the current SPN
 
-
-# dsf
 
 #=
 # create simple SPN

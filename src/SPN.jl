@@ -47,6 +47,7 @@ module SPN
     SumRegion,
     LeafRegion,
     SPNStructure,
+		SPNConfiguration,
 
     # spn functions
 		children,
