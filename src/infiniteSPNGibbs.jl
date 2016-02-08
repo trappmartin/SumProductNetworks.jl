@@ -100,11 +100,16 @@ function findConfigurations(c::SPNConfiguration, cMax::SPNConfiguration, spn::SP
 			else # SumRegion
 
 				# node increase
-				if (newConfig.c[pos][1] + 1) <= (cMax.c[pos][1] + 1)
-					newConfig.c[pos][1] += 1
-					increased = true
-				else
-					newConfig.c[pos][1] = 1
+				# except for root...
+				if !spn.regions[pos].isRoot
+
+					if (newConfig.c[pos][1] + 1) <= (cMax.c[pos][1] + 1)
+						newConfig.c[pos][1] += 1
+						increased = true
+					else
+						newConfig.c[pos][1] = 1
+					end
+
 				end
 
 				if increased
@@ -157,7 +162,10 @@ function extractSampleTree(configs::SPNConfiguration, spn::SPNStructure)
 			isRoot &= !(region in spn.partitionConnections[partition])
 		end
 
-		if isRoot
+		# check if region is leaf region
+		isLeaf = isa(region, LeafRegion)
+
+		if isRoot | isLeaf
 			push!(tree, rId)
 		else
 
@@ -173,6 +181,41 @@ function extractSampleTree(configs::SPNConfiguration, spn::SPNStructure)
 							# is it selected?
 							foundSelection |= (configs.c[r2Id][2] == findfirst(spn.regionConnections[r2], partition))
 						end
+					end
+				end
+			end
+
+			# check if region can be found in "extended" tree
+			#if configuration.newRegions[regionId]
+			for (r2Id, r2) in enumerate(spn.regions)
+				if haskey(configs.newPartitions, r2Id)
+
+					for partition in configs.newPartitions[r2Id]
+
+						# check if scopes match
+						if isa(region, LeafRegion)
+							if !(region.scope in partition.scope)
+								continue
+							end
+						else
+							if ⊈(region.scope, partition.scope)
+								continue
+							end
+						end
+
+						# get sub-scope of partition
+						v = [partition.indexFunction[s] for s in region.scope]
+
+						# check if sub scope matches in index function
+						if !all(v .== v[1])
+							continue
+						end
+
+						# check if sub scope is complete
+						if sum(collect(values(partition.indexFunction)) .== v[1]) == length(v)
+							foundSelection = true
+						end
+
 					end
 				end
 			end

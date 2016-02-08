@@ -32,6 +32,11 @@ println(" * transform SPN into regions and partitions")
 @test size(spn.partitions, 1) == 1
 @test size(spn.regions, 1) >= 3
 
+# check if assign object and observation counts are equal
+for region in spn.regions
+	@test region.N == length(assign.observationRegionAssignments[region])
+end
+
 # draw region graph (TODO)
 println(" * draw transformed SPN")
 drawSPN(spn, file = "transformedSPN.svg")
@@ -46,50 +51,79 @@ x = X[:,observation]
 
 # 0.) remove observation from SPN
 activeRegions = assign.regionAssignments[observation]
-regionIdMapping = Dict{Region, Int}()
 activePartitions = assign.partitionAssignments[observation]
+
+# list of regions to remove
+regionsToRemove = Vector{Region}(0)
+
+# list of partitions to remove
+partitionsToRemove = Vector{Partition}(0)
 
 # remove observation from regions and Distributions
 for (region, cNode) in activeRegions
 
-	if isa(region, LeafRegion)
+	# decrease popularity
+	region.popularity[cNode] -= 1
+	region.N -= 1
+	delete!(assign.observationRegionAssignments[region], observation)
 
-		# decrease popularity
-		region.popularity[cNode] -= 1
-		region.N -= 1
+	if isa(region, LeafRegion)
 
 		# remove from Distribution
 		remove_data!(region.nodes[cNode].dist, x[region.nodes[cNode].scope,:])
 
-		# remove node if the node is now empty
-		if region.popularity[cNode] == 0
-			# TODO ?!
-		end
+	elseif isa(region, SumRegion)
 
+		# removal of partition assignments
+		region.partitionPopularity[cNode][activePartitions[region]] -= 1
+		delete!(assign.observationPartitionAssignments[activePartitions[region]], observation)
 	end
 
-	if isa(region, SumRegion)
+	# remove node if the node is now empty
+	if region.popularity[cNode] == 0
 
-		# decrease popularity
-		region.popularity[cNode] -= 1
-		region.N -= 1
+		delete!(region.popularity, cNode)
 
-		# we need this for removal of partition assignments
-		regionIdMapping[region] = cNode
+		if isa(region, LeafRegion)
+			deleteat!(region.nodes, cNode)
+		elseif isa(region, SumRegion)
+			deleteat!(region.partitionPopularity, cNode)
+		end
 
+		# get all observations sharing the same region
+		obsR = assign.observationRegionAssignments[region]
+
+		# decrease node index for all
+		for obs in obsR
+			if assign.regionAssignments[obs][region] > cNode
+				assign.regionAssignments[obs][region] -= 1
+			end
+		end
+	end
+
+	# remove region if region is now empty
+	if region.N == 0
+		push!(regionsToRemove, region)
+	end
+
+	# remove partition if is now empty
+	if length(assign.observationPartitionAssignments[activePartitions[region]]) == 0
+		push!(partitionsToRemove, activePartitions[region])
 	end
 
 end
 
-# remove observation from regions -> partition assignments
-for (region, partition) in activePartitions
+# check if we have to remove regions
+if length(regionsToRemove) > 0
 
-	if isa(region, SumRegion)
+	# TODO
 
-		# decrease popularity
-		region.partitionPopularity[regionIdMapping[region]][partition] -= 1
+end
 
-	end
+# check if we have to remove partitions
+if length(partitionsToRemove) > 0
+
+	# TODO
 
 end
 
@@ -109,26 +143,24 @@ for (ri, region) in enumerate(spn.regions)
 end
 
 # 2.) iterate over sample trees in the SPN
-LLH = Vector{Float64}(0)
-#configurations = Vector{Dict{Region, Vector{Int}}}(0)
 
 configs = SPN.findConfigurations(c, cMax, spn)
+LLH = Vector{Float64}(length(configs))
 
-println(length(configs))
-
-for configuration in configs
+for (i, configuration) in enumerate(configs)
 
 	postpred = 0.0
 
 	# get list of regions in sample tree
 	sampleTree = SPN.extractSampleTree(configuration, spn)
 
-	#config = Dict{Region, Vector{Int}}()
-
 	for regionId in sampleTree # LOOP
 		postpred += SPN.posteriorPredictive(spn.regions[regionId], regionId, sampleTree, configuration, cMax, spn, x)
 	end
 
+	LLH[i] = postpred
+
+	println(sampleTree)
 	println(postpred)
 
 end
@@ -136,9 +168,10 @@ end
 println(" * finished computation of llh values for existing sample trees")
 println(" * - finished ", length(LLH), " computations of sample trees")
 println(" * - p(x, T | Θ) = ", exp(LLH))
-println(" * - best configutation: ", configurations[indmax(LLH)])
 
-# 2.) get new sample trees extending the current SPN
+# 2.) roll the dice...
+
+println("new config: ", BNP.rand_indices(LLH))
 
 
 #=

@@ -60,8 +60,9 @@ type SumRegion <: Region
 	partitionPopularity::Vector{Dict{Partition, Int64}}
 	popularity::Dict{Int64, Int64}
 	N::Int
+	isRoot::Bool
 
-	SumRegion() = new( Set{Int}(), Vector{Dict{Partition, Int64}}(0), Dict{Int64, Int64}(), 0 )
+	SumRegion(;root = false) = new( Set{Int}(), Vector{Dict{Partition, Int64}}(0), Dict{Int64, Int64}(), 0, root )
 
 end
 
@@ -93,13 +94,19 @@ type SPNStructure
 
 end
 
-"Assignment Data Object for Region / Partition Representation"
+@doc doc"""
+Assignment Data Object for Region / Partition Representation
+""" ->
 type AssignmentRegionGraph
 
-	regionAssignments::Vector{Set{Tuple{Region, Int}}}
-	partitionAssignments::Vector{Set{Tuple{Region, Partition}}}
+	regionAssignments::Vector{Dict{Region, Int}}
+	partitionAssignments::Vector{Dict{Region, Partition}}
+	observationRegionAssignments::Dict{Region, Set{Int}}
+	observationPartitionAssignments::Dict{Partition, Set{Int}}
 
-	AssignmentRegionGraph(observations::Int) = new( vec([Set{Tuple{Region, Int}}() for i in 1:observations]), vec([Set{Tuple{Region, Partition}}() for i in 1:observations]) )
+	AssignmentRegionGraph(observations::Int) = new( vec([Dict{Region, Int}() for i in 1:observations]),
+			vec([Dict{Region, Partition}() for i in 1:observations]),
+			Dict{Region, Set{Int}}(), Dict{Partition, Set{Int}}() )
 
 end
 
@@ -122,7 +129,14 @@ function extendPartitions(node::SumNode, spn::SPNStructure, region::SumRegion, a
 		end
 
 		for observation in assignments(child)
-			push!(assign.partitionAssignments[observation], (region, spn.partitions[id]))
+			assign.partitionAssignments[observation][region] = spn.partitions[id]
+		end
+
+		# append assignments
+		if !haskey(assign.observationPartitionAssignments, spn.partitions[id])
+			assign.observationPartitionAssignments[spn.partitions[id]] = Set(assignments(node))
+		else
+			union!(assign.observationPartitionAssignments[spn.partitions[id]], Set(assignments(node)))
 		end
 
 	end
@@ -139,7 +153,14 @@ function extendPartitions(node::SumNode, spn::SPNStructure, region::SumRegion, a
 		end
 
 		for observation in assignments(parent)
-			push!(assign.partitionAssignments[observation], (region, spn.partitions[id]))
+			assign.partitionAssignments[observation][region] = spn.partitions[id]
+		end
+
+		# append assignments
+		if !haskey(assign.observationPartitionAssignments, spn.partitions[id])
+			assign.observationPartitionAssignments[spn.partitions[id]] = Set(assignments(node))
+		else
+			union!(assign.observationPartitionAssignments[spn.partitions[id]], Set(assignments(node)))
 		end
 
 	end
@@ -165,7 +186,14 @@ function extendPartitions(node::Leaf, spn::SPNStructure, region::LeafRegion, ass
 		end
 
 		for observation in assignments(parent)
-			push!(assign.partitionAssignments[observation], (region, spn.partitions[id]))
+			assign.partitionAssignments[observation][region] = spn.partitions[id]
+		end
+
+		# append assignments
+		if !haskey(assign.observationPartitionAssignments, spn.partitions[id])
+			assign.observationPartitionAssignments[spn.partitions[id]] = Set(assignments(node))
+		else
+			union!(assign.observationPartitionAssignments[spn.partitions[id]], Set(assignments(node)))
 		end
 
 	end
@@ -234,7 +262,7 @@ end
 Extend set of regions with sum node. Create new region if necessary
 and extend set of partitions with children of sum node.
 """ ->
-function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignment, assign::AssignmentRegionGraph)
+function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignment, assign::AssignmentRegionGraph, isRoot::Bool)
 
 	nscope = Set(node.scope)
 
@@ -257,7 +285,14 @@ function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignmen
 			region.N += length(assignments(node))
 
 			for observation in assignments(node)
-				push!(assign.regionAssignments[observation], (region, id))
+				assign.regionAssignments[observation][region] = id
+			end
+
+			# append assignments
+			if !haskey(assign.observationRegionAssignments, region)
+				assign.observationRegionAssignments[region] = Set(assignments(node))
+			else
+				union!(assign.observationRegionAssignments[region], Set(assignments(node)))
 			end
 
 			return
@@ -268,7 +303,7 @@ function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignmen
 
 	# not found => make new region
 
-	region = SumRegion()
+	region = SumRegion(root = isRoot)
 	spn.regionConnections[region] = Vector{Partition}(0)
 
 	region.scope = nscope
@@ -287,7 +322,14 @@ function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignmen
 	region.N += length(assignments(node))
 
 	for observation in assignments(node)
-		push!(assign.regionAssignments[observation], (region, id))
+		assign.regionAssignments[observation][region] = id
+	end
+
+	# append assignments
+	if !haskey(assign.observationRegionAssignments, region)
+		assign.observationRegionAssignments[region] = Set(assignments(node))
+	else
+		union!(assign.observationRegionAssignments[region], Set(assignments(node)))
 	end
 
 	push!(spn.regions, region)
@@ -298,7 +340,7 @@ end
 Extend set of regions with leaf node. Create new region if necessary
 and extend set of partitions with parent of the node.
 """ ->
-function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment, assign::AssignmentRegionGraph)
+function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment, assign::AssignmentRegionGraph, isRoot::Bool)
 
 	nscope = node.scope[1]
 
@@ -316,7 +358,14 @@ function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment, 
 			extendPartitions(node, spn, region, assignments, assign)
 
 			for observation in assignments(node)
-				push!(assign.regionAssignments[observation], (region, idx))
+				assign.regionAssignments[observation][region] = idx
+			end
+
+			# append assignments
+			if !haskey(assign.observationRegionAssignments, region)
+				assign.observationRegionAssignments[region] = Set(assignments(node))
+			else
+				union!(assign.observationRegionAssignments[region], Set(assignments(node)))
 			end
 
 			return
@@ -338,7 +387,14 @@ function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment, 
 	extendPartitions(node, spn, region, assignments, assign)
 
 	for observation in assignments(node)
-		push!(assign.regionAssignments[observation], (region, idx))
+		assign.regionAssignments[observation][region] = idx
+	end
+
+	# append assignments
+	if !haskey(assign.observationRegionAssignments, region)
+		assign.observationRegionAssignments[region] = Set(assignments(node))
+	else
+		union!(assign.observationRegionAssignments[region], Set(assignments(node)))
 	end
 
 	push!(spn.regions, region)
@@ -359,7 +415,7 @@ function transformToRegionPartition(root::SumNode, assignments::Assignment, N::I
 	for node in nodes
 
 		if isa(node, SumNode) | isa(node, Leaf)
-			extendRegions!(node, spn, assignments, assign)
+			extendRegions!(node, spn, assignments, assign, node == root)
 		end
 
 	end
