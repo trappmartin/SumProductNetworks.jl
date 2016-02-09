@@ -24,7 +24,6 @@ function learnSumNode{T <: Real}(X::Array{T}, G0::ConjugatePostDistribution; ite
 		Z[:,i] = nz
 	end
 
-	# NOTE: This seems to break sometimes.. not sure why and when
 	psm = compute_psm(Z)
 
 	# NOTE: The average method of hclust seems to be buggy, but the complete works fine.
@@ -40,7 +39,7 @@ function learnSumNode{T <: Real}(X::Array{T}, G0::ConjugatePostDistribution; ite
 
 end
 
-function learnProductNode{T <: Real}(X::Array{T}; method = :HSCI, pvalue = 0.5, minN = 10)
+function learnProductNode{T <: Real}(X::Array{T}; method = :HSIC, pvalue = 0.5, minN = 10)
 
 	(D, N) = size(X)
 
@@ -67,7 +66,17 @@ function learnProductNode{T <: Real}(X::Array{T}; method = :HSCI, pvalue = 0.5, 
 
 		for d2 in varset
 
-			(value, threshold) = gammaHSIC(X[d,:]', X[d2,:]', α = pvalue)
+			value = 0
+			threshold = 1
+
+			if method == :HSIC
+				(value, threshold) = gammaHSIC(X[d,:]', X[d2,:]', α = pvalue)
+			elseif method == :BM
+				(p, logP) = BMITest.test(X[d,:]', X[d2,:]')
+				value = 1-p
+				threshold = 0.5
+			end
+
 			if value > threshold
 				# values are not independent
 
@@ -87,7 +96,8 @@ function learnProductNode{T <: Real}(X::Array{T}; method = :HSCI, pvalue = 0.5, 
 
 end
 
-function learnSPN{T <: Real}(X::Array{T, 2}, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, assignments::Assignment; parent = Nullable{ProductNode}(), minSamples = 10)
+function learnSPN{T <: Real}(X::Array{T, 2}, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, assignments::Assignment;
+	parent = Nullable{ProductNode}(), minSamples = 10, method = :HSIC)
 
 	# learn SPN using Gens learnSPN
 	(D, N) = size(X)
@@ -97,11 +107,12 @@ function learnSPN{T <: Real}(X::Array{T, 2}, dimMapping::Dict{Int, Int}, obsMapp
 	obsMapping = [convert(Int, n) => obsMapping[n] for n in 1:N]
 
 	# define G0
-	μ0 = vec( mean(X, 2) )
-	κ0 = 1.0
-	ν0 = 4.0
-	Ψ = eye(D) * 10
-	G0 = GaussianWishart(μ0, κ0, ν0, Ψ)
+	#μ0 = vec( mean(X, 2) )
+	#κ0 = 1.0
+	#ν0 = 4.0
+	#Ψ = eye(D) * 10
+	#G0 = GaussianWishart(μ0, κ0, ν0, Ψ)
+	G0 = MultinomialDirichlet(D, 1.0)
 
 	# learn sum nodes
 	(w, ids) = learnSumNode(X, G0, minN = minSamples)
@@ -137,7 +148,7 @@ function learnSPN{T <: Real}(X::Array{T, 2}, dimMapping::Dict{Int, Int}, obsMapp
 		end
 
 		# compute product nodes
-		Dhat = Set(learnProductNode(Xhat, minN = minSamples))
+		Dhat = Set(learnProductNode(Xhat, minN = minSamples, method = method))
 		Dset = Set(1:D)
 
 		Ddiff = setdiff(Dset, Dhat)
@@ -150,7 +161,8 @@ function learnSPN{T <: Real}(X::Array{T, 2}, dimMapping::Dict{Int, Int}, obsMapp
 			if length(Ddiff) == 1
 				d = pop!(Ddiff)
 
-				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(Xhat[d,:])), Xhat[d,:]), scope = dimMapping[d])
+				#leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(Xhat[d,:])), Xhat[d,:]), scope = dimMapping[d])
+				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(BinomialBeta(D = 1), Xhat[d,:]), scope = dimMapping[d])
 				add!(node, leaf)
 
 				# set assignments
@@ -159,13 +171,14 @@ function learnSPN{T <: Real}(X::Array{T, 2}, dimMapping::Dict{Int, Int}, obsMapp
 				end
 			else
 				# recurse
-				learnSPN(Xhat[collect(Ddiff),:], dimMapping, obsMapping, assignments, parent = Nullable(node))
+				learnSPN(Xhat[collect(Ddiff),:], dimMapping, obsMapping, assignments, parent = Nullable(node), method = method)
 			end
 
 			# don't recurse if only one dimension is inside the bucket
 			if length(Dhat) == 1
 				d = pop!(Dhat)
-				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(Xhat[d,:])), Xhat[d,:]), scope = dimMapping[d])
+				#leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(Xhat[d,:])), Xhat[d,:]), scope = dimMapping[d])
+				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(BinomialBeta(D = 1), Xhat[d,:]), scope = dimMapping[d])
 				add!(node, leaf)
 
 				# set assignments
@@ -175,14 +188,16 @@ function learnSPN{T <: Real}(X::Array{T, 2}, dimMapping::Dict{Int, Int}, obsMapp
 			else
 
 				# recurse
-				learnSPN(Xhat[collect(Dhat),:], dimMapping, obsMapping, assignments, parent = Nullable(node))
+				learnSPN(Xhat[collect(Dhat),:], dimMapping, obsMapping, assignments, parent = Nullable(node), method = method)
 			end
 
 		else
 
 			# construct leaf nodes
 			for d in Dhat
-				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(Xhat[d,:])), Xhat[d,:]), scope = dimMapping[d])
+
+				#leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(NormalGamma(μ = mean(Xhat[d,:])), Xhat[d,:]), scope = dimMapping[d])
+				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(BinomialBeta(D = 1), Xhat[d,:]), scope = dimMapping[d])
 				add!(node, leaf)
 
 				# set assignments

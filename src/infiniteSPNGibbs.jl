@@ -30,8 +30,7 @@ function buildPartitionsAndRegions!(region::Region, regionId::Int, newConfig::SP
 
 	else
 		pL = length(partitions(scope))
-		# NOTE Debug code!!!
-		parts = collect(partitions(scope))[2] # rand(2:pL)]
+		parts = collect(partitions(scope))[rand(2:pL)]
 		p.indexFunction = Dict{Int, Int}()
 		push!(newConfig.newPartitions[regionId], p)
 
@@ -479,6 +478,173 @@ function removeObservation!{T <: Real}(observation::Int, x::Array{T, 1}, spn::SP
 
 		end
 	end
+end
 
+@doc doc"""
+Add the observation and if necessary the new sub structure.
+""" ->
+function addObservation!{T <: Real}(observation::Int, x::Array{T, 1}, config::SPNConfiguration, cMax::SPNConfiguration, spn::SPNStructure, assign::AssignmentRegionGraph)
+
+	sampleTree = SPN.extractSampleTree(config, spn)
+
+	# add sample to existing structure
+	for regionId in sampleTree
+
+		region = spn.regions[regionId]
+		c = config.c[regionId]
+
+		# check if we are out of the range (new node)
+		if c[1] > cMax.c[regionId][1]
+
+			# new node
+			region.popularity[c[1]] = 1
+
+			if isa(region, LeafRegion)
+
+				SS = 0.0
+				C = 0.0
+
+				for partition in spn.partitions # LOOP
+					if region in spn.partitionConnections[partition]
+						# check if the partition is selected by any region in the tree
+						for r2Id in sampleTree # LOOP
+							if partition in spn.regionConnections[region]
+								# partition is connected to region r2
+								# is it selected?
+								if (configuration.c[r2Id][2] == findfirst(spn.regionConnections[region], partition))
+									# get all observations that are inside that partition and region r2
+									for obs in 1:N # LOOP
+										if (region, partition) in assign.partitionAssignments[obs]
+											SS += X[region.scope, obs]
+											C += 1
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+
+				if C == 0
+					SS = 0.0
+					C = 1.0
+				end
+
+				leaf = UnivariateNode{ConjugatePostDistribution}(NormalGamma(μ = SS / C), scope = region.scope)
+				push!(region.nodes, leaf)
+
+			elseif isa(region, SumRegion)
+
+				push!(region.partitionPopularity, Dict{Partition, Int}())
+
+			end
+
+		end
+
+		partitionAdded = false
+
+		# check if we have a new partition selected
+		if isa(region, SumRegion)
+			if c[2] > cMax.c[regionId][2]
+
+				# new partition
+				for newpartition in config.newPartitions[regionId]
+
+					partitionAdded = true
+
+					# create new partition
+					pid = size(spn.partitions, 1) + 1
+					push!(spn.partitions, newpartition)
+
+					# check if this partition should be connected to the region
+					if region.scope == newpartition.scope
+						region.partitionPopularity[c[1]][newpartition] = 1
+
+						push!(spn.regionConnections[region], newpartition)
+						assign.partitionAssignments[observation][region] = newpartition
+					else # find region that should connect to the region
+
+						for sregion in spn.regions
+							if sregion.scope == newpartition.scope
+
+								# connect partition to region (assume this is a new region, -> number of children = 0)
+								push!(sregion.partitionPopularity, Dict{Partition, Int}())
+								@assert size(sregion.partitionPopularity, 1) == 1
+								sregion.partitionPopularity[1][newpartition] = 1
+
+								push!(spn.regionConnections[sregion], newpartition)
+								assign.partitionAssignments[observation][sregion] = newpartition
+							end
+						end
+
+					end
+
+					assign.observationPartitionAssignments[newpartition] = Set{Int}(observation)
+					spn.partitionConnections[newpartition] = Vector{Region}()
+
+					scopes = collect(keys(newpartition.indexFunction))
+					parts = collect(values(newpartition.indexFunction))
+					partIds = unique(parts)
+
+					for partId in partIds
+						idx = find(partId .== parts)
+
+						subscope = Set(scopes[idx])
+
+						splitFound = false
+						for sregion in spn.regions
+							if sregion.scope == subscope
+								splitFound = true
+
+								# connect partition to region
+								push!(spn.partitionConnections[newpartition], sregion)
+							end
+						end
+
+						if splitFound
+							continue
+						else
+
+							# check new regions
+							newregions = config.newRegions[regionId]
+
+							for newregion in newregions
+								if newregion.scope == subscope
+
+									# add new region!
+									push!(spn.regions, newregion)
+									spn.regionConnections[newregion] = Vector{Partition}(0)
+									assign.observationRegionAssignments[newregion] = Set{Int}(observation)
+								end
+							end
+
+						end
+
+					end
+
+				end
+
+			end
+
+		end
+
+		# increase popularity
+		region.popularity[c[1]] += 1
+		region.N += 1
+		push!(assign.observationRegionAssignments[region], observation)
+
+		if isa(region, LeafRegion)
+
+			# add to Distribution
+			add_data!(region.nodes[c[1]].dist, x[region.nodes[c[1]].scope,:])
+
+		elseif isa(region, SumRegion) & !partitionAdded
+
+			# add to partition assignments
+			region.partitionPopularity[c[1]][spn.partitions[c[2]]] += 1
+			push!(assign.observationPartitionAssignments[spn.partitions[c[2]]], observation)
+		end
+
+	end
 
 end

@@ -10,7 +10,8 @@ module SPN
 				JuMP,
         GraphLayout,
         Compose,
-        Colors
+        Colors,
+				BMITest
 
 	import Base.getindex
 	import Base.map
