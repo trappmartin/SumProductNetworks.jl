@@ -113,18 +113,45 @@ for (region, cNode) in activeRegions
 
 end
 
+# clean up assignments
+assign.regionAssignments[observation] = Dict{Region, Int}()
+assign.partitionAssignments[observation] = Dict{Region, Partition}()
+
 # check if we have to remove regions
 if length(regionsToRemove) > 0
 
-	# TODO
+	for region in regionsToRemove
+
+		# loop over all partitions and remove partitionConnections
+		for partition in spn.partitions
+			if region in spn.partitionConnections[partition]
+				deleteat!(spn.partitionConnections[partition], findfirst(region .== spn.partitionConnections[partition]))
+			end
+		end
+
+		# remove regionConnections
+		delete!(spn.regionConnections, region)
+
+	end
 
 end
 
 # check if we have to remove partitions
 if length(partitionsToRemove) > 0
 
-	# TODO
+	for partition in partitionsToRemove
 
+		# loop over all regions and remove regionConnections
+		for region in spn.regions
+			if partition in spn.regionConnections[region]
+				deleteat!(spn.regionConnections[region], findfirst(partition .== spn.regionConnections[region]))
+			end
+		end
+
+		# remove partitionConnections
+		delete!(spn.partitionConnections, partition)
+
+	end
 end
 
 # 1.) get sample trees in the SPN
@@ -206,11 +233,41 @@ end
 
 # add additional structure if necessary
 for regionId in sampleTree
-	if length(config.newPartitions[regionId]) > 0
+	if haskey(config.newPartitions, regionId) > 0
+
+		region = spn.regions[regionId]
+		c = config.c[regionId]
+
+		for newPartition in config.newPartitions[regionId]
+
+			newRID = size(spn.partitions, 1) + 1
+			push!(spn.partitions, newPartition)
+			spn.partitionConnections[newPartition] = Vector{Region}(0)
+
+			if region.scope == newPartition.scope
+
+				# connect as the new partition is a child of the current region
+				push!(spn.regionConnections[region], newPartition)
+
+				# add popularity count
+				region.partitionPopularity[c[1]][newPartition] = 1
+
+			# loop over all partitions and remove partitionConnections
+			for partition in spn.partitions
+				if region in spn.partitionConnections[partition]
+					deleteat!(spn.partitionConnections[partition], findfirst(region .== spn.partitionConnections[partition]))
+				end
+			end
+
+			# remove regionConnections
+			delete!(spn.regionConnections, region)
+
+		end
+
 		println("todo")
 	end
 
-	if length(config.newRegions[regionId]) > 0
+	if haskey(config.newRegions, regionId) > 0
 		println("todo")
 	end
 
