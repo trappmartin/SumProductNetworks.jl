@@ -11,7 +11,11 @@ function drawSPN(spn::SumNode; file="spn.svg")
       if isa(nodes[i], Node)
          for j in collect(1:Base.length(nodes))
             if nodes[j] in nodes[i].children
-               A[i, j] = 1
+               if isa(nodes[i], SumNode)
+                  A[i, j] = nodes[i].weights[findfirst(nodes[j] .== nodes[i].children)]
+               else
+                  A[i, j] = 1
+               end
             end
          end
          if isa(nodes[i], SumNode)
@@ -35,20 +39,21 @@ function drawSPN(spn::SumNode; file="spn.svg")
        push!(adj_list, new_list)
    end
 
-   layoutSPN(adj_list, nodeTypes, cycles=false, filename=file)
+   layoutSPN(adj_list, A, nodeTypes, cycles=false, filename=file)
 
 end
 
 function drawSPN(spn::SPNStructure; file="spn.svg")
 
    nodeTypes = Vector{Symbol}(0)
-   
+
 
    #layoutSPN(adj_list, nodeTypes, cycles=false, filename=file)
 
 end
 
 function layoutSPN{T}(adj_list::Vector{Vector{T}},
+                        A::Array{Float64, 2},
                         nodeTypes::Vector{Symbol};
                         filename    = "",
 
@@ -123,7 +128,7 @@ function layoutSPN{T}(adj_list::Vector{Vector{T}},
     for L in 1:num_layers, i in layer_verts[L], j in adj_list[i]
         push!(arrows, _arrow_tree(
                 locs_x[i], locs_y[i], i<=orig_n ? max_h : 0,
-                locs_x[j], locs_y[j], j<=orig_n ? max_h : 0))
+                locs_x[j], locs_y[j], j<=orig_n ? max_h : 0, weight = A[i,j] * scale))
     end
     # 5.3   Assemble composition
     # We need to decide the true font size now. The logic is as follows:
@@ -192,14 +197,14 @@ _tree_leaf(x, y, width, height, max_x, max_y) = compose(
     o_x, o_y, o_h   Origin x, y, and height
     d_x, d_y, d_h   Destination x, y, and height
 """ ->
-function _arrow_tree(o_x, o_y, o_h, d_x, d_y, d_h)
+function _arrow_tree(o_x, o_y, o_h, d_x, d_y, d_h; weight = 0.1)
     x1, y1 = o_x, o_y + o_h/2
     x2, y2 = d_x, d_y - d_h/2
     Δx, Δy = x2 - x1, y2 - y1
     θ = atan2(Δy, Δx)
     # Put an arrow head only if destination isn't dummy
     head = d_h != 0 ? _arrow_heads(θ, x2, y2, 2) : []
-    compose(context(), stroke("black"),
+    compose(context(), stroke("black"), linewidth(weight * mm),
         line([(x1,y1),(x2,y2)]), head...)
 end
 

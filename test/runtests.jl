@@ -15,9 +15,9 @@ using Distributions
 #include("utilstest.jl")
 #println("# finished: utils test...")
 
-#println("# starting: Gens structure learning tests...")
-#include("genstests.jl")
-#println("# finished: Gens structure learning tests.")
+println("# starting: Gens structure learning tests...")
+include("genstests.jl")
+println("# finished: Gens structure learning tests.")
 
 println("# starting: infinite SPN tests...")
 include("infiniteSPNtests.jl")

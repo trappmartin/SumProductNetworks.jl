@@ -47,112 +47,8 @@ observation = 1
 
 x = X[:,observation]
 
-# evaluate all leaf regions
-
 # 0.) remove observation from SPN
-activeRegions = assign.regionAssignments[observation]
-activePartitions = assign.partitionAssignments[observation]
-
-# list of regions to remove
-regionsToRemove = Vector{Region}(0)
-
-# list of partitions to remove
-partitionsToRemove = Vector{Partition}(0)
-
-# remove observation from regions and Distributions
-for (region, cNode) in activeRegions
-
-	# decrease popularity
-	region.popularity[cNode] -= 1
-	region.N -= 1
-	delete!(assign.observationRegionAssignments[region], observation)
-
-	if isa(region, LeafRegion)
-
-		# remove from Distribution
-		remove_data!(region.nodes[cNode].dist, x[region.nodes[cNode].scope,:])
-
-	elseif isa(region, SumRegion)
-
-		# removal of partition assignments
-		region.partitionPopularity[cNode][activePartitions[region]] -= 1
-		delete!(assign.observationPartitionAssignments[activePartitions[region]], observation)
-	end
-
-	# remove node if the node is now empty
-	if region.popularity[cNode] == 0
-
-		delete!(region.popularity, cNode)
-
-		if isa(region, LeafRegion)
-			deleteat!(region.nodes, cNode)
-		elseif isa(region, SumRegion)
-			deleteat!(region.partitionPopularity, cNode)
-		end
-
-		# get all observations sharing the same region
-		obsR = assign.observationRegionAssignments[region]
-
-		# decrease node index for all
-		for obs in obsR
-			if assign.regionAssignments[obs][region] > cNode
-				assign.regionAssignments[obs][region] -= 1
-			end
-		end
-	end
-
-	# remove region if region is now empty
-	if region.N == 0
-		push!(regionsToRemove, region)
-	end
-
-	# remove partition if is now empty
-	if length(assign.observationPartitionAssignments[activePartitions[region]]) == 0
-		push!(partitionsToRemove, activePartitions[region])
-	end
-
-end
-
-# clean up assignments
-assign.regionAssignments[observation] = Dict{Region, Int}()
-assign.partitionAssignments[observation] = Dict{Region, Partition}()
-
-# check if we have to remove regions
-if length(regionsToRemove) > 0
-
-	for region in regionsToRemove
-
-		# loop over all partitions and remove partitionConnections
-		for partition in spn.partitions
-			if region in spn.partitionConnections[partition]
-				deleteat!(spn.partitionConnections[partition], findfirst(region .== spn.partitionConnections[partition]))
-			end
-		end
-
-		# remove regionConnections
-		delete!(spn.regionConnections, region)
-
-	end
-
-end
-
-# check if we have to remove partitions
-if length(partitionsToRemove) > 0
-
-	for partition in partitionsToRemove
-
-		# loop over all regions and remove regionConnections
-		for region in spn.regions
-			if partition in spn.regionConnections[region]
-				deleteat!(spn.regionConnections[region], findfirst(partition .== spn.regionConnections[region]))
-			end
-		end
-
-		# remove partitionConnections
-		delete!(spn.partitionConnections, partition)
-
-	end
-end
+@time SPN.removeObservation!(observation, x, spn, assign)
 
 # 1.) get sample trees in the SPN
 c = SPNConfiguration(Vector{Vector{Int}}(size(spn.regions, 1)))
@@ -169,9 +65,9 @@ for (ri, region) in enumerate(spn.regions)
 	end
 end
 
-# 2.) iterate over sample trees in the SPN
-
 configs = SPN.findConfigurations(c, cMax, spn)
+
+# 2.) iterate over sample trees in the SPN
 LLH = Vector{Float64}(length(configs))
 
 for (i, configuration) in enumerate(configs)
@@ -193,13 +89,13 @@ println(" * finished computation of llh values for existing sample trees")
 println(" * - finished ", length(LLH), " computations of sample trees")
 
 p = exp(LLH - maximum(LLH))
+p = p ./ sum(p)
 
-println(" * - p(x, T | Θ) = ", p)
+println(" * - p(x | T , W, Θ) = ", p)
 
 # 2.) roll the dice...
-
 k = BNP.rand_indices(p)
-
+k = length(p)
 println("new config: ", k)
 
 # 3.) add sample to new sample tree
@@ -212,6 +108,145 @@ for regionId in sampleTree
 	region = spn.regions[regionId]
 	c = config.c[regionId]
 
+	# check if we are out of the range (new node)
+	if c[1] > cMax.c[regionId][1]
+
+		# new node
+		region.popularity[c[1]] = 1
+
+		if isa(region, LeafRegion)
+
+			SS = 0.0
+			C = 0.0
+
+			for partition in spn.partitions # LOOP
+				if region in spn.partitionConnections[partition]
+					# check if the partition is selected by any region in the tree
+					for r2Id in sampleTree # LOOP
+						if partition in spn.regionConnections[region]
+							# partition is connected to region r2
+							# is it selected?
+							if (configuration.c[r2Id][2] == findfirst(spn.regionConnections[region], partition))
+								# get all observations that are inside that partition and region r2
+								for obs in 1:N # LOOP
+									if (region, partition) in assign.partitionAssignments[obs]
+										SS += X[region.scope, obs]
+										C += 1
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+
+			if C == 0
+				SS = 0.0
+				C = 1.0
+			end
+
+			leaf = UnivariateNode{ConjugatePostDistribution}(NormalGamma(μ = SS / C), scope = region.scope)
+			push!(region.nodes, leaf)
+
+		elseif isa(region, SumRegion)
+
+			push!(region.partitionPopularity, Dict{Partition, Int}())
+
+		end
+
+	end
+
+	partitionAdded = false
+
+	# check if we have a new partition selected
+	if isa(region, SumRegion)
+		if c[2] > cMax.c[regionId][2]
+
+			# new partition
+			println("new partitions")
+			for newpartition in config.newPartitions[regionId]
+
+				println("adding new partition with scope ", newpartition.scope)
+
+				partitionAdded = true
+
+				# create new partition
+				pid = size(spn.partitions, 1) + 1
+				push!(spn.partitions, newpartition)
+
+				# check if this partition should be connected to the region
+				if region.scope == newpartition.scope
+					region.partitionPopularity[c[1]][newpartition] = 1
+
+					push!(spn.regionConnections[region], newpartition)
+					assign.partitionAssignments[observation][region] = newpartition
+				else # find region that should connect to the region
+
+					for sregion in spn.regions
+						if sregion.scope == newpartition.scope
+
+							# connect partition to region (assume this is a new region, -> number of children = 0)
+							push!(sregion.partitionPopularity, Dict{Partition, Int}())
+							@assert size(sregion.partitionPopularity, 1) == 1
+							sregion.partitionPopularity[1][newpartition] = 1
+
+							push!(spn.regionConnections[sregion], newpartition)
+							assign.partitionAssignments[observation][sregion] = newpartition
+						end
+					end
+
+				end
+
+				assign.observationPartitionAssignments[newpartition] = Set{Int}(observation)
+				spn.partitionConnections[newpartition] = Vector{Region}()
+
+				scopes = collect(keys(newpartition.indexFunction))
+				parts = collect(values(newpartition.indexFunction))
+				partIds = unique(parts)
+
+				for partId in partIds
+					idx = find(partId .== parts)
+
+					subscope = Set(scopes[idx])
+
+					splitFound = false
+					for sregion in spn.regions
+						if sregion.scope == subscope
+							splitFound = true
+
+							# connect partition to region
+							push!(spn.partitionConnections[newpartition], sregion)
+						end
+					end
+
+					if splitFound
+						continue
+					else
+
+						# check new regions
+						newregions = config.newRegions[regionId]
+
+						for newregion in newregions
+							if newregion.scope == subscope
+
+								# add new region!
+								println("adding new region with scope ", newregion.scope)
+								push!(spn.regions, newregion)
+								spn.regionConnections[newregion] = Vector{Partition}(0)
+								assign.observationRegionAssignments[newregion] = Set{Int}(observation)
+							end
+						end
+
+					end
+
+				end
+
+			end
+
+		end
+
+	end
+
 	# increase popularity
 	region.popularity[c[1]] += 1
 	region.N += 1
@@ -219,56 +254,50 @@ for regionId in sampleTree
 
 	if isa(region, LeafRegion)
 
-		# remove from Distribution
+		# add to Distribution
 		add_data!(region.nodes[c[1]].dist, x[region.nodes[c[1]].scope,:])
 
-	elseif isa(region, SumRegion)
+	elseif isa(region, SumRegion) & !partitionAdded
 
-		# removal of partition assignments
+		# add to partition assignments
 		region.partitionPopularity[c[1]][spn.partitions[c[2]]] += 1
 		push!(assign.observationPartitionAssignments[spn.partitions[c[2]]], observation)
 	end
 
 end
-
-# add additional structure if necessary
-for regionId in sampleTree
-	if haskey(config.newPartitions, regionId) > 0
-
-		region = spn.regions[regionId]
-		c = config.c[regionId]
-
-		for newPartition in config.newPartitions[regionId]
-
-			newRID = size(spn.partitions, 1) + 1
-			push!(spn.partitions, newPartition)
-			spn.partitionConnections[newPartition] = Vector{Region}(0)
-
-			if region.scope == newPartition.scope
-
-				# connect as the new partition is a child of the current region
-				push!(spn.regionConnections[region], newPartition)
-
-				# add popularity count
-				region.partitionPopularity[c[1]][newPartition] = 1
-
-			# loop over all partitions and remove partitionConnections
-			for partition in spn.partitions
-				if region in spn.partitionConnections[partition]
-					deleteat!(spn.partitionConnections[partition], findfirst(region .== spn.partitionConnections[partition]))
-				end
-			end
-
-			# remove regionConnections
-			delete!(spn.regionConnections, region)
-
-		end
-
-		println("todo")
-	end
-
-	if haskey(config.newRegions, regionId) > 0
-		println("todo")
-	end
-
-end
+#
+# # add additional structure if necessary
+# for regionId in sampleTree
+# 	if haskey(config.newPartitions, regionId) > 0
+#
+# 		region = spn.regions[regionId]
+# 		c = config.c[regionId]
+#
+# 		for newPartition in config.newPartitions[regionId]
+#
+# 			newRID = size(spn.partitions, 1) + 1
+# 			push!(spn.partitions, newPartition)
+# 			spn.partitionConnections[newPartition] = Vector{Region}(0)
+#
+# 			if region.scope == newPartition.scope
+#
+# 				# connect as the new partition is a child of the current region
+# 				push!(spn.regionConnections[region], newPartition)
+#
+# 				# add popularity count
+# 				region.partitionPopularity[c[1]][newPartition] = 1
+# 			end
+#
+# 			# remove regionConnections
+# 			delete!(spn.regionConnections, region)
+#
+# 		end
+#
+# 		println("todo")
+# 	end
+#
+# 	if haskey(config.newRegions, regionId) > 0
+# 		println("todo")
+# 	end
+#
+# end

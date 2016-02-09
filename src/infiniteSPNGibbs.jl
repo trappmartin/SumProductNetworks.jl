@@ -30,7 +30,8 @@ function buildPartitionsAndRegions!(region::Region, regionId::Int, newConfig::SP
 
 	else
 		pL = length(partitions(scope))
-		parts = collect(partitions(scope))[rand(2:pL)]
+		# NOTE Debug code!!!
+		parts = collect(partitions(scope))[2] # rand(2:pL)]
 		p.indexFunction = Dict{Int, Int}()
 		push!(newConfig.newPartitions[regionId], p)
 
@@ -193,14 +194,8 @@ function extractSampleTree(configs::SPNConfiguration, spn::SPNStructure)
 					for partition in configs.newPartitions[r2Id]
 
 						# check if scopes match
-						if isa(region, LeafRegion)
-							if !(region.scope in partition.scope)
-								continue
-							end
-						else
-							if ⊈(region.scope, partition.scope)
-								continue
-							end
+						if ⊈(region.scope, partition.scope)
+							continue
 						end
 
 						# get sub-scope of partition
@@ -250,7 +245,7 @@ function posteriorPredictive(region::LeafRegion, regionId::Int, sampleTree::Vect
 	# check this is a new node
 	if cNode > cRMax
 
-		# get llh values
+		# get llh value
 		# 1. get all observation that
 
 		SS = 0.0
@@ -373,5 +368,117 @@ function posteriorPredictive(region::SumRegion, regionId::Int, sampleTree::Vecto
 	end
 
 	return postpred
+
+end
+
+@doc doc"""
+Remove a observation from the infinite SPN.
+""" ->
+function removeObservation!{T <: Real}(observation::Int, x::Array{T, 1}, spn::SPNStructure, assign::AssignmentRegionGraph)
+
+	activeRegions = assign.regionAssignments[observation]
+	activePartitions = assign.partitionAssignments[observation]
+
+	# list of regions to remove
+	regionsToRemove = Vector{Region}(0)
+
+	# list of partitions to remove
+	partitionsToRemove = Vector{Partition}(0)
+
+	# remove observation from regions and Distributions
+	for (region, cNode) in activeRegions
+
+		# decrease popularity
+		region.popularity[cNode] -= 1
+		region.N -= 1
+		delete!(assign.observationRegionAssignments[region], observation)
+
+		if isa(region, LeafRegion)
+
+			# remove from Distribution
+			remove_data!(region.nodes[cNode].dist, x[region.nodes[cNode].scope,:])
+
+		elseif isa(region, SumRegion)
+
+			# removal of partition assignments
+			region.partitionPopularity[cNode][activePartitions[region]] -= 1
+			delete!(assign.observationPartitionAssignments[activePartitions[region]], observation)
+		end
+
+		# remove node if the node is now empty
+		if region.popularity[cNode] == 0
+
+			delete!(region.popularity, cNode)
+
+			if isa(region, LeafRegion)
+				deleteat!(region.nodes, cNode)
+			elseif isa(region, SumRegion)
+				deleteat!(region.partitionPopularity, cNode)
+			end
+
+			# get all observations sharing the same region
+			obsR = assign.observationRegionAssignments[region]
+
+			# decrease node index for all
+			for obs in obsR
+				if assign.regionAssignments[obs][region] > cNode
+					assign.regionAssignments[obs][region] -= 1
+				end
+			end
+		end
+
+		# remove region if region is now empty
+		if region.N == 0
+			push!(regionsToRemove, region)
+		end
+
+		# remove partition if is now empty
+		if length(assign.observationPartitionAssignments[activePartitions[region]]) == 0
+			push!(partitionsToRemove, activePartitions[region])
+		end
+
+	end
+
+	# clean up assignments
+	assign.regionAssignments[observation] = Dict{Region, Int}()
+	assign.partitionAssignments[observation] = Dict{Region, Partition}()
+
+	# check if we have to remove regions
+	if length(regionsToRemove) > 0
+
+		for region in regionsToRemove
+
+			# loop over all partitions and remove partitionConnections
+			for partition in spn.partitions
+				if region in spn.partitionConnections[partition]
+					deleteat!(spn.partitionConnections[partition], findfirst(region .== spn.partitionConnections[partition]))
+				end
+			end
+
+			# remove regionConnections
+			delete!(spn.regionConnections, region)
+
+		end
+
+	end
+
+	# check if we have to remove partitions
+	if length(partitionsToRemove) > 0
+
+		for partition in partitionsToRemove
+
+			# loop over all regions and remove regionConnections
+			for region in spn.regions
+				if partition in spn.regionConnections[region]
+					deleteat!(spn.regionConnections[region], findfirst(partition .== spn.regionConnections[region]))
+				end
+			end
+
+			# remove partitionConnections
+			delete!(spn.partitionConnections, partition)
+
+		end
+	end
+
 
 end
