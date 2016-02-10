@@ -1,13 +1,13 @@
-#VERSION >= v"0.4.0" && __precompile__(true)
-#
+#VERSION >= v"0.4.2" && __precompile__(true)
+
 module SPN
 
   # loading dependencies into workspaces
-  using Distributions,
+  using JuMP,
+        Distributions,
         Base,
         BNP,
         HSIC,
-				JuMP,
         GraphLayout,
         Compose,
         Colors,
@@ -58,6 +58,7 @@ module SPN
     remove!,
     normalize!,
     llh,
+    cmllh,
     map,
 
 		# infinite SPN functions

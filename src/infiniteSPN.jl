@@ -212,7 +212,7 @@ function findPartition(scope::Set{Int}, indexFunction::Dict{Int64, Int64}, spn::
 	for (pi, partition) in enumerate(spn.partitions)
 
 		if scope == partition.scope
-
+#
 			# check index functions (clusterings)
 			c1 = vec([partition.indexFunction[s] for s in scope])
 			c2 = vec([indexFunction[s] for s in scope])

@@ -230,7 +230,7 @@ posterior predictive for leaf region.
 """ ->
 function posteriorPredictive(region::LeafRegion, regionId::Int, sampleTree::Vector{Int},
 	configuration::SPNConfiguration, cMax::SPNConfiguration,
-	spn::SPNStructure, x; α = 1.0)
+	spn::SPNStructure, x::AbstractArray; α = 1.0)
 
 	postpred = 0.0
 
@@ -303,7 +303,7 @@ posterior predictive for leaf region.
 """ ->
 function posteriorPredictive(region::SumRegion, regionId::Int, sampleTree::Vector{Int},
 	configuration::SPNConfiguration, cMax::SPNConfiguration,
-	spn::SPNStructure, x; α = 1.0)
+	spn::SPNStructure, x::AbstractArray; α = 1.0)
 
 	postpred = 0.0
 
@@ -373,7 +373,7 @@ end
 @doc doc"""
 Remove a observation from the infinite SPN.
 """ ->
-function removeObservation!{T <: Real}(observation::Int, x::Array{T, 1}, spn::SPNStructure, assign::AssignmentRegionGraph)
+function removeObservation!(observation::Int, x::AbstractArray, spn::SPNStructure, assign::AssignmentRegionGraph)
 
 	activeRegions = assign.regionAssignments[observation]
 	activePartitions = assign.partitionAssignments[observation]
@@ -483,7 +483,7 @@ end
 @doc doc"""
 Add the observation and if necessary the new sub structure.
 """ ->
-function addObservation!{T <: Real}(observation::Int, x::Array{T, 1}, config::SPNConfiguration, cMax::SPNConfiguration, spn::SPNStructure, assign::AssignmentRegionGraph)
+function addObservation!(observation::Int, x::AbstractArray, config::SPNConfiguration, cMax::SPNConfiguration, spn::SPNStructure, assign::AssignmentRegionGraph)
 
 	sampleTree = SPN.extractSampleTree(config, spn)
 

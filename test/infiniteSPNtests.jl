@@ -25,11 +25,11 @@ root = SPN.learnSPN(X, dimMapping, obsMapping, assignments)
 println(" * draw initial SPN")
 drawSPN(root, file = "initialSPN.svg")
 
-# transform SPN to regions and partitions
+# transform SPN to regions and partition
 println(" * transform SPN into regions and partitions")
 (spn, assign) = transformToRegionPartition(root, assignments, N)
 
-@test size(spn.partitions, 1) == 1
+@test size(spn.partitions, 1) >= 1
 @test size(spn.regions, 1) >= 3
 
 # check if assign object and observation counts are equal
@@ -91,15 +91,82 @@ println(" * - finished ", length(LLH), " computations of sample trees")
 p = exp(LLH - maximum(LLH))
 p = p ./ sum(p)
 
-println(" * - p(x | T , W, Θ) = ", p)
-
 # 2.) roll the dice...
 k = BNP.rand_indices(p)
-k = length(p)
 println("new config: ", k)
 
 # 3.) add sample to new sample tree
 config = configs[k]
 @time SPN.addObservation!(observation, x, config, cMax, spn, assign)
 
-# 4.) resample partitions
+# 4.) resample partition-regions
+partitionPrior = :CRP
+
+# sort partitions by scope
+sortedPartitions = sort(spn.partitions, by=p -> length(p.scope))
+
+# update each partition if sample count is sufficiently highy
+for partition in sortedPartitions
+
+	# get number of assignments
+	initK = length(unique(values(partition.indexFunction)))
+
+	Ds = collect(partition.scope)
+	Ns = collect(assign.observationPartitionAssignments[partition])
+
+	if (length(Ns) > 0) & (length(Ds) >= initK)
+
+		idxFun = Array{Int}([partition.indexFunction[s] for s in partition.scope])
+
+		# construct data matrix
+		Xhat = X[Ds,Ns]'
+
+		(D, N) = size(Xhat)
+
+		if partitionPrior == :CRP
+
+			println("running CRP to find partition of scope")
+
+			μ0 = vec( mean(Xhat, 2) )
+			κ0 = 1.0
+			ν0 = convert(Float64, D)
+			Ψ = eye(D) * 10
+
+			G0 = GaussianWishart(μ0, κ0, ν0, Ψ)
+
+			models = train(DPM(G0), Gibbs(burnin = 0, maxiter = 1, thinout = 1), PrecomputedInitialisation(copy(idxFun)), Xhat)
+
+			# get assignment
+			idx = vec(models[end].assignments)
+
+			if length(unique(idx)) == 1
+				# this means there is no partition -> just keep the old one...
+			else
+				idxFun = idx
+			end
+		elseif partitionPrior == :VCM
+
+			println("running VCM to find partition of scope")
+
+			println(size(Xhat))
+
+			models = train(VCM(), Gibbs(burnin = 0, maxiter = 1, thinout = 1), IncrementalInitialisation(), Xhat)
+
+			# get assignments
+			for model in models
+				println(size(full(model.C)))
+			end
+			#Z = reduce(hcat, map(model -> vec(model.C), models))
+			#
+			#println(Z)
+
+		end
+
+		#
+
+		println(idxFun)
+
+	end
+
+
+end

@@ -212,7 +212,7 @@ end
 Compute the log likelihood of the data under the model.
 The result is computed considering the topological order of the SPN.
 """
-function llh{T<:Real}(root::Node, data::Array{T})
+function llh{T<:Real}(root::Node, data::AbstractArray{T})
     # get topological order
     toporder = order(root)
 
@@ -230,8 +230,57 @@ end
 Compute the log likelihood of the data under the model.
 This function evaluates leaf nodes only.
 """
-function llh{T<:Real}(root::Leaf, data::Array{T})
+function llh{T<:Real}(root::Leaf, data::AbstractArray{T})
     return eval(root, data)[1]
+end
+
+@doc doc"""
+Computes the conditional marginal log-likelihood.
+E.g.: P(query | evidence) = P(evidence, query) / P(evidence)
+
+cmllh(spn, query, evidence) -> [P(q1 | e1)]
+""" ->
+function cmllh{T<:Real}(root::Node, query::Dict{Int, T}, evidence::Dict{Int, T})
+    # get topological order
+    toporder = order(root)
+
+		# compute P(evidence, query)
+
+    llhval = Dict{SPNNode, Array{Float64}}()
+		data = ones(length(root.scope), 1) * NaN
+		for d in root.scope
+			if haskey(query, d)
+				data[d] = query[d]
+			elseif haskey(evidence, d)
+				data[d] = evidence[d]
+			end
+		end
+
+    for node in toporder
+        # take only llh values. Eval function returns: (llh, map, mappath)
+        llhval[node] = eval(node, data, llhval)[1]
+    end
+
+		llhEQ = llhval[toporder[end]][1]
+
+		# compute P(evidence)
+
+    llhval = Dict{SPNNode, Array{Float64}}()
+		data = ones(length(root.scope), 1) * NaN
+		for d in root.scope
+			if haskey(evidence, d)
+				data[d] = evidence[d]
+			end
+		end
+
+    for node in toporder
+        # take only llh values. Eval function returns: (llh, map, mappath)
+        llhval[node] = eval(node, data, llhval)[1]
+    end
+
+		llhE = llhval[toporder[end]][1]
+
+    return llhEQ - llhE
 end
 
 "Extract MAP path, this implementation is possibly slow!"
@@ -326,6 +375,11 @@ This function returns the llh of the data under the model, the maximum a posteri
 function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
     if ndims(data) > 1
         x = sub(data, node.scope, :)
+
+				if all(isnan(x))
+					return ([0], [0], Array{SPNNode}(0))
+				end
+
         llh = logpdf(node.dist, x)
         return (llh, llh, Array{SPNNode}(0))
     else
@@ -342,6 +396,11 @@ This function returns the llh of the data under the model, the maximum a posteri
 function eval{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
     if ndims(data) > 1
         x = sub(data, node.scope, :)
+
+				if all(isnan(x))
+					return ([0], [0], Array{SPNNode}(0))
+				end
+
         llh = logpred(node.dist, x)
         return (llh, llh, Array{SPNNode}(0))
     else
