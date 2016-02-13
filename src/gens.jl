@@ -1,4 +1,4 @@
-function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 50, minN = 10, pointestimate = false)
+function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 50, minN = 10, pointestimate = false, α = 1.0, debug = false, method = :DPM)
 
 	(D, N) = size(X)
 
@@ -6,53 +6,71 @@ function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 50, minN = 
 		return (1 => 1.0, ones(Int, N))
 	end
 
-	models = train(DPM(G0), Gibbs(burnin = 200, maxiter = iterations, thinout = 2), KMeansInitialisation(k = minimum([10, round(Int, sqrt(N))]) ), X)
-
-	println("   # [learnSPN]: finished DPMM training $(now())")
-
-	# get assignments
-	Z = reduce(hcat, map(model -> vec(model.assignments), models))
-
-	# make sure assignments are in range
-	nz = zeros(Int, N)
-	for i in 1:size(Z)[2]
-		uz = unique(Z[:,i])
-
-		for (zi, z) in enumerate(uz)
-			idx = find(Z[:,i] .== z)
-			nz[idx] = zi
-		end
-
-		Z[:,i] = nz
-	end
-
 	idx = zeros(Int, N)
 
-	if pointestimate == true
+	if method == :NB
+		idClusterId = SPN.runNaiveBayes(X)
 
-		println("   # [learnSPN]: compute PSM $(now())")
+		idx = [idClusterId[i] for i in 1:N]
 
-		psm = compute_psm(Z)
+	elseif method == :DPM
 
-		println("   # [learnSPN]: compute point estimate $(now())")
+		models = train(DPM(G0), Gibbs(burnin = 200, maxiter = iterations, thinout = 2), KMeansInitialisation(k = minimum([10, round(Int, sqrt(N))]) ), X)
 
-		# NOTE: This is very slow as it does hclust for a N * N matrix.
-		(idx, value) = point_estimate(psm, method = :comp)
+		if debug
+			println("   # [learnSPN]: finished DPMM training $(now())")
+		end
 
-	else
+		# get assignments
+		Z = reduce(hcat, map(model -> vec(model.assignments), models))
 
-		p = reduce(hcat, map(model -> model.energy, models))
-		p = exp(p - maximum(p))
+		# make sure assignments are in range
+		nz = zeros(Int, N)
+		for i in 1:size(Z)[2]
+			uz = unique(Z[:,i])
 
-		j = BNP.rand_indices(p)
+			for (zi, z) in enumerate(uz)
+				idx = find(Z[:,i] .== z)
+				nz[idx] = zi
+			end
 
-		println("   # [learnSPN]: take random model $(j) with $(length(unique(Z[:,j]))) cluster(s)")
+			Z[:,i] = nz
+		end
 
-		idx = Z[:,j]
+		if pointestimate == true
 
+			if debug
+				println("   # [learnSPN]: compute PSM $(now())")
+			end
+
+			psm = compute_psm(Z)
+
+			if debug
+				println("   # [learnSPN]: compute point estimate $(now())")
+			end
+
+			# NOTE: This is very slow as it does hclust for a N * N matrix.
+			(idx, value) = point_estimate(psm, method = :comp)
+
+		else
+
+			p = reduce(hcat, map(model -> model.energy, models))
+			p = exp(p - maximum(p))
+
+			j = BNP.rand_indices(p)
+
+			if debug
+				println("   # [learnSPN]: take random model $(j) with $(length(unique(Z[:,j]))) cluster(s)")
+			end
+
+			idx = Z[:,j]
+
+		end
 	end
 
-	println("   # [learnSPN]: construct node $(now())")
+	if debug
+		println("   # [learnSPN]: construct node $(now())")
+	end
 
 	# number of child nodes
 	uidx = unique(idx)
@@ -63,6 +81,7 @@ function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 50, minN = 
 	return (w, idx)
 
 end
+
 
 function learnProductNode(X::AbstractArray; method = :HSIC, pvalue = 0.05, minN = 10)
 
@@ -133,18 +152,20 @@ function learnProductNode(X::AbstractArray; method = :HSIC, pvalue = 0.05, minN 
 end
 
 function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, assignments::Assignment;
-	parent = Nullable{ProductNode}(), minSamples = 10, method = :HSIC, G0Type = GaussianWishart, L0Type = NormalGamma)
+	parent = Nullable{ProductNode}(), minSamples = 10, method = :HSIC, G0Type = GaussianWishart, L0Type = NormalGamma, α = 1.0, debug = false)
 
 	# learn SPN using Gens learnSPN
 	(D, N) = size(X)
 
-	println("   # [learnSPN]: learn using $(N) samples with $(D) dimensions ($(now()))..")
+	if debug
+		println("   # [learnSPN]: learn using $(N) samples with $(D) dimensions ($(now()))..")
+	end
 
 	# define G0
 	G0 = BNP.fit(G0Type, X)
 
 	# learn sum nodes
-	(w, ids) = learnSumNode(X, G0, minN = minSamples)
+	(w, ids) = learnSumNode(X, G0, minN = minSamples, α = α, debug = debug)
 
 	# create sum node
 	scope = [dimMapping[d] for d in 1:D]

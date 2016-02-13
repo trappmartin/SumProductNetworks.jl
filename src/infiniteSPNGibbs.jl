@@ -69,9 +69,11 @@ function buildPartitionsAndRegions!(region::Region, regionId::Int, newConfig::SP
 			end
 		end
 	end
+
+	newConfig
 end
 
-function findConfigurations(c::SPNConfiguration, cMax::SPNConfiguration, spn::SPNStructure)
+function findConfigurations(c::SPNConfiguration, cMax::SPNConfiguration, spn::SPNStructure; allowNew = true)
 
 	canIncrease = true
 	configs = Vector{SPNConfiguration}(0)
@@ -89,6 +91,11 @@ function findConfigurations(c::SPNConfiguration, cMax::SPNConfiguration, spn::SP
 
 		while (!increased) & (pos != 0)
 
+			if newConfig.c[pos][1] == -1
+				pos -= 1
+				continue
+			end
+
 			if isa(spn.regions[pos], LeafRegion)
 				if (newConfig.c[pos][1] + 1) <= (cMax.c[pos][1] + 1) # +1 is new node!
 					newConfig.c[pos][1] += 1
@@ -103,7 +110,13 @@ function findConfigurations(c::SPNConfiguration, cMax::SPNConfiguration, spn::SP
 				# except for root...
 				if !spn.regions[pos].isRoot
 
-					if (newConfig.c[pos][1] + 1) <= (cMax.c[pos][1] + 1)
+					if allowNew
+						cMaxValue = cMax.c[pos][1] + 1
+					else
+						cMaxValue = cMax.c[pos][1]
+					end
+
+					if (newConfig.c[pos][1] + 1) <= cMaxValue
 						newConfig.c[pos][1] += 1
 						increased = true
 					else
@@ -112,12 +125,22 @@ function findConfigurations(c::SPNConfiguration, cMax::SPNConfiguration, spn::SP
 
 				end
 
+				if increased & (newConfig.c[pos][2] > cMax.c[pos][2])
+					newConfig = buildPartitionsAndRegions!(spn.regions[pos], pos, newConfig, spn)
+				end
+
 				if increased
 					continue
 				end
 
 				# partition increase
-				if (newConfig.c[pos][2] + 1) <= (cMax.c[pos][2] + 1)
+				if allowNew
+					cMaxValue = cMax.c[pos][2] + 1
+				else
+					cMaxValue = cMax.c[pos][2]
+				end
+
+				if (newConfig.c[pos][2] + 1) <= cMaxValue
 					newConfig.c[pos][2] += 1
 					increased = true
 				else
@@ -125,7 +148,7 @@ function findConfigurations(c::SPNConfiguration, cMax::SPNConfiguration, spn::SP
 				end
 
 				if newConfig.c[pos][2] > cMax.c[pos][2]
-					buildPartitionsAndRegions!(spn.regions[pos], pos, newConfig, spn)
+					newConfig = buildPartitionsAndRegions!(spn.regions[pos], pos, newConfig, spn)
 				end
 
 			end
@@ -154,6 +177,11 @@ function extractSampleTree(configs::SPNConfiguration, spn::SPNStructure)
 	tree = Vector{Int}(0)
 
 	for (rId, region) in enumerate(spn.regions)
+
+		# skip if config is -1
+		if configs.c[rId][1] == -1
+			continue
+		end
 
 		# check if region is root (heuristic: no previous partition)
 		isRoot = true
@@ -332,7 +360,12 @@ function posteriorPredictive(region::SumRegion, regionId::Int, sampleTree::Vecto
 		postpred += log(region.popularity[cNode] / (region.N - 1 + α) )
 
 		# p(c_{i, S} = j | c_{-i, S}, α)
-		postpred += log(region.partitionPopularity[cNode][spn.regionConnections[region][cPartition]] / (region.popularity[cNode] - 1 + α) )
+		# check if the node already has a popularity value for this partition otherwise its α
+		if haskey(region.partitionPopularity[cNode], spn.regionConnections[region][cPartition])
+			postpred += log(region.partitionPopularity[cNode][spn.regionConnections[region][cPartition]] / (region.popularity[cNode] - 1 + α) )
+		else
+			postpred += log(α / (region.popularity[cNode] - 1 + α) )
+		end
 
 	elseif (cNode <= cMaxNode) & (cPartition > cMaxPartition)
 
@@ -373,7 +406,7 @@ end
 @doc doc"""
 Remove a observation from the infinite SPN.
 """ ->
-function removeObservation!(observation::Int, x::AbstractArray, spn::SPNStructure, assign::AssignmentRegionGraph)
+function removeObservation!(observation::Int, x::AbstractArray, spn::SPNStructure, assign::AssignmentRegionGraph; regionsSubset = Vector{Region}(0))
 
 	activeRegions = assign.regionAssignments[observation]
 	activePartitions = assign.partitionAssignments[observation]
@@ -386,6 +419,12 @@ function removeObservation!(observation::Int, x::AbstractArray, spn::SPNStructur
 
 	# remove observation from regions and Distributions
 	for (region, cNode) in activeRegions
+
+		if !isempty(regionsSubset)
+			if !(region in regionsSubset)
+				continue
+			end
+		end
 
 		# decrease popularity
 		region.popularity[cNode] -= 1
@@ -432,8 +471,10 @@ function removeObservation!(observation::Int, x::AbstractArray, spn::SPNStructur
 		end
 
 		# remove partition if is now empty
-		if length(assign.observationPartitionAssignments[activePartitions[region]]) == 0
-			push!(partitionsToRemove, activePartitions[region])
+		if isa(region, SumRegion)
+			if length(assign.observationPartitionAssignments[activePartitions[region]]) == 0
+				push!(partitionsToRemove, activePartitions[region])
+			end
 		end
 
 	end
@@ -562,6 +603,7 @@ function addObservation!(observation::Int, x::AbstractArray, config::SPNConfigur
 
 						push!(spn.regionConnections[region], newpartition)
 						assign.partitionAssignments[observation][region] = newpartition
+
 					else # find region that should connect to the region
 
 						for sregion in spn.regions
@@ -571,9 +613,11 @@ function addObservation!(observation::Int, x::AbstractArray, config::SPNConfigur
 								push!(sregion.partitionPopularity, Dict{Partition, Int}())
 								@assert size(sregion.partitionPopularity, 1) == 1
 								sregion.partitionPopularity[1][newpartition] = 1
+								sregion.popularity[1] = 1
 
 								push!(spn.regionConnections[sregion], newpartition)
 								assign.partitionAssignments[observation][sregion] = newpartition
+
 							end
 						end
 
@@ -615,6 +659,7 @@ function addObservation!(observation::Int, x::AbstractArray, config::SPNConfigur
 									push!(spn.regions, newregion)
 									spn.regionConnections[newregion] = Vector{Partition}(0)
 									assign.observationRegionAssignments[newregion] = Set{Int}(observation)
+									assign.regionAssignments[observation][newregion] = 1
 								end
 							end
 
@@ -629,20 +674,28 @@ function addObservation!(observation::Int, x::AbstractArray, config::SPNConfigur
 		end
 
 		# increase popularity
-		region.popularity[c[1]] += 1
-		region.N += 1
-		push!(assign.observationRegionAssignments[region], observation)
+		if !(observation in assign.observationRegionAssignments[region])
+			region.popularity[c[1]] += 1
+			region.N += 1
+			push!(assign.observationRegionAssignments[region], observation)
+			assign.regionAssignments[observation][region] = c[1]
 
-		if isa(region, LeafRegion)
+			if isa(region, LeafRegion)
 
-			# add to Distribution
-			add_data!(region.nodes[c[1]].dist, x[region.nodes[c[1]].scope,:])
+				# add to Distribution
+				add_data!(region.nodes[c[1]].dist, x[region.nodes[c[1]].scope,:])
 
-		elseif isa(region, SumRegion) & !partitionAdded
+			elseif isa(region, SumRegion) & !partitionAdded
 
-			# add to partition assignments
-			region.partitionPopularity[c[1]][spn.partitions[c[2]]] += 1
-			push!(assign.observationPartitionAssignments[spn.partitions[c[2]]], observation)
+				# add to partition assignments
+				if !haskey(region.partitionPopularity[c[1]], spn.regionConnections[region][c[2]])
+					region.partitionPopularity[c[1]][spn.regionConnections[region][c[2]]] = 1
+				else
+					region.partitionPopularity[c[1]][spn.regionConnections[region][c[2]]] += 1
+				end
+				push!(assign.observationPartitionAssignments[spn.regionConnections[region][c[2]]], observation)
+			end
+
 		end
 
 	end

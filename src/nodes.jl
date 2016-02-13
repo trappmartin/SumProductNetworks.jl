@@ -208,6 +208,44 @@ function flat!(nodes::Array{SPNNode}, node::SPNNode)
     nodes
 end
 
+@doc doc"""
+Fix the SPN by removing prior on Distributions.
+""" ->
+function fixSPN!(root::Node)
+
+	# get topological order
+	toporder = order(root)
+
+	for node in toporder
+		if isa(node, Leaf)
+			if isa(node.dist, BinomialBeta)
+
+				d = BNP.convert(node.dist)
+
+        # find node in parent
+        parent = get(node.parent)
+        id = findfirst(node .== parent.children)
+        remove!(parent, id)
+        newNode = UnivariateNode{Binomial}(d, scope = node.scope)
+        add!(parent, newNode)
+
+      elseif isa(node.dist, NormalGamma)
+
+				d = BNP.convert(node.dist)
+
+        # find node in parent
+        parent = get(node.parent)
+        id = findfirst(node .== parent.children)
+        remove!(parent, id)
+        newNode = UnivariateNode{Normal}(d, scope = node.scope)
+        add!(parent, newNode)
+
+			end
+		end
+	end
+
+end
+
 """
 Compute the log likelihood of the data under the model.
 The result is computed considering the topological order of the SPN.
@@ -244,24 +282,29 @@ function cmllh{T<:Real}(root::Node, query::Dict{Int, T}, evidence::Dict{Int, T})
     # get topological order
     toporder = order(root)
 
+
+    llhEQ = 0
 		# compute P(evidence, query)
+    for q in keys(query)
 
-    llhval = Dict{SPNNode, Array{Float64}}()
-		data = ones(length(root.scope), 1) * NaN
-		for d in root.scope
-			if haskey(query, d)
-				data[d] = query[d]
-			elseif haskey(evidence, d)
-				data[d] = evidence[d]
-			end
-		end
+      llhval = Dict{SPNNode, Array{Float64}}()
+  		data = ones(length(root.scope), 1) * NaN
+  		for d in root.scope
+  			if q == d
+  				data[d] = query[d]
+  			elseif haskey(evidence, d)
+  				data[d] = evidence[d]
+  			end
+  		end
 
-    for node in toporder
-        # take only llh values. Eval function returns: (llh, map, mappath)
-        llhval[node] = eval(node, data, llhval)[1]
+      for node in toporder
+          # take only llh values. Eval function returns: (llh, map, mappath)
+          llhval[node] = eval(node, data, llhval)[1]
+      end
+
+      llhEQ += llhval[toporder[end]][1]
+
     end
-
-		llhEQ = llhval[toporder[end]][1]
 
 		# compute P(evidence)
 
@@ -280,7 +323,7 @@ function cmllh{T<:Real}(root::Node, query::Dict{Int, T}, evidence::Dict{Int, T})
 
 		llhE = llhval[toporder[end]][1]
 
-    return llhEQ - llhE
+    return llhEQ - (llhE * length(keys(query)))
 end
 
 "Extract MAP path, this implementation is possibly slow!"
@@ -370,9 +413,9 @@ end
 
 """
 Evaluate Univariate Node.
-This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
+This function returns the llh of the data under the model, the maximum a posterior (equal to log-likelihood), and itself.
 """
-function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
+function eval{T<:Real, U<:DiscreteUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
     if ndims(data) > 1
         x = sub(data, node.scope, :)
 
@@ -384,6 +427,29 @@ function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode
         return (llh, llh, Array{SPNNode}(0))
     else
         llh = logpdf(node.dist, data)
+
+        return (llh, llh, Array{SPNNode}(0))
+    end
+
+end
+
+"""
+Evaluate Univariate Node.
+This function returns the llh of the data under the model, the maximum a posterior (equal to log-likelihood), and itself.
+"""
+function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
+    if ndims(data) > 1
+        x = sub(data, node.scope, :)
+
+				if all(isnan(x))
+					return ([0], [0], Array{SPNNode}(0))
+				end
+
+        llh = logpdf(node.dist, x) - logpdf(node.dist, mean(node.dist))
+        return (llh, llh, Array{SPNNode}(0))
+    else
+        llh = logpdf(node.dist, data) - logpdf(node.dist, mean(node.dist))
+
         return (llh, llh, Array{SPNNode}(0))
     end
 

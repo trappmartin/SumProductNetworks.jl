@@ -56,7 +56,5 @@ for ln in eachline(f)
        push!(query, x)
 end
 
-println(evidence)
-
 # learn SPN using Gens Approach
 #root = SPN.learnSPN(X, dimMapping, obsMapping, assignments, method = :BM, G0Type = MultinomialDirichlet, L0Type = BinomialBeta)

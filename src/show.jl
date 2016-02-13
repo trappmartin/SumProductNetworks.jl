@@ -11,5 +11,8 @@ function Base.show(io::IO, m::Partition)
 end
 
 function Base.show(io::IO, m::SPNStructure)
-  print(io, "SPNStructure => [regions: $(m.regions), partitions: $(m.partitions)]")
+  println(io, "SPNStructure => [regions: $(m.regions), ")
+	println(io, "   partitions: $(m.partitions), ")
+	println(io, "   regionConnections: $(m.regionConnections), ")
+	println(io, "   partitionConnections: $(m.partitionConnections), ")
 end

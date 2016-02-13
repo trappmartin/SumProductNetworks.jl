@@ -19,9 +19,9 @@ println("# starting: Gens structure learning tests...")
 include("genstests.jl")
 println("# finished: Gens structure learning tests.")
 
-println("# starting: Gens pipeline test...")
-include("gensPipelineTest.jl")
-println("# finished: Gens pipeline test.")
+#println("# starting: Gens pipeline test...")
+#include("gensPipelineTest.jl")
+#println("# finished: Gens pipeline test.")
 
 println("# starting: infinite SPN tests...")
 include("infiniteSPNtests.jl")

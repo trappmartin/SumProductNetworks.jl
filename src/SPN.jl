@@ -26,6 +26,7 @@ module SPN
   # include approach specific implementations
 	include("infiniteSPN.jl")
   include("infiniteSPNGibbs.jl")
+	include("naiveBayesClustering.jl")
 	include("gens.jl")
 
   # include visualization implementations
@@ -49,6 +50,7 @@ module SPN
     LeafRegion,
     SPNStructure,
 		SPNConfiguration,
+    AssignmentRegionGraph,
 
     # spn functions
 		children,
