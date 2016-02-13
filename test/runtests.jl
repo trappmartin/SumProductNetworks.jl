@@ -1,4 +1,4 @@
-#addprocs(3)
+addprocs(6)
 
 using BNP
 using SPN
@@ -15,9 +15,9 @@ using Distributions
 #include("utilstest.jl")
 #println("# finished: utils test...")
 
-println("# starting: Gens structure learning tests...")
-include("genstests.jl")
-println("# finished: Gens structure learning tests.")
+#println("# starting: Gens structure learning tests...")
+#include("genstests.jl")
+#println("# finished: Gens structure learning tests.")
 
 #println("# starting: Gens pipeline test...")
 #include("gensPipelineTest.jl")

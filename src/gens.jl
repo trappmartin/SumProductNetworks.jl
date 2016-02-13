@@ -127,7 +127,7 @@ function learnProductNode(X::AbstractArray; method = :HSIC, pvalue = 0.05, minN 
 			if method == :HSIC
 				(value, threshold) = gammaHSIC(x, y, α = pvalue)
 			elseif method == :BM
-				(p, logP) = BMITest.test(vec(x), vec(y), α = 100)
+				(p, logP) = BMITest.test(vec(x), vec(y), α = 1)
 				value = 1-p
 				threshold = 0.5
 			end

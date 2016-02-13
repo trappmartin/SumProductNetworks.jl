@@ -1,4 +1,4 @@
-#VERSION >= v"0.4.2" && __precompile__(true)
+__precompile__(true)
 
 module SPN
 
