@@ -8,6 +8,39 @@ type SPNConfiguration
 
 end
 
+abstract RegionResultObject
+
+type LeafRegionResultObject <: RegionResultObject
+
+	postpredNodes::Vector{Float64}
+	configNodes::Vector{Int}
+	postpredInformedNodes::Vector{Float64}
+	configInformedNodes::Vector{Tuple{Int, Int}}
+	postpredUninformedNode::Float64
+
+	LeafRegionResultObject(postpredNodes, configNodes;
+		postpredInformedNodes = Vector{Float64}(0), configInformedNodes = Vector{Tuple{Int, Int}}(0)) = new(postpredNodes, configNodes,
+		postpredInformedNodes, configInformedNodes, -Inf)
+
+end
+
+type SumRegionResultObject <: RegionResultObject
+
+	postpred::Array{Float64, 2}
+	postpredNewPartitions::Vector{Float64}
+	configNewPartitionPartitions::Vector{Vector{Partition}}
+	configNewPartitionRegions::Vector{Vector{Region}}
+	postpredNewNode::Float64
+	postpredNewNodeNewPartition::Float64
+	configNewNodeNewPartitionPartitions::Vector{Partition}
+	configNewNodeNewPartitionRegions::Vector{Region}
+
+	SumRegionResultObject(size11::Int, size12::Int, size2::Int) = new(Array{Float64, 2}(size11, size12),
+		Vector{Float64}(size2), Vector{Vector{Partition}}(size2), Vector{Vector{Region}}(size2), -Inf, -Inf,
+		Vector{Partition}(0), Vector{Region}(0))
+
+end
+
 function buildPartitionsAndRegions!(region::Region, regionId::Int, newConfig::SPNConfiguration, spn::SPNStructure)
 
 	if !haskey(newConfig.newPartitions, regionId)
@@ -71,6 +104,73 @@ function buildPartitionsAndRegions!(region::Region, regionId::Int, newConfig::SP
 
 	newConfig
 end
+
+function buildPartitionsAndRegions!(region::Region, regionId::Int, spn::SPNStructure)
+
+	newPartitions = Vector{Partition}(0)
+	newRegions = Vector{Region}(0)
+
+	# new partition
+	p = Partition()
+
+	# check scope
+	indexFunction = Dict{Int, Int}()
+	scope = collect(region.scope)
+
+	p.scope = region.scope
+
+	if length(scope) == 2
+		p.indexFunction = Dict{Int, Int}(scope[1] => 1, scope[2] => 2)
+		push!(newPartitions, p)
+	else
+		pL = length(partitions(scope))
+		parts = collect(partitions(scope))[rand(2:pL)]
+		p.indexFunction = Dict{Int, Int}()
+		p.subscopes = [Set(part) for part in parts]
+		push!(newPartitions, p)
+
+		# check if indexFunction splits into new region
+		for (pi, part) in enumerate(parts)
+
+			for v in part
+				p.indexFunction[v] = pi
+			end
+
+			if length(part) == 1
+				continue
+			end
+
+			partSet = Set(part)
+
+			allSplitsFound = false
+			for region in spn.regions
+				if region.scope == partSet
+					allSplitsFound = true
+					# save new connection
+				end
+			end
+
+			if !allSplitsFound
+				# create region
+				r = SumRegion()
+				r.scope = partSet
+				r.partitionPopularity = Vector{Dict{Partition, Int64}}(0)
+				r.popularity = Dict{Int64, Int64}()
+				r.N = 1
+
+				push!(newRegions, r)
+				(nP, nR) = buildPartitionsAndRegions!(r, regionId, spn)
+
+				append!(newRegions, nR)
+				append!(newPartitions, nP)
+
+			end
+		end
+	end
+
+	(newPartitions, newRegions)
+end
+
 
 function findConfigurations(c::SPNConfiguration, cMax::SPNConfiguration, spn::SPNStructure; allowNew = true)
 
@@ -274,6 +374,72 @@ end
 @doc doc"""
 posterior predictive for leaf region.
 """ ->
+function posteriorPredictive(region::LeafRegion, regionId::Int, initialConfig::SPNConfiguration, cMax::SPNConfiguration,
+	spn::SPNStructure, assign::AssignmentRegionGraph, X::AbstractArray, xi::Int; α = 1.0, G0Type = NormalGamma)
+
+	# get selection
+	initialcNode = initialConfig.c[regionId][1]
+	cMax = cMax.c[regionId][1]
+
+	if initialcNode == -1
+		return LeafRegionResultObject(Vector{Float64}(0), Vector{Int}(0))
+	end
+
+	result = LeafRegionResultObject(Vector{Float64}((1 + cMax - initialcNode)), Vector{Int}((1 + cMax - initialcNode)))
+
+	# for all nodes in the region
+	for (i, cNode) in enumerate(initialcNode:cMax)
+		# get llh values
+		llh = logpred(region.nodes[cNode].dist, X[region.scope, xi])[1]
+
+		# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+		@assert haskey(region.popularity, cNode)
+		lc = log(region.popularity[cNode] / (region.N - 1 + α) )
+
+		result.postpredNodes[i] = llh + lc
+		result.configNodes[i] = cNode
+	end
+
+	# for all possible new nodes with informed prior
+	for partition in spn.regionConnectionsBottomUp[region]
+		obs1 = assign.observationPartitionAssignments[partition]
+
+		partitionId = findfirst(partition .== spn.partitions)
+
+		# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+		lc = log(α / (region.N - 1 + α) )
+
+		for parentRegion in spn.partitionConnectionsBottomUp[partition]
+
+			parentRegionId = findfirst(parentRegion .== spn.regions)
+
+			obs = intersect(obs1, assign.observationRegionAssignments[parentRegion])
+
+			# .) compute llh using adjusted mean0
+			G0 = BNP.fit(G0Type, X[region.scope, collect(obs)])
+			llh = logpred(G0, X[region.scope, xi])[1]
+
+			push!(result.postpredInformedNodes, llh + lc)
+			push!(result.configInformedNodes, (parentRegionId, partitionId))
+		end
+	end
+
+	# posterior predictive for uninformed prior
+	G0 = BNP.fit(G0Type, [X[region.scope, xi]]', computeScale = false)
+	llh = logpred(G0, X[region.scope, xi])[1]
+
+	# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+	lc = log(α / (region.N - 1 + α) )
+
+	result.postpredUninformedNode = llh + lc
+
+	return result
+
+end
+
+@doc doc"""
+posterior predictive for leaf region.
+""" ->
 function posteriorPredictive(region::LeafRegion, regionId::Int, sampleTree::Vector{Int},
 	configuration::SPNConfiguration, cMax::SPNConfiguration,
 	spn::SPNStructure, x::AbstractArray; α = 1.0)
@@ -342,6 +508,101 @@ function posteriorPredictive(region::LeafRegion, regionId::Int, sampleTree::Vect
 	postpred = llh + lc
 
 	return postpred
+
+end
+
+@doc doc"""
+posterior predictive for leaf region.
+""" ->
+function posteriorPredictive(region::SumRegion, regionId::Int, initialConfig::SPNConfiguration, cMax::SPNConfiguration,
+		spn::SPNStructure, assign::AssignmentRegionGraph, X::AbstractArray, xi::Int; α = 1.0, G0Type = NormalGamma)
+
+	# get selection
+	initialcNode = initialConfig.c[regionId][1]
+	cMaxNode = cMax.c[regionId][1]
+
+	if initialcNode == -1
+		return SumRegionResultObject(0, 0, 0)
+	end
+
+	cMaxPartition = cMax.c[regionId][2]
+
+	# result object
+	result = SumRegionResultObject(cMaxNode, cMaxPartition, cMaxNode)
+
+	# compute existing node / partition pairs
+	for cNode in 1:cMaxNode
+		for cPartition in 1:cMaxPartition
+
+			# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+			result.postpred[cNode, cPartition] = log(region.popularity[cNode] / (region.N - 1 + α) )
+
+			# p(c_{i, S} = j | c_{-i, S}, α)
+			# check if the node already has a popularity value for this partition otherwise its α
+			if haskey(region.partitionPopularity[cNode], spn.regionConnections[region][cPartition])
+				result.postpred[cNode, cPartition] += log(region.partitionPopularity[cNode][spn.regionConnections[region][cPartition]] / (region.popularity[cNode] - 1 + α) )
+			else
+				result.postpred[cNode, cPartition] += log(α / (region.popularity[cNode] - 1 + α) )
+			end
+		end
+	end
+
+	logpNewConnection = log(α / (1 - 1 + α) )
+
+	# compute existing node new partition pairs
+	for cNode in 1:cMaxNode
+
+		# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+		result.postpredNewPartitions[cNode] = log(region.popularity[cNode] / (region.N - 1 + α) )
+
+		# p(c_{i, S} = j | c_{-i, S}, α)
+		result.postpredNewPartitions[cNode] += log(α / (region.popularity[cNode] - 1 + α) )
+
+		# build new partition
+		(newPartitions, newRegions) = buildPartitionsAndRegions!(region, regionId, spn)
+
+		result.configNewPartitionPartitions[cNode] = newPartitions
+		result.configNewPartitionRegions[cNode] = newRegions
+
+		# additional p(c_{i, S} = j | c_{-i, S}, α)
+		if length(newRegions) > 0
+			result.postpredNewPartitions[cNode] += logpNewConnection * length(newRegions)
+			result.postpredNewPartitions[cNode] += logpNewConnection * (length(newPartitions) - 1)
+		end
+
+	end
+
+	# compute new node and existing partition pairs
+	# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+	result.postpredNewNode = log(α / (region.N - 1 + α) )
+
+	# p(c_{i, S} = j | c_{-i, S}, α)
+	# NOTE: this is a sequential process
+	# therefore, count for observation in the node is 1.
+	result.postpredNewNode += logpNewConnection
+
+	# compute new node and new partition pairs
+	# p(c_{i, Rg} = j | c_{-i, Rg}, α)
+	result.postpredNewNodeNewPartition = log(α / (region.N - 1 + α) )
+
+	# p(c_{i, S} = j | c_{-i, S}, α)
+	# NOTE: this is a sequential process
+	# therefore, count for observation in the node is 1.
+	result.postpredNewNodeNewPartition += logpNewConnection
+
+	# build new partition
+	(newNodeNewPartitions, newNodeNewRegions) = buildPartitionsAndRegions!(region, regionId, spn)
+
+	result.configNewNodeNewPartitionPartitions = newNodeNewPartitions
+	result.configNewNodeNewPartitionRegions = newNodeNewRegions
+
+	# additional p(c_{i, S} = j | c_{-i, S}, α)
+	if length(newNodeNewRegions) > 0
+		result.postpredNewNodeNewPartition += logpNewConnection * length(newNodeNewRegions)
+		result.postpredNewNodeNewPartition += logpNewConnection * (length(newNodeNewPartitions) - 1)
+	end
+
+	return result
 
 end
 
@@ -436,6 +697,237 @@ function processConfiguration(configuration::SPNConfiguration, cMax::SPNConfigur
 end
 
 @doc doc"""
+()
+
+""" ->
+function computeSampleTreePosteriors(regionId::Int, initialConfiguration::SPNConfiguration, cMax::SPNConfiguration, spn::SPNStructure, precomputations::Vector{RegionResultObject}; allowNew = true)
+
+	postpreds = Vector{Float64}(0)
+	configurations = Vector{SPNConfiguration}(0)
+
+	config = deepcopy(initialConfiguration)
+	canIncrease = true
+
+	# 2.1) get all configurations
+	while canIncrease
+
+		# increase configuration if possible
+		increased = false
+		pos = size(spn.regions, 1)
+
+		while (!increased) & (pos != 0)
+
+			if config.c[pos][1] == -1
+				pos -= 1
+				continue
+			end
+
+			if isa(spn.regions[pos], LeafRegion)
+				if (config.c[pos][1] + 1) <= (cMax.c[pos][1] + 1) # +1 is new node!
+					config.c[pos][1] += 1
+					increased = true
+				else
+					config.c[pos][1] = 1
+				end
+
+			else # SumRegion
+
+				# node increase
+				# except for root...
+				if !spn.regions[pos].isRoot
+
+					if allowNew
+						cMaxValue = cMax.c[pos][1] + 1
+					else
+						cMaxValue = cMax.c[pos][1]
+					end
+
+					if (config.c[pos][1] + 1) <= cMaxValue
+						config.c[pos][1] += 1
+						increased = true
+					else
+						config.c[pos][1] = 1
+					end
+
+				end
+
+				if increased
+					continue
+				end
+
+				# partition increase
+				if allowNew
+					cMaxValue = cMax.c[pos][2] + 1
+				else
+					cMaxValue = cMax.c[pos][2]
+				end
+
+				if (config.c[pos][2] + 1) <= cMaxValue
+					config.c[pos][2] += 1
+					increased = true
+				else
+					config.c[pos][2] = 1
+				end
+
+			end
+
+			if !increased
+				pos -= 1
+			end
+
+		end
+
+		if increased
+
+			postpred = 0.0
+
+			# list of all selected partition scopes define a sample tree as there is only one region with scope Y!
+			sampleTreeScopes = Vector{Set{Int}}(0)
+			activeRegions = Vector{Int}(0)
+
+			for regionId in 1:length(spn.regions)
+
+				if config.c[regionId] == -1
+					continue
+				end
+
+				if isa(spn.regions[regionId], SumRegion)
+
+					if !spn.regions[regionId].isRoot
+						# check if the region is inside the sample tree
+						if !(spn.regions[regionId].scope in sampleTreeScopes)
+							continue
+						end
+					end
+
+					push!(activeRegions, regionId)
+
+					cNode = config.c[regionId][1]
+					cPartition = config.c[regionId][2]
+
+					if (cNode > cMax.c[regionId][1]) & (cPartition > cMax.c[regionId][2])
+						postpred += precomputations[regionId].postpredNewNodeNewPartition
+						config.newRegions[regionId] = precomputations[regionId].configNewNodeNewPartitionRegions
+						config.newPartitions[regionId] = precomputations[regionId].configNewNodeNewPartitionPartitions
+
+						for connectedPartition in config.newPartitions[regionId]
+							for subscope in connectedPartition.subscopes
+								push!(sampleTreeScopes, subscope)
+							end
+						end
+					elseif (cNode > cMax.c[regionId][1])
+						postpred += precomputations[regionId].postpredNewNode
+
+						for subscope in spn.regionConnections[spn.regions[regionId]][cPartition].subscopes
+							push!(sampleTreeScopes, subscope)
+						end
+
+					elseif (cPartition > cMax.c[regionId][2])
+						postpred += precomputations[regionId].postpredNewPartitions[cNode]
+						config.newRegions[regionId] = precomputations[regionId].configNewPartitionRegions[cNode]
+						config.newPartitions[regionId] = precomputations[regionId].configNewPartitionPartitions[cNode]
+
+						for connectedPartition in config.newPartitions[regionId]
+							for subscope in connectedPartition.subscopes
+								push!(sampleTreeScopes, subscope)
+							end
+						end
+
+					else
+						postpred += precomputations[regionId].postpred[cNode, cPartition]
+
+						for subscope in spn.regionConnections[spn.regions[regionId]][cPartition].subscopes
+							push!(sampleTreeScopes, subscope)
+						end
+					end
+
+				else
+
+					push!(activeRegions, regionId)
+
+					cNode = config.c[regionId][1]
+
+					if (cNode > cMax.c[regionId][1])
+
+						# find out which to take
+						foundInformed = false
+						for (ci, cInformed) in enumerate(precomputations[regionId].configInformedNodes)
+
+							if foundInformed
+								continue
+							end
+
+							(pRegionId, pPartitionId) = cInformed
+
+							if pRegionId in activeRegions
+								if config.c[pRegionId][2] == findfirst(spn.partitions[activePartitions] .== spn.regionConnections[spn.regions[pRegionId]])
+									postpred += precomputations[regionId].postpredInformedNodes[ci]
+									foundInformed = true
+								end
+							end
+
+						end
+
+						if !foundInformed
+							postpred += precomputations[regionId].postpredUninformedNode
+						end
+
+					else
+						postpred += precomputations[regionId].postpredNodes[cNode]
+					end
+
+				end
+
+			end
+
+			push!(postpreds, postpred)
+			push!(configurations, deepcopy(config) )
+
+		end
+
+		canIncrease = increased
+
+	end
+
+	return (postpreds, configurations)
+
+end
+
+@doc doc"""
+Process all possible sample trees inside an infinite SPN.
+
+The approach uses two independent steps.
+1.) evaluate all regions in increasing scope size order
+2.) compute posterior of sample trees using precomputed values
+
+processAllConfigurations() -> [p(x | T1), p(x | T2), ... p(x | T*)]
+
+""" ->
+function processAllConfigurations(initialConfiguration::SPNConfiguration, cMax::SPNConfiguration, spn::SPNStructure, assign::AssignmentRegionGraph, X::AbstractArray, xi::Int)
+
+	regionsIds = collect(1:length(spn.regions))
+	sort!(regionsIds, by = id -> length(spn.regions[id].scope))
+
+	results = Vector{RegionResultObject}(length(regionsIds))
+	dresults = DistributedArrays.distribute(results)
+
+	println(dresults)
+
+	for i = 1:size(A,3)
+		@spawnat owner(B,i) B[:,:,i] = sqrt(A[:,:,i])
+	end
+
+	# evaluate all regions
+	@time for id in regionsIds
+		results[id] = posteriorPredictive(spn.regions[id], id, initialConfiguration, cMax, spn, assign, X, xi)
+	end
+
+	# compute sample tree posterior values
+	return computeSampleTreePosteriors(regionsIds[end], initialConfiguration, cMax, spn, results)
+
+end
+
+@doc doc"""
 Remove a observation from the infinite SPN.
 """ ->
 function removeObservation!(observation::Int, x::AbstractArray, spn::SPNStructure, assign::AssignmentRegionGraph; regionsSubset = Vector{Region}(0))
@@ -470,7 +962,7 @@ function removeObservation!(observation::Int, x::AbstractArray, spn::SPNStructur
 
 		elseif isa(region, SumRegion)
 
-			# removal of partition assignments
+			# removal of partition assignment
 			region.partitionPopularity[cNode][activePartitions[region]] -= 1
 			delete!(assign.observationPartitionAssignments[activePartitions[region]], observation)
 		end
@@ -954,7 +1446,7 @@ function updatePartitions!(X::AbstractArray, spn::SPNStructure, assign::Assignme
 
 			if partitionPrior == :CRP
 
-				G0 = BNP.fit(G0Type, Xhat, useCov = false)
+				G0 = BNP.fit(G0Type, Xhat, computeScale = false)
 
 				models = train(DPM(G0), Gibbs(burnin = 0, maxiter = 1, thinout = 1), PrecomputedInitialisation(idxFun), Xhat)
 

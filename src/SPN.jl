@@ -5,7 +5,8 @@ module SPN
   # loading dependencies into workspaces
   using JuMP,
         Distributions,
-        Base,
+				DistributedArrays,
+				Base,
         BNP,
         HSIC,
         GraphLayout,

@@ -70,17 +70,16 @@ println(" * run Gibbs sweep using infinite SPN in regions and partition-regions 
 		end
 	end
 
-	@time configs = SPN.findConfigurations(c, cMax, spn)
-
 	# 2.) iterate over sample trees in the SPN
+	@time (LLH, configs) = SPN.processAllConfigurations(c, cMax, spn, assign, X, observation)
 
+	println(LLH)
+
+	@time configs = SPN.findConfigurations(c, cMax, spn)
 	@time LLH = map(configuration -> SPN.processConfiguration(configuration, cMax, spn, x), configs)
 
-	#LLH = @parallel for configuration in configs
-#		SPN.processConfiguration(configuration, cMax, spn, x)
-#	end
+	println(LLH)
 
-#	println(LLH)
 	p = float(LLH)
 	p = exp(p - maximum(p))
 	p = p ./ sum(p)

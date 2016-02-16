@@ -1,10 +1,11 @@
-addprocs(6)
+addprocs(6, exeflags=`--check-bounds=yes`)
 
 using BNP
 using SPN
 using HSIC
 using Base.Test
 using Distributions
+using DistributedArrays
 
 # run nodes tests
 #println("# starting: node tests...")

@@ -41,8 +41,9 @@ type Partition
 
 	scope::Set{Int}
 	indexFunction::Dict{Int64, Int64}
+	subscopes::Vector{Set{Int}}
 
-	Partition() = new( Set{Int}(), Dict{Int64, Int64}(), )
+	Partition() = new( Set{Int}(), Dict{Int64, Int64}(), Vector{Set{Int}}(0) )
 
 end
 
@@ -87,10 +88,12 @@ type SPNStructure
 
 	regions::Vector{Region}
 	regionConnections::Dict{Region, Vector{Partition}}
+	regionConnectionsBottomUp::Dict{Region, Vector{Partition}}
 	partitions::Vector{Partition}
 	partitionConnections::Dict{Partition, Vector{Region}}
+	partitionConnectionsBottomUp::Dict{Partition, Vector{Region}}
 
-	SPNStructure() = new( Vector{Region}(0), Dict{Region, Vector{Partition}}(), Vector{Partition}(0), Dict{Partition, Vector{Region}}() )
+	SPNStructure() = new( Vector{Region}(0), Dict{Region, Vector{Partition}}(), Dict{Region, Vector{Partition}}(), Vector{Partition}(0), Dict{Partition, Vector{Region}}(), Dict{Partition, Vector{Region}}() )
 
 end
 
@@ -124,6 +127,10 @@ function extendPartitions(node::SumNode, spn::SPNStructure, region::SumRegion, a
 
 		c[child] = spn.partitions[id]
 
+		if !(region in spn.partitionConnectionsBottomUp[spn.partitions[id]])
+			push!(spn.partitionConnectionsBottomUp[spn.partitions[id]], region)
+		end
+
 		if !(spn.partitions[id] in spn.regionConnections[region])
 			push!(spn.regionConnections[region], spn.partitions[id])
 		end
@@ -150,6 +157,10 @@ function extendPartitions(node::SumNode, spn::SPNStructure, region::SumRegion, a
 
 		if !(region in spn.partitionConnections[spn.partitions[id]])
 			push!(spn.partitionConnections[spn.partitions[id]], region)
+		end
+
+		if !(spn.partitions[id] in spn.regionConnectionsBottomUp[region])
+			push!(spn.regionConnectionsBottomUp[region], spn.partitions[id])
 		end
 
 		for observation in assignments(parent)
@@ -183,6 +194,10 @@ function extendPartitions(node::Leaf, spn::SPNStructure, region::LeafRegion, ass
 
 		if !(region in spn.partitionConnections[spn.partitions[id]])
 			push!(spn.partitionConnections[spn.partitions[id]], region)
+		end
+
+		if !(spn.partitions[id] in spn.regionConnectionsBottomUp[region])
+			push!(spn.regionConnectionsBottomUp[region], spn.partitions[id])
 		end
 
 		for observation in assignments(parent)
@@ -250,8 +265,14 @@ function findPartition(node::Node, spn::SPNStructure, assignments::Assignment; b
 		partition = Partition()
 		partition.scope = Set(node.scope)
 		partition.indexFunction = idxFun
+
+		# generate sub scopes
+		uvs = unique(values(partition.indexFunction))
+		partition.subscopes = [Set(collect(partition.scope)[find(uv .== collect(values(partition.indexFunction)))]) for uv in uvs]
+
 		push!(spn.partitions, partition)
 		spn.partitionConnections[partition] = Vector{Region}(0)
+		spn.partitionConnectionsBottomUp[partition] = Vector{Region}(0)
 		id = size(spn.partitions, 1)
 	end
 
@@ -305,6 +326,7 @@ function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignmen
 
 	region = SumRegion(root = isRoot)
 	spn.regionConnections[region] = Vector{Partition}(0)
+	spn.regionConnectionsBottomUp[region] = Vector{Partition}(0)
 
 	region.scope = nscope
 
@@ -378,6 +400,7 @@ function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment, 
 
 	region = LeafRegion(nscope)
 	spn.regionConnections[region] = Vector{Partition}(0)
+	spn.regionConnectionsBottomUp[region] = Vector{Partition}(0)
 
 	idx = size(region.nodes, 1) + 1
 

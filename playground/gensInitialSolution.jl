@@ -84,7 +84,7 @@ for testid in 1:5
 				α = αs[test]
 			end
 
-			root = SPN.learnSPN(X, dimMapping, obsMapping, assignments, method = :BM, G0Type = MultinomialDirichlet, L0Type = BinomialBeta, α = α)
+			root = SPN.learnSPN(X, dimMapping, obsMapping, assignments, method = :HSIC, G0Type = MultinomialDirichlet, L0Type = BinomialBeta, α = α)
 
 			X = round(Int, readdlm(joinpath(dataDir, "$(test).valid.data"), ','))
 			X = sparse(X)'
