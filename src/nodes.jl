@@ -5,64 +5,68 @@ abstract Leaf{T} <: SPNNode
 
 # definition of class indicater Node
 type ClassNode <: Leaf
-
     class::Int
-
     ClassNode(class::Int) = new(class)
 end
 
-# definition of a Sum Node
+@doc doc"""
+A sum node computes a weighted sum of its children.
+""" ->
 type SumNode <: Node
 
   # SumNode fields
 	inSPN::Bool
-  uid::Int
-	parent::Nullable{SPNNode}
+	parents::Vector{SPNNode}
   children::Vector{SPNNode}
   weights::Vector{Float32}
 
   scope::Vector{Int}
 
-  SumNode(id::Int; parent = Nullable{SPNNode}(), scope = Vector{Int}(0)) = new(false, id, parent, SPNNode[], Float64[], scope)
-  SumNode(id::Int, children::Vector{SPNNode}, w::Vector{Float64}; parent = Nullable{SPNNode}()) = new(false, id, parent, children, w, Vector{Int}(0))
+  SumNode(; parents = SPNNode[], scope = Int[]) = new(false, parents, SPNNode[], Float64[], scope)
+  SumNode(children::Vector{SPNNode}, weights::Vector{Float64}; parents = SPNNode[], scope = Int[]) = new(false, parents, children, weights, scope)
 
 end
 
-# definition of a Product Node
+@doc doc"""
+A product node computes a the product of its children.
+""" ->
 type ProductNode <: Node
 
   # ProductNode fields
 	inSPN::Bool
-  uid::Int32
-	parent::Nullable{SPNNode}
+	parents::Vector{SPNNode}
   children::Vector{SPNNode}
-  class::Nullable{ClassNode}
+  classes::Vector{ClassNode}
 
   scope::Vector{Int}
 
-  ProductNode(id::Int; parent = Nullable{SPNNode}(), children = SPNNode[], class = Nullable{ClassNode}(), scope = Vector{Int}(0)) = new(false, id, parent, children, class, scope)
+  ProductNode(; parents = SPNNode[], children = SPNNode[], classes = ClassNode[], scope = Int[]) = new(false, parents, children, classes, scope)
 end
 
-# definition of a Univariate Node
+@doc doc"""
+A univariate node computes the likelihood of x under a univariate distribution.
+""" ->
 type UnivariateNode{T} <: Leaf
 
 	inSPN::Bool
-	parent::Nullable{SPNNode}
+	parents::Vector{SPNNode}
   dist::T
   scope::Int
 
-  UnivariateNode{T}(D::T; parent = Nullable{SPNNode}(), scope = 0) = new(false, parent, D, scope)
+  UnivariateNode{T}(distribution::T, scope::Int; parents = SPNNode[]) = new(false, parents, distribution, scope)
 end
 
-# definition of a Multivariate Node
+@doc doc"""
+A multivariate node computes the likelihood of x under a multivariate distribution.
+""" ->
 type MultivariateNode{T} <: Leaf
 
 	inSPN::Bool
-	parent::Nullable{SPNNode}
+	parents::Vector{SPNNode}
   dist::T
   scope::Vector{Int}
 
-  MultivariateNode{T}(D::T, scope::Vector{Int}; parent = Nullable{SPNNode}()) = new(false, parent, D, scope)
+  MultivariateNode{T}(distribution::T, scope::Vector{Int}; parents = SPNNode[]) = new(false, parents, distribution, scope)
 
 end
 
@@ -70,70 +74,136 @@ end
 ## accessing function                                 ##
 ## -------------------------------------------------- ##
 
-# get children
+@doc doc"""
+Returns a list of class Nodes, the Node is child of
+""" ->
+function classes(node::ProductNode)
+
+  if length(node.classes) > 0
+    return [classNode.class for classNode in node.classes]
+  end
+
+  classNodes = Vector{Int}(0)
+
+  for parent in node.parents
+    classNodes = cat(1, classNodes, classes(parent))
+  end
+
+	return classNodes
+end
+
+@doc doc"""
+Returns a list of class Nodes, the Node is child of
+""" ->
+function classes(node::SPNNode)
+
+  classNodes = Vector{Int}(0)
+
+  for parent in node.parents
+    classNodes = cat(1, classNodes, classes(parent))
+  end
+
+	return classNodes
+end
+
+@doc doc"""
+Returns the children of an internal node.
+children(node::Node) -> SPNNode[]
+""" ->
 function children(node::Node)
 	node.children
 end
 
-# get parent
-function parent(node::SPNNode)
-	get(node.parent)
+@doc doc"""
+Returns the parents of a node.
+parents(SPNNode) -> SPNNode[]
+""" ->
+function parents(node::SPNNode)
+	node.parents
 end
 
-# normalize sum node
+@doc doc"""
+Localy normalize the weights of a sum node in place.
+normalize!(node::SumNode) -> normalized SumNode
+""" ->
 function normalize!(node::SumNode)
   node.weights /= sum(node.weights)
   node
 end
 
-# add node
+@doc doc"""
+Add a node to a sum node with random weight in place.
+add!(node::SumNode, child::SPNNode) -> SumNode
+""" ->
 function add!(parent::SumNode, child::SPNNode)
   add!(parent, child, rand())
   parent
 end
 
-# add node with weight
+@doc doc"""
+Add a node to a sum node with given weight in place.
+add!(node::SumNode, child::SPNNode, weight::Float64) -> SumNode
+""" ->
 function add!(parent::SumNode, child::SPNNode, weight::Float64)
   push!(parent.children, child)
   push!(parent.weights, weight)
-  child.parent = parent
+  push!(child.parents, parent)
 	child.inSPN = true
   parent
 end
 
-# add node
+@doc doc"""
+Add a node to a product node in place.
+add!(node::ProductNode, child::SPNNode) -> ProductNode
+""" ->
 function add!(parent::ProductNode, child::SPNNode)
   push!(parent.children, child)
-  child.parent = parent
+  push!(child.parents, parent)
   child.inSPN = true
   parent
 end
 
-# remove node with index
-function remove!(parent::SumNode, index::Integer)
-  deleteat!(parent.children, index)
+@doc doc"""
+Remove a node from the children list of a sum node in place.
+remove!(node::SumNode, index::Int) -> SumNode
+""" ->
+function remove!(parent::SumNode, index::Int)
+	pid = findfirst(parent .== parent.children[index].parents)
+
+	deleteat!(parent.children[index].parents, pid)
+
+	deleteat!(parent.children, index)
   deleteat!(parent.weights, index)
 
   parent
 end
 
-# remove node with index
-function remove!(parent::ProductNode, index::Integer)
+@doc doc"""
+Remove a node from the children list of a product node in place.
+remove!(node::ProductNode, index::Int) -> ProductNode
+""" ->
+function remove!(parent::ProductNode, index::Int)
+	pid = findfirst(parent .== parent.children[index].parents)
+
+	deleteat!(parent.children[index].parents, pid)
   deleteat!(parent.children, index)
 
   parent
 end
 
-" Type definition for topological ordering, naming could be improved"
+@doc doc"""
+Type definition for topological ordering.
+Naming could be improved.
+""" ->
 type SPNMarking
   ordering::Array{SPNNode}
   unmarked::Array{SPNNode}
-
 end
 
-"""
+@doc doc"""
 Compute topological order of SPN using Tarjan's algoritm.
-"""
+order(spn::Node) -> SPNNode[] in topological order
+""" ->
 function order(root::Node)
 
     function visit!(node::SPNNode, data::SPNMarking)
@@ -209,9 +279,24 @@ function flat!(nodes::Array{SPNNode}, node::SPNNode)
 end
 
 @doc doc"""
+Collapse useless node inside the SPN.
+collapse!(root::SumNode) -> SumNode
+""" ->
+function collapse!(root::SumNode)
+
+	# get topological order
+	toporder = order(root)
+
+	for node in toporder
+		# TODO
+	end
+
+end
+
+@doc doc"""
 Fix the SPN by removing prior on Distributions.
 """ ->
-function fixSPN!(root::Node)
+function fixSPN!(root::SumNode)
 
 	# get topological order
 	toporder = order(root)
@@ -223,22 +308,33 @@ function fixSPN!(root::Node)
 				d = BNP.convert(node.dist)
 
         # find node in parent
-        parent = get(node.parent)
-        id = findfirst(node .== parent.children)
-        remove!(parent, id)
-        newNode = UnivariateNode{Binomial}(d, scope = node.scope)
-        add!(parent, newNode)
+        hasParents = length(node.parents) > 0
+        while hasParents
+
+          parent = node.parents[1]
+          newNode = UnivariateNode{Binomial}(d, node.scope)
+          id = findfirst(node .== parent.children)
+          remove!(parent, id)
+          add!(parent, newNode)
+
+          hasParents = length(node.parents) > 0
+        end
 
       elseif isa(node.dist, NormalGamma)
 
 				d = BNP.convert(node.dist)
 
-        # find node in parent
-        parent = get(node.parent)
-        id = findfirst(node .== parent.children)
-        remove!(parent, id)
-        newNode = UnivariateNode{Normal}(d, scope = node.scope)
-        add!(parent, newNode)
+        hasParents = length(node.parents) > 0
+        while hasParents
+
+          parent = node.parents[1]
+          newNode = UnivariateNode{Normal}(d, node.scope)
+          id = findfirst(node .== parent.children)
+          remove!(parent, id)
+          add!(parent, newNode)
+
+          hasParents = length(node.parents) > 0
+        end
 
 			end
 		end
@@ -438,6 +534,7 @@ Evaluate Univariate Node.
 This function returns the llh of the data under the model, the maximum a posterior (equal to log-likelihood), and itself.
 """
 function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
+
     if ndims(data) > 1
         x = sub(data, node.scope, :)
 
@@ -448,9 +545,9 @@ function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode
         llh = logpdf(node.dist, x) - logpdf(node.dist, mean(node.dist))
         return (llh, llh, Array{SPNNode}(0))
     else
-        llh = logpdf(node.dist, data) - logpdf(node.dist, mean(node.dist))
+        llh = logpdf(node.dist, data[node.scope]) - logpdf(node.dist, mean(node.dist))
 
-        return (llh, llh, Array{SPNNode}(0))
+        return ([llh], [llh], Array{SPNNode}(0))
     end
 
 end
@@ -470,8 +567,8 @@ function eval{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, da
         llh = logpred(node.dist, x)
         return (llh, llh, Array{SPNNode}(0))
     else
-        llh = logpred(node.dist, data)
-        return (llh, llh, Array{SPNNode}(0))
+        llh = logpred(node.dist, data[node.scope])
+        return ([llh], [llh], Array{SPNNode}(0))
     end
 
 end

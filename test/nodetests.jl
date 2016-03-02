@@ -2,8 +2,8 @@ println(" * test UnivariateNode...")
 
 N = 100
 X = randn(N)
-root = SumNode(0)
-add!(root, UnivariateNode{Normal}(fit(Normal, X)))
+root = SumNode()
+add!(root, UnivariateNode{Normal}(fit(Normal, X), 1))
 normalize!(root);
 
 @test length(root.children) == 1
@@ -16,7 +16,7 @@ println(" * test Multivariate...")
 N = 100
 D = 2
 X = randn(D, N)
-root = SumNode(0)
+root = SumNode()
 add!(root, MultivariateNode{MvNormal}(fit(MvNormal, X), collect(1:2)))
 normalize!(root);
 
@@ -35,7 +35,7 @@ println(" * test Multivariate with conjugate prior")
 
 G0 = GaussianWishart(μ0, κ0, ν0, Ψ);
 
-root = SumNode(0)
+root = SumNode()
 add!(root, MultivariateNode{ConjugatePostDistribution}(BNP.add_data(G0, X), collect(1:D)))
 normalize!(root);
 

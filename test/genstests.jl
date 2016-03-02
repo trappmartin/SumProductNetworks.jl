@@ -47,29 +47,5 @@ assignments = Assignment()
 # learn SPN using Gens Approach
 root = SPN.learnSPN(X, dimMapping, obsMapping, assignments)
 
-dists = Vector{MvNormal}(length(root.children))
-
-for (ci, child) in enumerate(root.children)
-	m = mean(X[:,assignments(child)], 2)
-	c = cov(X[:,assignments(child)]')
-	dists[ci] = MvNormal(vec(m), c)
-end
-
-llhv = 0.0
-
-for i in 1:N
-	llhvi = 0
-	for j in 1:length(root.children)
-		llhvi += root.weights[j] * (pdf(dists[j], vec(X[:,i])) / pdf(dists[j], mean(dists[j])))
-	end
-	llhv += log(llhvi)
-end
-
-println(llhv / N)
-
-println(mean([llh(root, X[:,i])[1] for i in 1:N]))
-
 println("fixing SPN")
 SPN.fixSPN!(root)
-
-println(mean([llh(root, X[:,i])[1] for i in 1:N]))

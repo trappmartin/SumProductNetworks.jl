@@ -59,11 +59,11 @@ type SumRegion <: Region
 
 	scope::Set{Int}
 	partitionPopularity::Vector{Dict{Partition, Int64}}
-	popularity::Dict{Int64, Int64}
+	popularity::Vector{Int64}
 	N::Int
 	isRoot::Bool
 
-	SumRegion(;root = false) = new( Set{Int}(), Vector{Dict{Partition, Int64}}(0), Dict{Int64, Int64}(), 0, root )
+	SumRegion(;root = false) = new( Set{Int}(), Vector{Dict{Partition, Int64}}(0), Vector{Int64}(0), 0, root )
 
 end
 
@@ -74,10 +74,10 @@ type LeafRegion <: Region
 
 	scope::Int
 	nodes::Vector{Leaf}
-	popularity::Dict{Int64, Int64}
+	popularity::Vector{Int64}
 	N::Int
 
-	LeafRegion(scope) = new( scope, Vector{Leaf}(0), Dict{Int64, Int64}(), 0 )
+	LeafRegion(scope) = new( scope, Vector{Leaf}(0), Vector{Int64}(0), 0 )
 
 end
 
@@ -302,7 +302,7 @@ function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignmen
 				region.partitionPopularity[id][products_partitions[child]] = length(assignments(child))
 			end
 
-			region.popularity[id] = length(assignments(node))
+			push!(region.popularity, length(assignments(node)))
 			region.N += length(assignments(node))
 
 			for observation in assignments(node)
@@ -340,7 +340,7 @@ function extendRegions!(node::SumNode, spn::SPNStructure, assignments::Assignmen
 		region.partitionPopularity[id][products_partitions[child]] = length(assignments(child))
 	end
 
-	region.popularity[id] = length(assignments(node))
+	push!(region.popularity, length(assignments(node)))
 	region.N += length(assignments(node))
 
 	for observation in assignments(node)
@@ -375,7 +375,7 @@ function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment, 
 			idx = size(region.nodes, 1) + 1
 
 			push!(region.nodes, node)
-			region.popularity[idx] = length(assignments(node))
+			push!(region.popularity, length(assignments(node)))
 			region.N += length(assignments(node))
 			extendPartitions(node, spn, region, assignments, assign)
 
@@ -405,7 +405,7 @@ function extendRegions!(node::Leaf, spn::SPNStructure, assignments::Assignment, 
 	idx = size(region.nodes, 1) + 1
 
 	push!(region.nodes, node)
-	region.popularity[idx] = length(assignments(node))
+	push!(region.popularity, length(assignments(node)))
 	region.N += length(assignments(node))
 	extendPartitions(node, spn, region, assignments, assign)
 

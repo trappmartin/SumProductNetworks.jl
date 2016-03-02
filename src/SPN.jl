@@ -3,7 +3,8 @@ __precompile__(true)
 module SPN
 
   # loading dependencies into workspaces
-  using JuMP,
+  using Clustering,
+				JuMP,
         Distributions,
 				DistributedArrays,
 				Base,
@@ -12,7 +13,8 @@ module SPN
         GraphLayout,
         Compose,
         Colors,
-				BMITest
+				BMITest#,
+       # FunctionalData
 
 	import Base.getindex
 	import Base.map
@@ -42,6 +44,7 @@ module SPN
 		Leaf,
     SumNode,
     ProductNode,
+		ClassNode,
     UnivariateNode,
     MultivariateNode,
 		Assignment,
@@ -57,12 +60,17 @@ module SPN
 		children,
 		parent,
     length,
+    classes,
     add!,
     remove!,
     normalize!,
     llh,
     cmllh,
     map,
+
+    # structure learning
+    learnSPN,
+    fixSPN!,
 
 		# infinite SPN functions
 		increment!,
