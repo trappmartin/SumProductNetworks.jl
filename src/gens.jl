@@ -89,7 +89,7 @@ function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 100, minN =
 	uidx = unique(idx)
 
 	# compute cluster weights
-	w = [i => (sum(idx .== i) / convert(Float64, N)) for i in uidx]
+	w = [i => sum(idx .== i) / convert(Float64, N) for i in uidx]
 
 	return (w, idx)
 
@@ -204,7 +204,7 @@ function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, ass
 
 		# add product node
 		node = ProductNode(scope = scope)
-		add!(snode, node, w[uid])
+		add!(snode, node, convert(Float64, w[uid]))
 
 		# set assignments
 		for n in find(ids .== uid)
