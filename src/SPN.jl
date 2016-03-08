@@ -46,6 +46,7 @@ module SPN
     ProductNode,
 		ClassNode,
     UnivariateNode,
+		UnivariateFeatureNode,
     MultivariateNode,
 		Assignment,
     Partition,

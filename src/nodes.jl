@@ -46,6 +46,18 @@ end
 @doc doc"""
 A univariate node computes the likelihood of x under a univariate distribution.
 """ ->
+type UnivariateFeatureNode <: Leaf
+
+	inSPN::Bool
+	parents::Vector{SPNNode}
+  scope::Int
+
+  UnivariateFeatureNode(scope::Int; parents = SPNNode[]) = new(false, parents, scope)
+end
+
+@doc doc"""
+A univariate node computes the likelihood of x under a univariate distribution.
+""" ->
 type UnivariateNode{T} <: Leaf
 
 	inSPN::Bool
@@ -506,6 +518,23 @@ function eval{T<:Real}(root::ProductNode, data::AbstractArray{T}, llhvals::Dict{
     return (sum(_llh, 1), sum(_llh, 1), root.children)
 end
 
+function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
+  return eval(node, data)
+end
+
+@doc doc"""
+This function returns the llh of the data under a univariate node.
+
+eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array{SPNNode}
+""" ->
+function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
+    if ndims(data) > 1
+      return (data[node.scope,:], data[node.scope,:], Array{SPNNode}(0))
+    else
+      return (reshape(data[node.scope], 1, 1), reshape(data[node.scope], 1, 1), Array{SPNNode}(0))
+    end
+end
+
 function eval{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
   return eval(node, data)
 end
@@ -520,7 +549,7 @@ function eval{T<:Real, U<:DiscreteUnivariateDistribution}(node::UnivariateNode{U
       llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
       return (llh, llh, Array{SPNNode}(0))
     else
-        llh = logpdf(node.dist, data)
+        llh = logpdf(node.dist, data[node.scope])
         return (reshape([llh], 1, 1), reshape([llh], 1, 1), Array{SPNNode}(0))
     end
 
