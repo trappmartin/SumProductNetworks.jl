@@ -1,3 +1,76 @@
+@doc doc"""
+
+
+""" ->
+function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int; parts::Int = 10, mixtures::Int = 3)
+
+	S = SumNode()
+
+	for cclass in Classes
+
+		C = ProductNode()
+		push!(C.classes, ClassNode(cclass))
+
+		nodes = Vector{SPNNode}(0)
+
+		for i in 1:featureSize
+			push!(nodes, UnivariateFeatureNode(i))
+		end
+
+		locNodes = Vector{SPNNode}(0)
+
+		for loc in 1:(featureSize-windowSize)+1
+			locNode = SumNode()
+
+			# add children
+			for i in loc:loc+windowSize-1
+				add!(locNode, nodes[i])
+			end
+
+			normalize!(locNode)
+
+			push!(locNodes, locNode)
+		end
+
+		mixNodes = Vector{SPNNode}(0)
+
+		for mix in 1:mixtures
+			mixNode = SumNode()
+
+			# add children
+			for locNode in locNodes
+				add!(mixNode, locNode)
+			end
+
+			normalize!(mixNode)
+
+			push!(mixNodes, mixNode)
+		end
+
+		for part in 1:parts
+			partNode = SumNode()
+
+			# add children
+			for mixNode in mixNodes
+				add!(partNode, mixNode)
+			end
+
+			normalize!(partNode)
+
+			add!(C, partNode)
+		end
+
+		add!(S, C)
+
+	end
+
+	normalize!(S)
+
+	return S
+
+end
+
+
 function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 100, minN = 10, pointestimate = false, α = 0.01, debug = false, method = :KMeans)
 
 	(D, N) = size(X)

@@ -18,7 +18,7 @@ type SumNode <: Node
 	inSPN::Bool
 	parents::Vector{SPNNode}
   children::Vector{SPNNode}
-  weights::Vector{Float32}
+  weights::Vector{Float64}
 
   scope::Vector{Int}
 
@@ -101,7 +101,7 @@ function classes(node::ProductNode)
     classNodes = cat(1, classNodes, classes(parent))
   end
 
-	return classNodes
+	return unique(classNodes)
 end
 
 @doc doc"""
@@ -115,7 +115,7 @@ function classes(node::SPNNode)
     classNodes = cat(1, classNodes, classes(parent))
   end
 
-	return classNodes
+	return unique(classNodes)
 end
 
 @doc doc"""
