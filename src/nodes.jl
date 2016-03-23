@@ -50,9 +50,10 @@ type UnivariateFeatureNode <: Leaf
 
 	inSPN::Bool
 	parents::Vector{SPNNode}
+  weight::Float64
   scope::Int
 
-  UnivariateFeatureNode(scope::Int; parents = SPNNode[]) = new(false, parents, scope)
+  UnivariateFeatureNode(scope::Int; parents = SPNNode[]) = new(false, parents, 0.0, scope)
 end
 
 @doc doc"""

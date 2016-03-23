@@ -48,7 +48,7 @@ module SPN
     UnivariateNode,
 		UnivariateFeatureNode,
     MultivariateNode,
-		#Assignment,
+		Assignment,
     #Partition,
     #Region,
     #SumRegion,

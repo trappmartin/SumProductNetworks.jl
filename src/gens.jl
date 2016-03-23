@@ -12,43 +12,38 @@ function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int; 
 		push!(C.classes, ClassNode(cclass))
 
 		nodes = Vector{SPNNode}(0)
-
 		for i in 1:featureSize
 			push!(nodes, UnivariateFeatureNode(i))
 		end
 
-		locNodes = Vector{SPNNode}(0)
-
-		for loc in 1:(featureSize-windowSize)+1
-			locNode = SumNode()
-
-			# add children
-			for i in loc:loc+windowSize-1
-				add!(locNode, nodes[i])
-			end
-
-			normalize!(locNode)
-
-			push!(locNodes, locNode)
-		end
-
-		mixNodes = Vector{SPNNode}(0)
-
-		for mix in 1:mixtures
-			mixNode = SumNode()
-
-			# add children
-			for locNode in locNodes
-				add!(mixNode, locNode)
-			end
-
-			normalize!(mixNode)
-
-			push!(mixNodes, mixNode)
-		end
-
 		for part in 1:parts
 			partNode = SumNode()
+
+			mixNodes = Vector{SPNNode}(0)
+			for mix in 1:mixtures
+				mixNode = SumNode()
+
+				locNodes = Vector{SPNNode}(0)
+				for loc in 1:(featureSize-windowSize)+1
+					locNode = SumNode()
+
+					# add children
+					for i in loc:loc+windowSize-1
+						add!(locNode, nodes[i])
+					end
+
+					normalize!(locNode)
+					push!(locNodes, locNode)
+				end
+
+				# add children
+				for locNode in locNodes
+					add!(mixNode, locNode)
+				end
+
+				normalize!(mixNode)
+				push!(mixNodes, mixNode)
+			end
 
 			# add children
 			for mixNode in mixNodes
@@ -56,7 +51,6 @@ function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int; 
 			end
 
 			normalize!(partNode)
-
 			add!(C, partNode)
 		end
 
