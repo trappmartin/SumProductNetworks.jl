@@ -26,13 +26,14 @@ function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int; 
 				locNodes = Vector{SPNNode}(0)
 				for loc in 1:(featureSize-windowSize)+1
 					locNode = SumNode()
+					locNode.isFilter = true
 
 					# add children
 					for i in loc:loc+windowSize-1
-						add!(locNode, nodes[i])
+						add!(locNode, nodes[i], 1e-6)
 					end
 
-					normalize!(locNode)
+					#normalize!(locNode)
 					push!(locNodes, locNode)
 				end
 
@@ -54,7 +55,7 @@ function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int; 
 			add!(C, partNode)
 		end
 
-		add!(S, C)
+		add!(S, C, 1e-6)
 
 	end
 

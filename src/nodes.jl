@@ -19,11 +19,12 @@ type SumNode <: Node
 	parents::Vector{SPNNode}
   children::Vector{SPNNode}
   weights::Vector{Float64}
+  isFilter::Bool
 
   scope::Vector{Int}
 
-  SumNode(; parents = SPNNode[], scope = Int[]) = new(false, parents, SPNNode[], Float64[], scope)
-  SumNode(children::Vector{SPNNode}, weights::Vector{Float64}; parents = SPNNode[], scope = Int[]) = new(false, parents, children, weights, scope)
+  SumNode(; parents = SPNNode[], scope = Int[]) = new(false, parents, SPNNode[], Float64[], false, scope)
+  SumNode(children::Vector{SPNNode}, weights::Vector{Float64}; parents = SPNNode[], scope = Int[]) = new(false, parents, children, weights, false, scope)
 
 end
 
@@ -139,8 +140,8 @@ end
 Localy normalize the weights of a sum node in place.
 normalize!(node::SumNode) -> normalized SumNode
 """ ->
-function normalize!(node::SumNode)
-  node.weights /= sum(node.weights)
+function normalize!(node::SumNode; ϵ = 1e-8)
+  node.weights /= sum(node.weights) + ϵ
   node
 end
 
@@ -149,7 +150,11 @@ Add a node to a sum node with random weight in place.
 add!(node::SumNode, child::SPNNode) -> SumNode
 """ ->
 function add!(parent::SumNode, child::SPNNode)
-  add!(parent, child, rand())
+  if parent.isFilter
+    add!(parent, child, 1e-6)
+  else
+    add!(parent, child, rand())
+  end
   parent
 end
 
@@ -488,7 +493,11 @@ function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNN
 			_llh = reduce(vcat, [llhvals[c] for c in root.children])
 		end
 
-		_llh = _llh .+ log(root.weights)
+    if root.isFilter
+      _llh = _llh .* root.weights
+    else
+      _llh = _llh .+ log(root.weights)
+    end
 
     maxlog = maximum(_llh, 1)
 
@@ -496,11 +505,17 @@ function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNN
     prob = sum(exp(_llh), 1)
     (map, mapidx) = findmax(exp(_llh), 1)
 
-    map = log(map) .+ maxlog
-    map -= log( sum(root.weights) )
+    #map += 1e-6
+    #map = log(map) .+ maxlog
+    #map -= log( sum(root.weights) )
 
     _llh = log(prob) .+ maxlog
-    _llh -= log(sum(root.weights))
+
+    if !root.isFilter
+      _llh -= log(sum(root.weights))
+    else
+      _llh -= length(children(root))
+    end
 
     # get map path
     ids = length(root) - (mapidx % length(root))
