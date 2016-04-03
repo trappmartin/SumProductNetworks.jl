@@ -372,7 +372,7 @@ function llh{T<:Real}(root::Node, data::AbstractArray{T})
 
     for node in toporder
         # take only llh values. Eval function returns: (llh, map, mappath)
-        llhval[node] = eval(node, data, llhval)[1]
+        llhval[node] = eval(node, data, llhval)
     end
 
     return llhval[toporder[end]]
@@ -383,7 +383,7 @@ Compute the log likelihood of the data under the model.
 This function evaluates leaf nodes only.
 """
 function llh{T<:Real}(root::Leaf, data::AbstractArray{T})
-    return eval(root, data)[1]
+    return eval(root, data)
 end
 
 @doc doc"""
@@ -503,12 +503,6 @@ function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNN
 
     _llh = _llh .- maxlog
     prob = sum(exp(_llh), 1)
-    (map, mapidx) = findmax(exp(_llh), 1)
-
-    #map += 1e-6
-    #map = log(map) .+ maxlog
-    #map -= log( sum(root.weights) )
-
     _llh = log(prob) .+ maxlog
 
     if !root.isFilter
@@ -517,11 +511,7 @@ function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNN
       _llh -= length(children(root))
     end
 
-    # get map path
-    ids = length(root) - (mapidx % length(root))
-    mappath = repmat(root.children, 1, size(data, 2))[ids]
-
-    return (_llh, map, mappath)
+    return _llh
 end
 
 """
@@ -531,7 +521,7 @@ This function returns the llh of the data under the model, the maximum a posteri
 function eval{T<:Real}(root::ProductNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
     _llh = [llhvals[c] for c in root.children]
     _llh = reduce(vcat, _llh)
-    return (sum(_llh, 1), sum(_llh, 1), root.children)
+    return sum(_llh, 1)
 end
 
 function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
@@ -545,9 +535,9 @@ eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array
 """ ->
 function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
     if ndims(data) > 1
-      return (data[node.scope,:], data[node.scope,:], Array{SPNNode}(0))
+      return data[node.scope,:]
     else
-      return (reshape(data[node.scope], 1, 1), reshape(data[node.scope], 1, 1), Array{SPNNode}(0))
+      return reshape(data[node.scope], 1, 1)
     end
 end
 
@@ -563,10 +553,10 @@ eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array
 function eval{T<:Real, U<:DiscreteUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
     if ndims(data) > 1
       llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
-      return (llh, llh, Array{SPNNode}(0))
+      return llh
     else
         llh = logpdf(node.dist, data[node.scope])
-        return (reshape([llh], 1, 1), reshape([llh], 1, 1), Array{SPNNode}(0))
+        return reshape([llh], 1, 1)
     end
 
 end
@@ -580,10 +570,10 @@ function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode
 
     if ndims(data) > 1
         llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
-        return (llh, llh, Array{SPNNode}(0))
+        return llh
     else
         llh = logpdf(node.dist, data[node.scope]) - logpdf(node.dist, mean(node.dist))
-        return (reshape([llh], 1, 1), reshape([llh], 1, 1), Array{SPNNode}(0))
+        return reshape([llh], 1, 1)
     end
 
 end
@@ -598,14 +588,14 @@ function eval{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, da
         x = sub(data, node.scope, :)
 
 				if all(isnan(x))
-					return ([0], [0], Array{SPNNode}(0))
+					return [0]
 				end
 
         llh = logpred(node.dist, x)
-        return (llh, llh, Array{SPNNode}(0))
+        return llh
     else
         llh = logpred(node.dist, data[node.scope])
-        return (reshape([llh], 1, 1), reshape([llh], 1, 1), Array{SPNNode}(0))
+        return reshape([llh], 1, 1)
     end
 
 end
@@ -620,8 +610,7 @@ This function returns the llh of the data under the model, the maximum a posteri
 """
 
 function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::AbstractArray{T})
-  llh = logpdf(node.dist, data[node.scope,:])
-  return (llh, llh, Array{SPNNode}(0))
+  return logpdf(node.dist, data[node.scope,:])
 end
 
 """
@@ -629,6 +618,5 @@ Evaluate Multivariate Node with ConjugatePostDistribution.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
 """
 function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T})
-  llh = logpred(node.dist, data[node.scope,:])
-  return (llh, llh, Array{SPNNode}(0))
+  return logpred(node.dist, data[node.scope,:])
 end
