@@ -1,8 +1,43 @@
-@doc doc"""
+function generateSumLayer(layerSizes::Vector{Int}, windowSize::Int, featureSize::Int, leafnodes::Vector{SPNNode}; currentdepth = 1)
 
+	if currentdepth == length(layerSizes) + 1
+		locNodes = Vector{SPNNode}(0)
+		for loc in 1:(featureSize-windowSize)+1
+			locNode = SumNode()
+			locNode.isFilter = true
 
-""" ->
-function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int; parts::Int = 10, mixtures::Int = 3)
+			# add children
+			for i in loc:loc+windowSize-1
+				add!(locNode, leafnodes[i], 1e-6)
+			end
+
+			push!(locNodes, locNode)
+		end
+		return locNodes
+	end
+
+	nodes = Vector{SPNNode}(layerSizes[currentdepth])
+
+	for node in 1:layerSizes[currentdepth]
+
+		layerNode = SumNode()
+		children = generateSumLayer(layerSizes, windowSize, featureSize, leafnodes, currentdepth = currentdepth + 1)
+
+		for child in children
+			add!(layerNode, child)
+		end
+
+		normalize!(layerNode)
+
+		nodes[node] = layerNode
+
+	end
+
+	return nodes
+
+end
+
+function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int, layerSizes::Vector{Int})
 
 	S = SumNode()
 
@@ -16,50 +51,13 @@ function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int; 
 			push!(nodes, UnivariateFeatureNode(i))
 		end
 
-		for part in 1:parts
-			partNode = SumNode()
-
-			mixNodes = Vector{SPNNode}(0)
-			for mix in 1:mixtures
-				mixNode = SumNode()
-
-				locNodes = Vector{SPNNode}(0)
-				for loc in 1:(featureSize-windowSize)+1
-					locNode = SumNode()
-					locNode.isFilter = true
-
-					# add children
-					for i in loc:loc+windowSize-1
-						add!(locNode, nodes[i], 1e-6)
-					end
-
-					#normalize!(locNode)
-					push!(locNodes, locNode)
-				end
-
-				# add children
-				for locNode in locNodes
-					add!(mixNode, locNode)
-				end
-
-				normalize!(mixNode)
-				push!(mixNodes, mixNode)
-			end
-
-			# add children
-			for mixNode in mixNodes
-				add!(partNode, mixNode)
-			end
-
-			normalize!(partNode)
-			add!(C, partNode)
+		children = generateSumLayer(layerSizes, windowSize, featureSize, nodes)
+		for child in children
+			add!(C, child)
 		end
 
-		add!(S, C, 1e-6)
-
+		add!(S, C, 1.0/length(Classes))
 	end
-
-	normalize!(S)
 
 	return S
 
