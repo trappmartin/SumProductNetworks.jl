@@ -24,6 +24,7 @@ module SPN
 
   # include general implementations
   include("nodes.jl")
+  include("nodeFunctions.jl")
   include("utils.jl")
 
   # include approach specific implementations
