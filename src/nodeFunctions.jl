@@ -435,20 +435,19 @@ function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNN
 
     if root.isFilter
       _llh = _llh .* root.weights
+      _llh = sum(_llh, 1)
     else
       _llh = _llh .+ log(root.weights)
+
+      maxlog = maximum(_llh, 1)
+
+      _llh = _llh .- maxlog
+      prob = sum(exp(_llh), 1)
+      _llh = log(prob) .+ maxlog
     end
-
-    maxlog = maximum(_llh, 1)
-
-    _llh = _llh .- maxlog
-    prob = sum(exp(_llh), 1)
-    _llh = log(prob) .+ maxlog
 
     if !root.isFilter
       _llh -= log(sum(root.weights))
-    else
-      _llh -= length(children(root))
     end
 
     return _llh
