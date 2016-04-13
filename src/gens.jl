@@ -41,7 +41,7 @@ function generateSumLayer(layerSizes::Vector{Int}, windowSize::Int, featureSize:
 
 end
 
-function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int, layerSizes::Vector{Int}; useBiasTerm)
+function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int, layerSizes::Vector{Int}; useBiasTerm = false)
 
 	S = SumNode()
 

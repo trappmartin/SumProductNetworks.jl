@@ -54,7 +54,7 @@ type UnivariateFeatureNode <: Leaf
   bias::Bool
   scope::Int
 
-  UnivariateFeatureNode(scope::Int; parents = SPNNode[], isbias = false) = new(false, parents, 0.0, scope, isbias)
+  UnivariateFeatureNode(scope::Int; parents = SPNNode[], isbias = false) = new(false, parents, isbias, scope)
 end
 
 @doc doc"""
