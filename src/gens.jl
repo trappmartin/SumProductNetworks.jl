@@ -1,4 +1,4 @@
-function generateSumLayer(layerSizes::Vector{Int}, windowSize::Int, featureSize::Int, leafnodes::Vector{SPNNode}; currentdepth = 1)
+function generateSumLayer(layerSizes::Vector{Int}, windowSize::Int, featureSize::Int, leafnodes::Vector{SPNNode}; currentdepth = 1, useBiasTerm = false)
 
 	if currentdepth == length(layerSizes) + 1
 		locNodes = Vector{SPNNode}(0)
@@ -11,6 +11,10 @@ function generateSumLayer(layerSizes::Vector{Int}, windowSize::Int, featureSize:
 				add!(locNode, leafnodes[i], 1e-6)
 			end
 
+			if useBiasTerm
+				add!(locNode, leafnodes[end], 1e-6)
+			end
+
 			push!(locNodes, locNode)
 		end
 		return locNodes
@@ -21,7 +25,7 @@ function generateSumLayer(layerSizes::Vector{Int}, windowSize::Int, featureSize:
 	for node in 1:layerSizes[currentdepth]
 
 		layerNode = SumNode()
-		children = generateSumLayer(layerSizes, windowSize, featureSize, leafnodes, currentdepth = currentdepth + 1)
+		children = generateSumLayer(layerSizes, windowSize, featureSize, leafnodes, currentdepth = currentdepth + 1, useBiasTerm = useBiasTerm)
 
 		for child in children
 			add!(layerNode, child)
@@ -37,7 +41,7 @@ function generateSumLayer(layerSizes::Vector{Int}, windowSize::Int, featureSize:
 
 end
 
-function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int, layerSizes::Vector{Int})
+function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int, layerSizes::Vector{Int}; useBiasTerm)
 
 	S = SumNode()
 
@@ -51,7 +55,11 @@ function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int, 
 			push!(nodes, UnivariateFeatureNode(i))
 		end
 
-		children = generateSumLayer(layerSizes, windowSize, featureSize, nodes)
+		if useBiasTerm
+			push!(nodes, UnivariateFeatureNode(-1, isbias = true))
+		end
+
+		children = generateSumLayer(layerSizes, windowSize, featureSize, nodes, useBiasTerm = useBiasTerm)
 		for child in children
 			add!(C, child)
 		end
