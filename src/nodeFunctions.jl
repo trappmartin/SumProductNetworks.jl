@@ -475,13 +475,13 @@ eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array
 function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
     if ndims(data) > 1
       if node.bias
-        return ones(1, size(data, 2))
+        return zeros(1, size(data, 2))
       else
         return data[node.scope,:]
       end
     else
       if node.bias
-        return ones(1, 1)
+        return zeros(1, 1)
       else
         return reshape(data[node.scope], 1, 1)
       end
