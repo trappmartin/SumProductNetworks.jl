@@ -5,6 +5,7 @@ module SPN
   # loading dependencies into workspaces
   using Clustering,
 				JuMP,
+        Distances,
         Distributions,
 				DistributedArrays,
 				Base,

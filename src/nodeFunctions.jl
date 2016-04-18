@@ -516,10 +516,16 @@ eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array
 function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
 
     if ndims(data) > 1
-        llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
-        return llh
+        #llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
+        #println(size(llh))
+
+        llh = [loglikelihood(node.dist, [datum]) for datum in data[node.scope,:]]
+        return reshape(llh, 1, size(data, 2))
     else
-        llh = logpdf(node.dist, data[node.scope]) - logpdf(node.dist, mean(node.dist))
+        #llh = logpdf(node.dist, data[node.scope]) - logpdf(node.dist, mean(node.dist))
+        #println(llh)
+        llh = loglikelihood(node.dist, data[node.scope])
+        #println(loglikelihood(node.dist, data[node.scope]))
         return reshape([llh], 1, 1)
     end
 

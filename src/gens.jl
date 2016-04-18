@@ -72,7 +72,7 @@ function partStructure(Classes::Vector{Int}, windowSize::Int, featureSize::Int, 
 end
 
 
-function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 100, minN = 10, pointestimate = false, α = 0.01, debug = false, method = :KMeans)
+function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 100, minN = 10, pointestimate = false, α = 0.01, debug = false, method = :Affinity)
 
 	(D, N) = size(X)
 
@@ -90,10 +90,15 @@ function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 100, minN =
 	elseif method == :KMeans
 
 		if debug
-			println("   # [learnSPN]: starting K-Means training $(now()) - iterations: $(iterations), number of clusters: $(minimum([10, round(Int, log(N))]))")
+			println("   # [learnSPN]: starting K-Means training $(now()) - iterations: $(iterations), number of clusters: $(minimum([10, round(Int, sqrt(N))]))")
 		end
 
-		R = Clustering.kmeans(X, minimum([10, round(Int, log(N))]); maxiter = iterations)
+		R = Clustering.kmeans(X, minimum([10, round(Int, sqrt(N))]); maxiter = iterations)
+		idx = assignments(R)
+
+	elseif method == :Affinity
+
+		R = Clustering.affinityprop(pairwise(SqEuclidean(), X) .* -1)
 		idx = assignments(R)
 
 	elseif method == :DPM
