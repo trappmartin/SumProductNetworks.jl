@@ -286,7 +286,7 @@ function fixSPN!(root::SumNode)
         while hasParents
 
           parent = node.parents[1]
-          newNode = UnivariateNode{Normal}(d, node.scope)
+          newNode = NormalDistributionNode(node.scope, μ = mean(d), σ = std(d))
           id = findfirst(node .== parent.children)
           remove!(parent, id)
           add!(parent, newNode)
@@ -488,6 +488,22 @@ function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
     end
 end
 
+function eval{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
+  return eval(node, data)
+end
+
+function eval{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T})
+
+    if ndims(data) > 1
+        llh = Float64[normlogpdf(node.μ, node.σ, data[node.scope,i]) - node.logz for i in 1:size(data, 2)]
+        return reshape(llh, 1, size(data, 2))
+    else
+        llh = normlogpdf(node.μ, node.σ, data[node.scope]) - node.logz
+        return reshape([llh], 1, 1)
+    end
+
+end
+
 function eval{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
   return eval(node, data)
 end
@@ -516,15 +532,15 @@ eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array
 function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
 
     if ndims(data) > 1
-        #llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
+        llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
         #println(size(llh))
 
-        llh = [loglikelihood(node.dist, [datum]) for datum in data[node.scope,:]]
+        #llh = [loglikelihood(node.dist, [datum]) for datum in data[node.scope,:]]
         return reshape(llh, 1, size(data, 2))
     else
-        #llh = logpdf(node.dist, data[node.scope]) - logpdf(node.dist, mean(node.dist))
+        llh = logpdf(node.dist, data[node.scope]) - logpdf(node.dist, mean(node.dist))
         #println(llh)
-        llh = loglikelihood(node.dist, data[node.scope])
+        #llh = loglikelihood(node.dist, data[node.scope])
         #println(loglikelihood(node.dist, data[node.scope]))
         return reshape([llh], 1, 1)
     end

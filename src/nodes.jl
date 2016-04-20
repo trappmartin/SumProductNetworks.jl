@@ -70,6 +70,18 @@ type UnivariateNode{T} <: Leaf
   UnivariateNode{T}(distribution::T, scope::Int; parents = SPNNode[]) = new(false, parents, distribution, scope)
 end
 
+type NormalDistributionNode <: Leaf
+
+	inSPN::Bool
+	parents::Vector{SPNNode}
+  μ::Float64
+  σ::Float64
+  logz::Float64
+  scope::Int
+
+  NormalDistributionNode(scope::Int; parents = SPNNode[], μ = 0.0, σ = 1.0, logz = 0.0) = new(false, parents, μ, σ, logz, scope)
+end
+
 @doc doc"""
 A multivariate node computes the likelihood of x under a multivariate distribution.
 """ ->
