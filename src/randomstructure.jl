@@ -2,11 +2,11 @@ function generateRandomProduct(sumWidth::Int, depth::Int, μ::Vector{Float64}, �
 
 	P = ProductNode()
 
+	dist = MvNormal(μ[scope], Σ[scope,scope])
+	means = rand(dist, 1)
+
 	if currentDepth >= depth
 
-		dist = MvNormal(μ[scope], Σ[scope,scope])
-
-		means = rand(dist, 1)
 		for (i, mean) in enumerate(means)
 
 			node = NormalDistributionNode(scope[i], μ = mean, σ = σ)
@@ -20,11 +20,25 @@ function generateRandomProduct(sumWidth::Int, depth::Int, μ::Vector{Float64}, �
 
 		s = convert(Array{Bool}, rand(Bernoulli(), length(scope)))
 
-		node1 = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[s])
-		add!(P, node1)
+		while (sum(s) == length(scope)) | (sum(s) == 0)
+			s = convert(Array{Bool}, rand(Bernoulli(), length(scope)))
+		end
 
-		node2 = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[!s])
-		add!(P, node2)
+		if sum(s) >= 2
+			node1 = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[s])
+			add!(P, node1)
+		else
+			node1 = NormalDistributionNode(scope[s][1], μ = means[s][1], σ = σ)
+			add!(P, node1)
+		end
+
+		if sum(!s) >= 2
+			node2 = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[!s])
+			add!(P, node2)
+		else
+			node2 = NormalDistributionNode(scope[!s][1], μ = means[!s][1], σ = σ)
+			add!(P, node2)
+		end
 
 	end
 
