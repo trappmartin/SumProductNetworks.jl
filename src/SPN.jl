@@ -27,6 +27,9 @@ module SPN
   # include general implementations
   include("nodes.jl")
   include("nodeFunctions.jl")
+  include("layers.jl")
+  include("layerFunctions.jl")
+
   include("utils.jl")
 
   # include approach specific implementations
@@ -34,6 +37,7 @@ module SPN
   include("infiniteSPNGibbs.jl")
 	include("naiveBayesClustering.jl")
 	include("gens.jl")
+  include("randomstructure.jl")
 
   # include visualization implementations
   include("draw.jl")
