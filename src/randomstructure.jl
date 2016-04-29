@@ -42,6 +42,8 @@ function generateRandomSum(sumWidth::Int, depth::Int, μ::Vector{Float64}, Σ::A
 		add!(S, node)
 	end
 
+	normalize!(S)
+
 	return S
 
 end
