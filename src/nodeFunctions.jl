@@ -70,9 +70,69 @@ end
 
 """
 
-	normalize!(node) -> parents::SPNNode[]
+	normalize!(S)
 
-Localy normalize the weights of a sum node in place.
+Localy normalize the weights of a SPN using Algorithm 1 from Peharz et al.
+
+##### Parameters:
+* `node::SumNode`: Sum Product Network
+
+##### Optional Parameters:
+* `ϵ::Float64`: Lower bound to ensure we don't devide by zero. (default 1e-10)
+"""
+function normalize!(S::SumNode; ϵ = 1e-10)
+
+	nodes = order(S)
+	αp = ones(length(nodes))
+
+	for (nid, node) in enumerate(nodes)
+
+		if isa(node, Leaf)
+			continue
+		end
+
+		α = 0.0
+
+		if isa(node, SumNode)
+			α = sum(node.weights)
+
+			if α < ϵ
+				α = ϵ
+			end
+			node.weights ./= α
+
+		elseif isa(node, ProductNode)
+			α = αp[nid]
+			αp[nid] = 1
+		end
+
+		for fnode in parents(node)
+
+			if isa(fnode, SumNode)
+				id = findfirst(children(fnode) .== node)
+				@assert id > 0
+				fnode.weights[id] = fnode.weights[id] * α
+			elseif isa(fnode, ProductNode)
+				id = findfirst(nodes .== fnode)
+				if id == 0
+					println("parent of the following node not found! ", nid)
+				end
+				@assert id > 0
+				αp[id] = α * αp[id]
+			end
+
+		end
+
+	end
+
+
+end
+
+"""
+
+	normalizeNode!(node) -> parents::SPNNode[]
+
+Normalize the weights of a sum node in place.
 
 ##### Parameters:
 * `node::SumNode`: Sum node to be normnalized.
@@ -80,7 +140,7 @@ Localy normalize the weights of a sum node in place.
 ##### Optional Parameters:
 * `ϵ::Float64`: Additional noise to ensure we don't devide by zero. (default 1e-8)
 """
-function normalize!(node::SumNode; ϵ = 1e-8)
+function normalizeNode!(node::SumNode; ϵ = 1e-8)
   node.weights /= sum(node.weights) + ϵ
   node
 end

@@ -56,8 +56,6 @@ function generateRandomSum(sumWidth::Int, depth::Int, μ::Vector{Float64}, Σ::A
 		add!(S, node)
 	end
 
-	normalize!(S)
-
 	return S
 
 end
@@ -87,6 +85,8 @@ function randomStructure(X::AbstractArray, Classes::Vector{Int}, sumWidth::Int, 
 
 		add!(S, C, 1.0/length(Classes))
 	end
+
+	normalize!(S)
 
 	return S
 

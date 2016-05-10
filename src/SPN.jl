@@ -57,13 +57,6 @@ module SPN
 		UnivariateFeatureNode,
     MultivariateNode,
 		Assignment,
-    #Partition,
-    #Region,
-    #SumRegion,
-    #LeafRegion,
-    #SPNStructure,
-		#SPNConfiguration,
-    #AssignmentRegionGraph,
 
     # spn functions
 		children,
@@ -80,19 +73,8 @@ module SPN
     # structure learning
 		partStructure,
     learnSPN,
+    randomStructure,
     fixSPN!,
-
-		# infinite SPN functions
-		#increment!,
-		#decrement!,
-		#assign!,
-		#evalWithK,
-		#recurseCondK!,
-		#extend!,
-		#mirror!,
-		#draw,
-		#gibbs_iteration!,
-    #transformToRegionPartition,
 
     # utilities
     drawSPN,
