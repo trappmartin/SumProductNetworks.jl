@@ -15,7 +15,8 @@ module SPN
         GraphLayout,
         Compose,
         Colors,
-				BMITest#,
+				BMITest,
+        NumericExtensions#,
        # FunctionalData
 
 	import Base.getindex

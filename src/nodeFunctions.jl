@@ -361,37 +361,24 @@ function fixSPN!(root::SumNode)
 end
 
 """
-Compute the log likelihood of the data under the model.
-The result is computed considering the topological order of the SPN.
+
+	llh(S, data) -> logprobvals::Vector{T}
+
 """
-function llh{T<:Real}(root::Node, data::AbstractArray{T})
+function llh{T<:Real}(S::Node, data::AbstractArray{T})
     # get topological order
-    toporder = order(root)
+    nodes = order(S)
 
-    llhval = Dict{SPNNode, Array{Float64}}()
+		maxId = maximum(Int[node.id for node in nodes])
+    llhval = Matrix{Float64}(maxId, size(data, 2))
 
-    for node in toporder
-        # take only llh values. Eval function returns: (llh, map, mappath)
-        llhval[node] = eval(node, data, llhval)
+    for node in nodes
+        eval!(node, data, llhval)
     end
 
-    return llhval[toporder[end]]
+    return vec(llhval[S.id, :])
 end
 
-"""
-Compute the log likelihood of the data under the model.
-This function evaluates leaf nodes only.
-"""
-function llh{T<:Real}(root::Leaf, data::AbstractArray{T})
-    return eval(root, data)
-end
-
-@doc doc"""
-Computes the conditional marginal log-likelihood.
-E.g.: P(query | evidence) = P(evidence, query) / P(evidence)
-
-cmllh(spn, query, evidence) -> [P(q1 | e1)]
-""" ->
 function cmllh{T<:Real}(root::Node, query::Dict{Int, T}, evidence::Dict{Int, T})
     # get topological order
     toporder = order(root)
@@ -440,7 +427,6 @@ function cmllh{T<:Real}(root::Node, query::Dict{Int, T}, evidence::Dict{Int, T})
     return llhEQ - (llhE * length(keys(query)))
 end
 
-"Extract MAP path, this implementation is possibly slow!"
 function map_path!(root::SPNNode, allpath::Dict{SPNNode, Array{SPNNode}}, mappath::Dict{SPNNode, Array{SPNNode}})
 
     if haskey(allpath, root)
@@ -454,7 +440,6 @@ function map_path!(root::SPNNode, allpath::Dict{SPNNode, Array{SPNNode}}, mappat
 
 end
 
-"Compute MAP and MAP path, this implementation is possibly slow!"
 function map{T<:Real}(root::Node, data::AbstractArray{T})
 
     # get topological order
@@ -479,59 +464,38 @@ function map{T<:Real}(root::Node, data::AbstractArray{T})
     return (mapval[toporder[end]], mappath)
 end
 
-"""
-Evaluate Sum-Node on data.
-This function returns the llh of the data under the model, the maximum a posterior, and the child node of the maximum a posterior path.
-"""
-function eval{T<:Real}(root::SumNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
+function filterEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+  for i = 1:length(node)
+    BLAS.axpy!(node.weights[i], sub(llhvals, node.children[i].id, :), sub(llhvals, node.id, :))
+  end
+end
 
-		_llh = ones(length(root), size(data, 2))
+function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+  cids = Int[child.id for child in children(node)]
+  llhvals[node.id, :] = NumericExtensions.logsumexp(sub(llhvals, cids, :) .+ log(node.weights), 1) .- log(sum(node.weights))
+end
 
-		if length(root) < 1
-			_llh = reshape([llhvals[c] for c in root.children], length(root), size(data, 2))
-		else
-			_llh = reduce(vcat, [llhvals[c] for c in root.children])
-		end
-
-    if root.isFilter
-      _llh = _llh .* root.weights
-      _llh = sum(_llh, 1)
+function eval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+		if node.isFilter
+      filterEval!(node, data, llhvals)
     else
-      _llh = _llh .+ log(root.weights)
-
-      maxlog = maximum(_llh, 1)
-
-      _llh = _llh .- maxlog
-      prob = sum(exp(_llh), 1)
-      _llh = log(prob) .+ maxlog
-    end
-
-    if !root.isFilter
-      _llh -= log(sum(root.weights))
-    end
-
-    return _llh
+      sumEval!(node, data, llhvals)
+		end
 end
 
 """
 Evaluate Product-Node on data.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and all child nodes of the maximum a posterior path.
 """
-function eval{T<:Real}(root::ProductNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-    _llh = [llhvals[c] for c in root.children]
-    _llh = reduce(vcat, _llh)
-    return sum(_llh, 1)
+function eval!{T<:Real}(node::ProductNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+	cids = Int[child.id for child in children(node)]
+	llhvals[node.id, :] = sum(sub(llhvals, cids, :), 1)
 end
 
-function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  return eval(node, data)
+function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+  @inbounds llhvals[node.id,:] = eval(node, data)
 end
 
-@doc doc"""
-This function returns the llh of the data under a univariate node.
-
-eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array{SPNNode}
-""" ->
 function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
     if ndims(data) > 1
       if node.bias
@@ -548,24 +512,27 @@ function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
     end
 end
 
-function eval{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  return eval(node, data)
+function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+  @inbounds llhvals[node.id,:] = eval(node, data)
 end
 
 function eval{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T})
 
     if ndims(data) > 1
-        llh = Float64[normlogpdf(node.μ, node.σ, data[node.scope,i]) - node.logz for i in 1:size(data, 2)]
-        return reshape(llh, 1, size(data, 2))
+			llh = zeros(Float64, 1, size(data, 2))
+			for i in 1:size(data, 2)
+		  	llh[i] = normlogpdf(node.μ, node.σ, data[node.scope,i]) - node.logz
+		  end
+      return llh
     else
-        llh = normlogpdf(node.μ, node.σ, data[node.scope]) - node.logz
-        return reshape([llh], 1, 1)
+      llh = normlogpdf(node.μ, node.σ, data[node.scope]) - node.logz
+      return reshape([llh], 1, 1)
     end
 
 end
 
-function eval{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  return eval(node, data)
+function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::Matrix{Float64})
+	@inbounds llhvals[node.id,:] = eval(node, data)
 end
 
 @doc doc"""
@@ -581,7 +548,6 @@ function eval{T<:Real, U<:DiscreteUnivariateDistribution}(node::UnivariateNode{U
         llh = logpdf(node.dist, data[node.scope])
         return reshape([llh], 1, 1)
     end
-
 end
 
 @doc doc"""
@@ -593,15 +559,9 @@ function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode
 
     if ndims(data) > 1
         llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
-        #println(size(llh))
-
-        #llh = [loglikelihood(node.dist, [datum]) for datum in data[node.scope,:]]
         return reshape(llh, 1, size(data, 2))
     else
         llh = logpdf(node.dist, data[node.scope]) - logpdf(node.dist, mean(node.dist))
-        #println(llh)
-        #llh = loglikelihood(node.dist, data[node.scope])
-        #println(loglikelihood(node.dist, data[node.scope]))
         return reshape([llh], 1, 1)
     end
 
@@ -629,8 +589,8 @@ function eval{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, da
 
 end
 
-function eval{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Dict{SPNNode, Array{Float64}})
-  return eval(node, data)
+function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Matrix{Float64})
+  @inbounds llhvals[node.id,:] = eval(node, data)
 end
 
 """
