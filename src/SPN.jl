@@ -1,5 +1,3 @@
-#__precompile__(true)
-
 module SPN
 
   # loading dependencies into workspaces

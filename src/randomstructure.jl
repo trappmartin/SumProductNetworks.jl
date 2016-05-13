@@ -1,6 +1,7 @@
-function generateRandomProduct(sumWidth::Int, depth::Int, μ::Vector{Float64}, Σ::AbstractArray, σ::Float64, currentDepth::Int, scope::Vector{Int})
+function generateRandomProduct(sumWidth::Int, depth::Int, μ::Vector{Float64}, Σ::AbstractArray, σ::Float64, currentDepth::Int, scope::Vector{Int}, idCounter::Int)
 
-	P = ProductNode()
+	idCounter += 1
+	P = ProductNode(idCounter)
 
 	dist = MvNormal(μ[scope], Σ[scope,scope])
 	means = rand(dist, 1)
@@ -9,7 +10,8 @@ function generateRandomProduct(sumWidth::Int, depth::Int, μ::Vector{Float64}, �
 
 		for (i, mean) in enumerate(means)
 
-			node = NormalDistributionNode(scope[i], μ = mean, σ = σ)
+			idCounter += 1
+			node = NormalDistributionNode(idCounter, scope[i], μ = mean, σ = σ)
 			add!(P, node)
 
 		end
@@ -25,64 +27,69 @@ function generateRandomProduct(sumWidth::Int, depth::Int, μ::Vector{Float64}, �
 		end
 
 		if sum(s) >= 2
-			node1 = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[s])
+			(node1, idCounter) = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[s], idCounter)
 			add!(P, node1)
 		else
-			node1 = NormalDistributionNode(scope[s][1], μ = means[s][1], σ = σ)
+			idCounter += 1
+			node1 = NormalDistributionNode(idCounter, scope[s][1], μ = means[s][1], σ = σ)
 			add!(P, node1)
 		end
 
 		if sum(!s) >= 2
-			node2 = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[!s])
+			(node2, idCounter) = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[!s], idCounter)
 			add!(P, node2)
 		else
-			node2 = NormalDistributionNode(scope[!s][1], μ = means[!s][1], σ = σ)
+			idCounter += 1
+			node2 = NormalDistributionNode(idCounter, scope[!s][1], μ = means[!s][1], σ = σ)
 			add!(P, node2)
 		end
-
 	end
 
-
-	return P
+	return (P, idCounter)
 
 end
 
-function generateRandomSum(sumWidth::Int, depth::Int, μ::Vector{Float64}, Σ::AbstractArray, σ::Float64, currentDepth::Int, scope::Vector{Int})
+function generateRandomSum(sumWidth::Int, depth::Int, μ::Vector{Float64}, Σ::AbstractArray, σ::Float64, currentDepth::Int, scope::Vector{Int}, idCounter::Int)
 
-	S = SumNode()
+	idCounter += 1
+	S = SumNode(idCounter)
 
 	for child in 1:sumWidth
-		node = generateRandomProduct(sumWidth, depth, μ, Σ, σ, currentDepth, scope)
+		(node, idCounter) = generateRandomProduct(sumWidth, depth, μ, Σ, σ, currentDepth, scope, idCounter)
 		add!(S, node)
 	end
 
-	return S
+	return (S, idCounter)
 
 end
 
-function generateRandomStructure(X::AbstractArray, sumWidth::Int, depth::Int, σ::Float64)
+function generateRandomStructure(X::AbstractArray, sumWidth::Int, depth::Int, σ::Float64, idCounter::Int)
 
 	(D, N) = size(X)
 
 	μ = vec(mean(X, 2))
 	Σ = cov(X, vardim = 2)
 
-	S = generateRandomSum(sumWidth, depth, μ, Σ, σ, 1, collect(1:D))
+	(S, idCounter) = generateRandomSum(sumWidth, depth, μ, Σ, σ, 1, collect(1:D), idCounter)
+
+	return (S, idCounter)
 
 end
 
-function randomStructure(X::AbstractArray, Classes::Vector{Int}, sumWidth::Int, depth::Int; σ = 1.0)
+function randomStructure(X::AbstractArray, Classes::Vector{Int}, sumWidth::Int, depth::Int; σ = 0.25)
 
-	S = SumNode()
+	idCounter = 1
+
+	S = SumNode(idCounter)
 
 	for cclass in Classes
 
-		C = ProductNode()
+		idCounter += 1
+		C = ProductNode(idCounter)
 		push!(C.classes, ClassNode(cclass))
 
-		child = generateRandomStructure(X, sumWidth, depth, σ)
+		(child, idCounter) = generateRandomStructure(X, sumWidth, depth, σ, idCounter)
 		add!(C, child)
-
 		add!(S, C, 1.0/length(Classes))
 	end
 
