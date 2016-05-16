@@ -100,6 +100,7 @@ function normalize!(S::SumNode; ϵ = 1e-10)
 				α = ϵ
 			end
 			node.weights ./= α
+			node.weights[node.weights .< ϵ] = ϵ
 
 		elseif isa(node, ProductNode)
 			α = αp[nid]
