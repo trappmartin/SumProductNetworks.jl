@@ -99,7 +99,7 @@ function normalize!(S::SumNode; ϵ = 1e-10)
 			if α < ϵ
 				α = ϵ
 			end
-			node.weights ./= α
+			node.weights[:] ./= α
 			node.weights[node.weights .< ϵ] = ϵ
 
 		elseif isa(node, ProductNode)
@@ -167,7 +167,6 @@ function add!(parent::SumNode, child::SPNNode, weight::Float64)
   push!(parent.children, child)
   push!(parent.weights, weight)
   push!(child.parents, parent)
-	child.inSPN = true
   parent
 end
 
@@ -178,7 +177,6 @@ add!(node::ProductNode, child::SPNNode) -> ProductNode
 function add!(parent::ProductNode, child::SPNNode)
   push!(parent.children, child)
   push!(child.parents, parent)
-  child.inSPN = true
   parent
 end
 
@@ -465,18 +463,18 @@ function map{T<:Real}(root::Node, data::AbstractArray{T})
     return (mapval[toporder[end]], mappath)
 end
 
-function filterEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+function filterEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
   for i = 1:length(node)
     BLAS.axpy!(node.weights[i], sub(llhvals, node.children[i].id, :), sub(llhvals, node.id, :))
   end
 end
 
-function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
   cids = Int[child.id for child in children(node)]
   llhvals[node.id, :] = NumericExtensions.logsumexp(sub(llhvals, cids, :) .+ log(node.weights), 1) .- log(sum(node.weights))
 end
 
-function eval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+function eval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
 		if node.isFilter
       filterEval!(node, data, llhvals)
     else
@@ -488,12 +486,12 @@ end
 Evaluate Product-Node on data.
 This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and all child nodes of the maximum a posterior path.
 """
-function eval!{T<:Real}(node::ProductNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+function eval!{T<:Real}(node::ProductNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
 	cids = Int[child.id for child in children(node)]
 	llhvals[node.id, :] = sum(sub(llhvals, cids, :), 1)
 end
 
-function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
   @inbounds llhvals[node.id,:] = eval(node, data)
 end
 
@@ -513,7 +511,7 @@ function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
     end
 end
 
-function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::Matrix{Float64})
+function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
   @inbounds llhvals[node.id,:] = eval(node, data)
 end
 
@@ -532,7 +530,7 @@ function eval{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T})
 
 end
 
-function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::Matrix{Float64})
+function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
 	@inbounds llhvals[node.id,:] = eval(node, data)
 end
 
@@ -590,7 +588,7 @@ function eval{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, da
 
 end
 
-function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::Matrix{Float64})
+function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
   @inbounds llhvals[node.id,:] = eval(node, data)
 end
 
