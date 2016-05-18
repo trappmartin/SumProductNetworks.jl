@@ -27,7 +27,7 @@ function generateRandomProduct(sumWidth::Int, depth::Int, μ::Vector{Float64}, �
 		end
 
 		if sum(s) >= 2
-			(node1, idCounter) = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[s], idCounter)
+			(node1, idCounter) = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth + 1, scope[s], idCounter)
 			add!(P, node1)
 		else
 			idCounter += 1
@@ -36,7 +36,7 @@ function generateRandomProduct(sumWidth::Int, depth::Int, μ::Vector{Float64}, �
 		end
 
 		if sum(!s) >= 2
-			(node2, idCounter) = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth, scope[!s], idCounter)
+			(node2, idCounter) = generateRandomSum(sumWidth, depth, μ, Σ, σ, currentDepth + 1, scope[!s], idCounter)
 			add!(P, node2)
 		else
 			idCounter += 1
