@@ -1,11 +1,8 @@
 *.jl.cov
 *.jl.mem
 playground/.ipynb_checkpoints/
-
-*.svg
-
 *.data
-
 *.svg
-
 *.mat
+*.csv
+*.pdf

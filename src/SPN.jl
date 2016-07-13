@@ -32,11 +32,10 @@ module SPN
   include("utils.jl")
 
   # include approach specific implementations
-	include("infiniteSPN.jl")
-  include("infiniteSPNGibbs.jl")
 	include("naiveBayesClustering.jl")
 	include("gens.jl")
   include("randomstructure.jl")
+  include("randomstructurekmeans.jl")
 
   # include visualization implementations
   include("draw.jl")

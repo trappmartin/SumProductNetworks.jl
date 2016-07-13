@@ -243,7 +243,7 @@ function learnProductNode(X::AbstractArray; method = :HSIC, pvalue = 0.05, minN 
 
 end
 
-function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, assignments::Assignment;
+function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int};
 	parents = Vector{ProductNode}(0), minSamples = 10, method = :HSIC, G0Type = GaussianWishart, L0Type = NormalGamma, α = 0.01, debug = false)
 
 	# learn SPN using Gens learnSPN
@@ -263,11 +263,6 @@ function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, ass
 	scope = [dimMapping[d] for d in 1:D]
 	snode = SumNode(scope = scope)
 
-	# set assignments
-	for n in 1:N
-		set!(assignments, snode, obsMapping[n])
-	end
-
 	# check if this is supposed to be the root
 	if length(parents) != 0
 		for parent in parents
@@ -284,11 +279,6 @@ function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, ass
 		# add product node
 		node = ProductNode(scope = scope)
 		add!(snode, node, convert(Float64, w[uid]))
-
-		# set assignments
-		for n in find(ids .== uid)
-			set!(assignments, node, obsMapping[n])
-		end
 
 		# compute product nodes
 		Dhat = Set(learnProductNode(Xhat, minN = minSamples, method = method))
@@ -308,10 +298,6 @@ function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, ass
 				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(L0, Xhat[d,:]), dimMapping[d])
 				add!(node, leaf)
 
-				# set assignments
-				for n in find(ids .== uid)
-					set!(assignments, leaf, obsMapping[n])
-				end
 			else
 				# recurse
 
@@ -319,7 +305,7 @@ function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, ass
 				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Ddiff))])
 				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
 
-				learnSPN(Xhat[collect(Ddiff),:], dimMappingC, obsMappingC, assignments, parents = vec([node]), method = method, G0Type = G0Type, L0Type = L0Type)
+				learnSPN(Xhat[collect(Ddiff),:], dimMappingC, obsMappingC, parents = vec([node]), method = method, G0Type = G0Type, L0Type = L0Type)
 			end
 
 			# don't recurse if only one dimension is inside the bucket
@@ -330,10 +316,6 @@ function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, ass
 				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(L0, Xhat[d,:]), dimMapping[d])
 				add!(node, leaf)
 
-				# set assignments
-				for n in find(ids .== uid)
-					set!(assignments, leaf, obsMapping[n])
-				end
 			else
 
 				# recurse
@@ -342,7 +324,7 @@ function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, ass
 				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Dhat))])
 				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
 
-				learnSPN(Xhat[collect(Dhat),:], dimMappingC, obsMappingC, assignments, parents = vec([node]), method = method, G0Type = G0Type, L0Type = L0Type)
+				learnSPN(Xhat[collect(Dhat),:], dimMappingC, obsMappingC, parents = vec([node]), method = method, G0Type = G0Type, L0Type = L0Type)
 			end
 
 		else
@@ -354,10 +336,6 @@ function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int}, ass
 				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(L0, Xhat[d,:]), dimMapping[d])
 				add!(node, leaf)
 
-				# set assignments
-				for n in find(ids .== uid)
-					set!(assignments, leaf, obsMapping[n])
-				end
 			end
 
 		end
