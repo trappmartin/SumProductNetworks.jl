@@ -35,7 +35,7 @@ module SPN
 	include("naiveBayesClustering.jl")
 	include("gens.jl")
   include("randomstructure.jl")
-  include("randomstructurekmeans.jl")
+  include("randomstructureKMeans.jl")
 
   # include visualization implementations
   include("draw.jl")
