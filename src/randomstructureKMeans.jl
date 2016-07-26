@@ -27,6 +27,8 @@ function learnProductNodeKMeans(X::AbstractArray; method = :Random, pvalue = 0.0
 
 	if N < minN
 		return collect(1:D)
+	elseif D == 1
+		return [D]
 	end
 
 	# create set of variables
@@ -144,7 +146,6 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 		Dhat = Set(learnProductNodeKMeans(Xhat, minN = minSamples, method = method))
 
 		Ddiff = setdiff(Dset, Dhat)
-		
 		# get list of children
 		if (length(Ddiff) > 0) & (depth < maxDepth)
 			# split has been found
