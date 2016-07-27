@@ -13,8 +13,8 @@ module SPN
         GraphLayout,
         Compose,
         Colors,
-				BMITest,
-        NumericExtensions#,
+        NumericExtensions,
+				BMITest
        # FunctionalData
 
 	import Base.getindex
@@ -28,7 +28,6 @@ module SPN
   include("nodeFunctions.jl")
   include("layers.jl")
   include("layerFunctions.jl")
-
   include("utils.jl")
 
   # include approach specific implementations

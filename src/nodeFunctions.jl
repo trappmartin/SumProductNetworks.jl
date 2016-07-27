@@ -208,6 +208,7 @@ function remove!(parent::ProductNode, index::Int)
   parent
 end
 
+
 @doc doc"""
 Type definition for topological ordering.
 Naming could be improved.
@@ -471,7 +472,10 @@ end
 
 function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
   cids = Int[child.id for child in children(node)]
-  llhvals[node.id, :] = NumericExtensions.logsumexp(sub(llhvals, cids, :) .+ log(node.weights), 1) .- log(sum(node.weights))
+  llhvals[node.id, :] = NumericExtensions.logsumexp(sub(llhvals, cids, :) .+ log(node.weights), 1)# .- log(sum(node.weights))
+
+	#logsumexp!(llhvals, node.id, cids, log(node.weights))
+
 end
 
 function eval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
