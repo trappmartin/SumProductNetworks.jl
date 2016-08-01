@@ -3,11 +3,6 @@ abstract SPNNode
 abstract Node <: SPNNode
 abstract Leaf{T} <: SPNNode
 
-# definition of class indicater Node
-immutable ClassNode <: Leaf
-    class::Int
-end
-
 #
 # A sum node computes a weighted sum of its children.
 #
@@ -39,10 +34,23 @@ immutable ProductNode <: Node
   # * mutable fields * #
 	parents::Vector{SPNNode}
   children::Vector{SPNNode}
-  classes::Vector{ClassNode}
   scope::Vector{Int}
 
-  ProductNode(id; parents = SPNNode[], children = SPNNode[], classes = ClassNode[], scope = Int[]) = new(id, parents, children, classes, scope)
+  ProductNode(id; parents = SPNNode[], children = SPNNode[], scope = Int[]) = new(id, parents, children, scope)
+end
+
+# definition of class indicater Node
+immutable ClassIndicatorNode <: Leaf
+
+  # * immutable fields * #
+  id::Int
+  class::Int
+  scope::Int
+
+  # * mutable fields * #
+	parents::Vector{SPNNode}
+
+  ClassIndicatorNode(id, class, scope::Int; parents = SPNNode[]) = new(id, class, scope, parents)
 end
 
 #

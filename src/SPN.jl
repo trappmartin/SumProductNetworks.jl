@@ -13,7 +13,6 @@ module SPN
         GraphLayout,
         Compose,
         Colors,
-        NumericExtensions,
 				BMITest
        # FunctionalData
 
@@ -33,7 +32,7 @@ module SPN
   # include approach specific implementations
 	include("naiveBayesClustering.jl")
 	include("gens.jl")
-  include("randomstructure.jl")
+  include("randomstructureMedian.jl")
   include("randomstructureKMeans.jl")
 
   # include visualization implementations
@@ -46,9 +45,9 @@ module SPN
     SPNNode,
 		Node,
 		Leaf,
+    ClassIndicatorNode,
     SumNode,
     ProductNode,
-		ClassNode,
     UnivariateNode,
     NormalDistributionNode,
 		UnivariateFeatureNode,
@@ -70,8 +69,6 @@ module SPN
     # structure learning
 		partStructure,
     learnSPN,
-    randomStructure,
-    fixSPN!,
 
     # utilities
     drawSPN,

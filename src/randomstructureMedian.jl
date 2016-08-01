@@ -1,9 +1,11 @@
+export randomStructureMedian
+
 function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::Float64, currentDepth::Int, scope::Vector{Int}, idCounter::Int)
 
 	idCounter += 1
 	P = ProductNode(idCounter)
 
-	(D, N) = size(X)
+	(N, D) = size(X)
 
 	if currentDepth >= depth
 
@@ -12,7 +14,7 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 			id = rand(1:N)
 
 			idCounter += 1
-			node = NormalDistributionNode(idCounter, s, μ = X[s, id], σ = σ)
+			node = NormalDistributionNode(idCounter, s, μ = X[id, s], σ = σ)
 			add!(P, node)
 
 		end
@@ -32,7 +34,7 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 			add!(P, node1)
 		else
 			idCounter += 1
-			node1 = NormalDistributionNode(idCounter, scope[s][1], μ = X[scope[s][1], rand(1:N)], σ = σ)
+			node1 = NormalDistributionNode(idCounter, scope[s][1], μ = X[rand(1:N), scope[s][1]], σ = σ)
 			add!(P, node1)
 		end
 
@@ -41,7 +43,7 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 			add!(P, node2)
 		else
 			idCounter += 1
-			node2 = NormalDistributionNode(idCounter, scope[!s][1], μ = X[scope[!s][1], rand(1:N)], σ = σ)
+			node2 = NormalDistributionNode(idCounter, scope[!s][1], μ = X[rand(1:N), scope[!s][1]], σ = σ)
 			add!(P, node2)
 		end
 	end
@@ -66,7 +68,7 @@ end
 
 function generateRandomStructure(X::AbstractArray, sumWidth::Int, depth::Int, σ::Float64, idCounter::Int)
 
-	(D, N) = size(X)
+	(N, D) = size(X)
 
 	(S, idCounter) = generateRandomSum(X, sumWidth, depth, σ, 1, collect(1:D), idCounter)
 
@@ -74,23 +76,30 @@ function generateRandomStructure(X::AbstractArray, sumWidth::Int, depth::Int, σ
 
 end
 
-function randomStructureMedian(X::AbstractArray, Y::Vector{Int}, sumWidth::Int, depth::Int; σ = 0.25)
+function randomStructureMedian(X::AbstractArray, sumWidth::Int, depth::Int; classdim = -1, σ = 0.25)
+
+	(N, D) = size(X)
 
 	idCounter = 1
 
 	S = SumNode(idCounter)
 
-	K = unique(Y)
+	if classdim != -1
+		K = unique(X[:,classdim])
 
-	for yi in K
+		for yi in K
 
-		idCounter += 1
-		C = ProductNode(idCounter)
-		push!(C.classes, ClassNode(yi))
+			idCounter += 1
+			C = ProductNode(idCounter)
 
-		(child, idCounter) = generateRandomStructure(X[:,Y .== yi], sumWidth, depth, σ, idCounter)
-		add!(C, child)
-		add!(S, C, 1.0/length(K))
+			(child, idCounter) = generateRandomStructure(X[X[:,classdim] .== yi,setdiff(1:D, classdim)], sumWidth, depth, σ, idCounter)
+			add!(C, child)
+			idCounter += 1
+			add!(C, ClassIndicatorNode(idCounter, yi, classdim))
+			add!(S, C, 1.0/length(K))
+		end
+	else
+		(S, idCounter) = generateRandomStructure(X, sumWidth, depth, σ, idCounter)
 	end
 
 	normalize!(S)

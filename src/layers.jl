@@ -43,9 +43,8 @@ type ProductLayer <: InternalLayer
   # Fields
 	parent::Nullable{InternalLayer}
   children::Vector{SPNLayer}
-  classes::Vector{ClassNode}
 
-  ProductLayer() = new(nothing, SPNLayer[], ClassNode[])
+  ProductLayer() = new(nothing, SPNLayer[])
 end
 
 # Feature Layers are layers containing feature nodes.

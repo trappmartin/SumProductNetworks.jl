@@ -9,11 +9,11 @@ Returns a list of class labels the Node is associated with.
 """
 function classes(node::ProductNode)
 
-  if length(node.classes) > 0
-    return [classNode.class for classNode in node.classes]
-  end
+	classNodes = Vector{Int}(0)
 
-  classNodes = Vector{Int}(0)
+  for classNode in filter(c -> isa(c, ClassIndicatorNode), node.children)
+    push!(classNodes, classNode.class)
+  end
 
   for parent in node.parents
     classNodes = cat(1, classNodes, classes(parent))
@@ -296,70 +296,6 @@ function flat!(nodes::Array{SPNNode}, node::SPNNode)
     nodes
 end
 
-@doc doc"""
-Collapse useless node inside the SPN.
-collapse!(root::SumNode) -> SumNode
-""" ->
-function collapse!(root::SumNode)
-
-	# get topological order
-	toporder = order(root)
-
-	for node in toporder
-		# TODO
-	end
-
-end
-
-@doc doc"""
-Fix the SPN by removing prior on Distributions.
-""" ->
-function fixSPN!(root::SumNode)
-
-	# get topological order
-	toporder = order(root)
-
-	for node in toporder
-		if isa(node, Leaf)
-			if isa(node.dist, BinomialBeta)
-
-				d = BNP.convert(node.dist)
-
-        # find node in parent
-        hasParents = length(node.parents) > 0
-        while hasParents
-
-          parent = node.parents[1]
-          newNode = UnivariateNode{Binomial}(d, node.scope)
-          id = findfirst(node .== parent.children)
-          remove!(parent, id)
-          add!(parent, newNode)
-
-          hasParents = length(node.parents) > 0
-        end
-
-      elseif isa(node.dist, NormalGamma)
-
-				d = BNP.convert(node.dist)
-
-        hasParents = length(node.parents) > 0
-        while hasParents
-
-          parent = node.parents[1]
-          newNode = NormalDistributionNode(node.scope, μ = mean(d), σ = std(d))
-          id = findfirst(node .== parent.children)
-          remove!(parent, id)
-          add!(parent, newNode)
-
-          hasParents = length(node.parents) > 0
-        end
-
-			end
-		end
-	end
-
-end
-
 """
 
 	llh(S, data) -> logprobvals::Vector{T}
@@ -370,111 +306,33 @@ function llh{T<:Real}(S::Node, data::AbstractArray{T})
     nodes = order(S)
 
 		maxId = maximum(Int[node.id for node in nodes])
-    llhval = Matrix{Float64}(maxId, size(data, 2))
+    llhval = Matrix{Float64}(size(data, 1), maxId)
 
     for node in nodes
         eval!(node, data, llhval)
     end
 
-    return vec(llhval[S.id, :])
+    return llhval[:, S.id]
 end
 
-function cmllh{T<:Real}(root::Node, query::Dict{Int, T}, evidence::Dict{Int, T})
-    # get topological order
-    toporder = order(root)
-
-
-    llhEQ = 0
-		# compute P(evidence, query)
-    for q in keys(query)
-
-      llhval = Dict{SPNNode, Array{Float64}}()
-  		data = ones(length(root.scope), 1) * NaN
-  		for d in root.scope
-  			if q == d
-  				data[d] = query[d]
-  			elseif haskey(evidence, d)
-  				data[d] = evidence[d]
-  			end
-  		end
-
-      for node in toporder
-          # take only llh values. Eval function returns: (llh, map, mappath)
-          llhval[node] = eval(node, data, llhval)[1]
-      end
-
-      llhEQ += llhval[toporder[end]][1]
-
-    end
-
-		# compute P(evidence)
-
-    llhval = Dict{SPNNode, Array{Float64}}()
-		data = ones(length(root.scope), 1) * NaN
-		for d in root.scope
-			if haskey(evidence, d)
-				data[d] = evidence[d]
-			end
-		end
-
-    for node in toporder
-        # take only llh values. Eval function returns: (llh, map, mappath)
-        llhval[node] = eval(node, data, llhval)[1]
-    end
-
-		llhE = llhval[toporder[end]][1]
-
-    return llhEQ - (llhE * length(keys(query)))
-end
-
-function map_path!(root::SPNNode, allpath::Dict{SPNNode, Array{SPNNode}}, mappath::Dict{SPNNode, Array{SPNNode}})
-
-    if haskey(allpath, root)
-        for child in allpath[root]
-            map_path!(child, allpath, mappath)
-        end
-
-        mappath[root] = allpath[root]
-
-    end
-
-end
-
-function map{T<:Real}(root::Node, data::AbstractArray{T})
-
-    # get topological order
-    toporder = order(root)
-
-    path = Dict{SPNNode, Array{SPNNode}}()
-    mapval = Dict{SPNNode, Array{Float64}}()
-
-    for node in toporder
-        (llh, v, p) = eval(node, data, mapval)
-        mapval[node] = v
-
-        if !isempty(p)
-            path[node] = p
-        end
-    end
-
-    # construct MAP path
-    mappath = Dict{SPNNode, Array{SPNNode}}()
-    map_path!(toporder[end], path, mappath)
-
-    return (mapval[toporder[end]], mappath)
-end
-
+"""
+Evaluate Sum-Node on data.
+This function updates the llh of the data under the model.
+"""
 function filterEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
   for i = 1:length(node)
-    BLAS.axpy!(node.weights[i], sub(llhvals, node.children[i].id, :), sub(llhvals, node.id, :))
+    BLAS.axpy!(node.weights[i], sub(llhvals, :, node.children[i].id), sub(llhvals, :, node.id))
   end
 end
 
 function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
   cids = Int[child.id for child in children(node)]
-  llhvals[node.id, :] = NumericExtensions.logsumexp(sub(llhvals, cids, :) .+ log(node.weights), 1)# .- log(sum(node.weights))
 
-	#logsumexp!(llhvals, node.id, cids, log(node.weights))
+	N = size(data, 1)
+
+	for ii in 1:N
+  	llhvals[ii, node.id] = logsumexp(vec(llhvals[ii, cids]) + log(node.weights))# .- log(sum(node.weights))
+	end
 
 end
 
@@ -488,127 +346,97 @@ end
 
 """
 Evaluate Product-Node on data.
-This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and all child nodes of the maximum a posterior path.
+This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::ProductNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
 	cids = Int[child.id for child in children(node)]
-	llhvals[node.id, :] = sum(sub(llhvals, cids, :), 1)
+	llhvals[:, node.id] = sum(sub(llhvals, :, cids), 2)
 end
 
+"""
+Evaluate ClassIndicatorNode on data.
+This function updates the llh of the data under the model.
+"""
+function eval!{T<:Real}(node::ClassIndicatorNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
+  @inbounds llhvals[:, node.id] = eval(node, data)
+end
+
+function eval{T<:Real}(node::ClassIndicatorNode, data::AbstractArray{T})
+	llh = log( convert(Vector{Int}, data[:,node.scope] .== node.class) )
+	llh[isnan(data[:,node.scope])] = 0.0
+
+	return llh
+end
+
+"""
+Evaluate UnivariateFeatureNode on data.
+This function updates the llh of the data under the model.
+"""
 function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-  @inbounds llhvals[node.id,:] = eval(node, data)
+  @inbounds llhvals[:, node.id] = eval(node, data)
 end
 
 function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
-    if ndims(data) > 1
-      if node.bias
-        return zeros(1, size(data, 2))
-      else
-        return data[node.scope,:]
-      end
-    else
-      if node.bias
-        return zeros(1, 1)
-      else
-        return reshape(data[node.scope], 1, 1)
-      end
-    end
+  if node.bias
+    return zeros(size(data, 1))
+  else
+    return data[:, node.scope]
+  end
 end
 
+"""
+Evaluate NormalDistributionNode on data.
+This function updates the llh of the data under the model.
+"""
 function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-  @inbounds llhvals[node.id,:] = eval(node, data)
+  @inbounds llhvals[:, node.id] = eval(node, data)
 end
 
 function eval{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T})
 
-    if ndims(data) > 1
-			llh = zeros(Float64, 1, size(data, 2))
-			for i in 1:size(data, 2)
-		  	llh[i] = normlogpdf(node.μ, node.σ, data[node.scope,i]) - node.logz
-		  end
-      return llh
-    else
-      llh = normlogpdf(node.μ, node.σ, data[node.scope]) - node.logz
-      return reshape([llh], 1, 1)
-    end
-
+	N = size(data, 1)
+	llh = zeros(Float64, N)
+	for i in 1:N
+		llh[i] = normlogpdf(node.μ, node.σ, data[i, node.scope]) - node.logz
+	end
+	return llh
 end
 
+"""
+Evaluate UnivariateNode on data.
+This function updates the llh of the data under the model.
+"""
 function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-	@inbounds llhvals[node.id,:] = eval(node, data)
+	@inbounds llhvals[:, node.id] = eval(node, data)
 end
 
-@doc doc"""
-This function returns the llh of the data under a univariate node.
-
-eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array{SPNNode}
-""" ->
 function eval{T<:Real, U<:DiscreteUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
-    if ndims(data) > 1
-      llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
-      return llh
-    else
-        llh = logpdf(node.dist, data[node.scope])
-        return reshape([llh], 1, 1)
-    end
+  llh = logpdf(node.dist, data[:, node.scope]) - logpdf(node.dist, mean(node.dist))
+	return llh
 end
 
-@doc doc"""
-This function returns the llh of the data under a univariate node.
-
-eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array{SPNNode}
-""" ->
 function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
-
-    if ndims(data) > 1
-        llh = logpdf(node.dist, data[node.scope,:]) - logpdf(node.dist, mean(node.dist))
-        return reshape(llh, 1, size(data, 2))
-    else
-        llh = logpdf(node.dist, data[node.scope]) - logpdf(node.dist, mean(node.dist))
-        return reshape([llh], 1, 1)
-    end
-
+    llh = logpdf(node.dist, data[:, node.scope]) - logpdf(node.dist, mean(node.dist))
+		return llh
 end
 
-@doc doc"""
-This function returns the llh of the data under a univariate node.
-
-eval(node, X) -> llh::Array{Float64, 2}, map::Array{Float64, 2}, children::Array{SPNNode}
-""" ->
 function eval{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
-    if ndims(data) > 1
-        x = sub(data, node.scope, :)
-
-				if all(isnan(x))
-					return [0]
-				end
-
-        llh = logpred(node.dist, x)
-        return llh
-    else
-        llh = logpred(node.dist, data[node.scope])
-        return reshape([llh], 1, 1)
-    end
-
+    llh = logpred(node.dist, data[:, node.scope])
+    return llh
 end
 
+"""
+Evaluate MultivariateNode on data.
+This function updates the llh of the data under the model.
+"""
 function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-  @inbounds llhvals[node.id,:] = eval(node, data)
+  @inbounds llhvals[:, node.id] = eval(node, data)
 end
-
-"""
-Evaluate Multivariate Node with ContinuousMultivariateDistribution.
-This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
-"""
 
 function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::AbstractArray{T})
-  return logpdf(node.dist, data[node.scope,:])
+  return logpdf(node.dist, data[:, node.scope]')
 end
 
-"""
-Evaluate Multivariate Node with ConjugatePostDistribution.
-This function returns the llh of the data under the model, the maximum a posterior (equal to llh), and itself.
-"""
 function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T})
-  return logpred(node.dist, data[node.scope,:])
+  return logpred(node.dist, data[:, node.scope])
 end

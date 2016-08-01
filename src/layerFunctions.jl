@@ -8,18 +8,15 @@
 
 * `layer::ProductLayer`: The parent layer.
 * `child::SPNLayer`: The new child layer.
-* `class::ClassNode`: Class node indicating selected class.
 
 """
-function connect!(layer::ProductLayer, child::InternalLayer, class::ClassNode)
+function connect!(layer::ProductLayer, child::InternalLayer)
 	push!(layer.children, child)
-	push!(layer.classes, class)
 	child.parent = layer
 end
 
-function connect!(layer::ProductLayer, child::LeafLayer, class::ClassNode)
+function connect!(layer::ProductLayer, child::LeafLayer)
 	push!(layer.children, child)
-	push!(layer.classes, class)
 	push!(layer.parents, layer)
 end
 
