@@ -2,13 +2,13 @@ export learnSPNKMeans
 
 function learnSumNodeKMeans(X; iterations = 1000, minN = 10, k = 2)
 
-	(D, N) = size(X)
+	(N, D) = size(X)
 
 	if N < minN
 		return (Dict(1 => 1.0), ones(Int, N))
 	end
 
-	R = Clustering.kmeans(X, k; maxiter = iterations)
+	R = Clustering.kmeans(X', k; maxiter = iterations)
 	idx = assignments(R)
 
 	# number of child nodes
@@ -23,7 +23,7 @@ end
 
 function learnProductNodeKMeans(X::AbstractArray; method = :Random, pvalue = 0.05, minN = 10)
 
-	(D, N) = size(X)
+	(N, D) = size(X)
 
 	if N < minN
 		return collect(1:D)
@@ -69,17 +69,17 @@ function learnProductNodeKMeans(X::AbstractArray; method = :Random, pvalue = 0.0
 				threshold = 1
 
 				if issparse(X)
-					x = full(X[d,:])'
-					y = full(X[d2,:])'
+					x = full(X[:,d])
+					y = full(X[:,d2])
 				else
-					x = X[d,:]'
-					y = X[d2,:]'
+					x = X[:,d]
+					y = X[:,d2]
 				end
 
 				if method == :HSIC
 					(value, threshold) = gammaHSIC(x, y, α = pvalue, kernelSize = 0.5)
 				elseif method == :BM
-					(p, logP) = BMITest.test(vec(x), vec(y), α = 1)
+					(p, logP) = BMITest.test(x, y, α = 1)
 					value = 1-p
 					threshold = 0.5
 				end
@@ -112,7 +112,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 	idCounter = lastID
 
 	# learn SPN using Gens learnSPN
-	(D, N) = size(X)
+	(N, D) = size(X)
 
 	# learn sum nodes
 	(w, ids) = learnSumNodeKMeans(X, minN = minSamples, k = maxClusters)
@@ -133,7 +133,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 
 	for uid in uidset
 
-		Xhat = X[:,ids .== uid]
+		Xhat = X[ids .== uid, :]
 
 		idCounter += 1
 
@@ -155,8 +155,8 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				d = pop!(Ddiff)
 
 				# argmax parameters
-				μ = mean(Xhat[d,:])
-				σ = std(Xhat[d,:])
+				μ = mean(Xhat[:, d])
+				σ = std(Xhat[:, d])
 
 				if σ < minSigma
 					σ = minSigma
@@ -174,7 +174,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Ddiff))])
 				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
 
-				learnSPNKMeans(Xhat[collect(Ddiff),:], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
+				learnSPNKMeans(Xhat[:, collect(Ddiff)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
 			end
 
 			# don't recurse if only one dimension is inside the bucket
@@ -182,8 +182,8 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				d = pop!(Dhat)
 
 				# argmax parameters
-				μ = mean(Xhat[d,:])
-				σ = std(Xhat[d,:])
+				μ = mean(Xhat[:, d])
+				σ = std(Xhat[:, d])
 
 				if σ < minSigma
 					σ = minSigma
@@ -202,7 +202,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Dhat))])
 				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
 
-				learnSPNKMeans(Xhat[collect(Dhat),:], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
+				learnSPNKMeans(Xhat[:, collect(Dhat)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
 			end
 
 		else
@@ -211,8 +211,8 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 			for d in Dhat
 
 				# argmax parameters
-				μ = mean(Xhat[d,:])
-				σ = std(Xhat[d,:])
+				μ = mean(Xhat[:, d])
+				σ = std(Xhat[:, d])
 
 				if σ < minSigma
 					σ = minSigma
