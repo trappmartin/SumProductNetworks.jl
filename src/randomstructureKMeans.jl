@@ -151,7 +151,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 			# split has been found
 
 			# don't recurse if only one dimension is inside the bucket
-			if length(Ddiff) == 1
+			"""if length(Ddiff) == 1
 				d = pop!(Ddiff)
 
 				# argmax parameters
@@ -167,15 +167,15 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				leaf = NormalDistributionNode(idCounter, dimMapping[d], μ = μ, σ = σ)
 				add!(node, leaf)
 
-			else
+			else"""
 				# recurse
 
 				# update mappings
 				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Ddiff))])
 				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
 
-				learnSPNKMeans(Xhat[:, collect(Ddiff)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
-			end
+				(idCounter, child) = learnSPNKMeans(Xhat[:, collect(Ddiff)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
+			"""end
 
 			# don't recurse if only one dimension is inside the bucket
 			if length(Dhat) == 1
@@ -194,7 +194,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				leaf = NormalDistributionNode(idCounter, dimMapping[d], μ = μ, σ = σ)
 				add!(node, leaf)
 
-			else
+			else"""
 
 				# recurse
 
@@ -202,8 +202,8 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Dhat))])
 				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
 
-				learnSPNKMeans(Xhat[:, collect(Dhat)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
-			end
+				(idCounter, child) = learnSPNKMeans(Xhat[:, collect(Dhat)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
+			#end
 
 		else
 
@@ -229,8 +229,6 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 
 	end
 
-	if length(parents) == 0
-		return snode
-	end
+	return (idCounter, snode)
 
 end
