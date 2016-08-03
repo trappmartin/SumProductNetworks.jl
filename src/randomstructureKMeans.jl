@@ -1,5 +1,28 @@
 export learnSPNKMeans
 
+function learnSumNodeDPMM(X; iterations = 100, minN = 10, k = 2)
+
+	(N, D) = size(X)
+
+	if N < minN
+		return (Dict(1 => 1.0), ones(Int, N))
+	end
+
+	G0 = BNP.fit(GaussianWishart, X')
+	models = train(DPM(G0), Gibbs(burnin = 1, maxiter = iterations, thinout = 2), KMeansInitialisation(k = k), X')
+
+	idx = models[end].assignments
+
+	# number of child nodes
+	uidx = unique(idx)
+
+	# compute cluster weights
+	w = Dict([i => sum(idx .== i) / convert(Float64, N) for i in uidx])
+
+	return (w, idx)
+
+end
+
 function learnSumNodeKMeans(X; iterations = 1000, minN = 10, k = 2)
 
 	(N, D) = size(X)
@@ -107,15 +130,19 @@ end
 function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int},
 	lastID::Int, depth::Int;
 	parents = Vector{ProductNode}(0), minSamples = 10,
-	method = :Random, maxDepth = 2, maxClusters = 2, minSigma = 0.2)
+	method = :Random, maxDepth = 2, minSigma = 0.2)
 
 	idCounter = lastID
 
 	# learn SPN using Gens learnSPN
 	(N, D) = size(X)
 
-	# learn sum nodes
-	(w, ids) = learnSumNodeKMeans(X, minN = minSamples, k = maxClusters)
+	# learn sum nodes with k-means
+	if depth != 0
+		(w, ids) = learnSumNodeKMeans(X, minN = minSamples, k = min(N, D+1))
+	else
+		(w, ids) = learnSumNodeDPMM(X, minN = minSamples, k = min(N, D+1))
+	end
 
 	# create sum node
 	idCounter += 1
@@ -151,59 +178,22 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 			# split has been found
 
 			# don't recurse if only one dimension is inside the bucket
-			"""if length(Ddiff) == 1
-				d = pop!(Ddiff)
+			# recurse
 
-				# argmax parameters
-				μ = mean(Xhat[:, d])
-				σ = std(Xhat[:, d])
+			# update mappings
+			dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Ddiff))])
+			obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
 
-				if σ < minSigma
-					σ = minSigma
-				end
+			(idCounter, child) = learnSPNKMeans(Xhat[:, collect(Ddiff)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]),
+				method = method, maxDepth = maxDepth, minSigma = minSigma)
+			# recurse
 
-				idCounter += 1
+			# update mappings
+			dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Dhat))])
+			obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
 
-				leaf = NormalDistributionNode(idCounter, dimMapping[d], μ = μ, σ = σ)
-				add!(node, leaf)
-
-			else"""
-				# recurse
-
-				# update mappings
-				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Ddiff))])
-				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
-
-				(idCounter, child) = learnSPNKMeans(Xhat[:, collect(Ddiff)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
-			"""end
-
-			# don't recurse if only one dimension is inside the bucket
-			if length(Dhat) == 1
-				d = pop!(Dhat)
-
-				# argmax parameters
-				μ = mean(Xhat[:, d])
-				σ = std(Xhat[:, d])
-
-				if σ < minSigma
-					σ = minSigma
-				end
-
-				idCounter += 1
-
-				leaf = NormalDistributionNode(idCounter, dimMapping[d], μ = μ, σ = σ)
-				add!(node, leaf)
-
-			else"""
-
-				# recurse
-
-				# update mappings
-				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Dhat))])
-				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
-
-				(idCounter, child) = learnSPNKMeans(Xhat[:, collect(Dhat)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]), method = method)
-			#end
+			(idCounter, child) = learnSPNKMeans(Xhat[:, collect(Dhat)], dimMappingC, obsMappingC, idCounter, depth + 1, parents = vec([node]),
+				method = method, maxDepth = maxDepth, minSigma = minSigma)
 
 		else
 
@@ -220,7 +210,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 
 				idCounter += 1
 
-				leaf = NormalDistributionNode(idCounter, dimMapping[d], μ = μ, σ = σ)
+				leaf = NormalDistributionNode(idCounter, dimMapping[d], μ = μ, σ = σ, logz = normlogpdf(μ, σ, μ))
 				add!(node, leaf)
 
 			end
