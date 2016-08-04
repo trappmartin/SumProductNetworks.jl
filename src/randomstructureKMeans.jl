@@ -130,7 +130,7 @@ end
 function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int},
 	lastID::Int, depth::Int;
 	parents = Vector{ProductNode}(0), minSamples = 10,
-	method = :Random, maxDepth = 2, minSigma = 0.2)
+	method = :Random, maxDepth = 2, minSigma = 0.2, dpmmRoot = true)
 
 	idCounter = lastID
 
@@ -138,7 +138,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 	(N, D) = size(X)
 
 	# learn sum nodes with k-means
-	if depth != 0
+	if (depth != 0) | !dpmmRoot
 		(w, ids) = learnSumNodeKMeans(X, minN = minSamples, k = min(N, D+1))
 	else
 		(w, ids) = learnSumNodeDPMM(X, minN = minSamples, k = min(N, D+1))
@@ -204,7 +204,7 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				μ = mean(Xhat[:, d])
 				σ = std(Xhat[:, d])
 
-				if σ < minSigma
+				if (σ < minSigma) | isnan(σ)
 					σ = minSigma
 				end
 

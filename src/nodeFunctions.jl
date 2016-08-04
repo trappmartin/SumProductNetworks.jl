@@ -399,6 +399,14 @@ function eval{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T})
 	for i in 1:N
 		llh[i] = normlogpdf(node.μ, node.σ, data[i, node.scope]) - node.logz
 	end
+
+	if !all(!isnan(llh))
+		println(node.μ)
+		println(node.σ)
+	end
+
+	@assert all(!isnan(llh))
+
 	return llh
 end
 
