@@ -208,6 +208,9 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 					σ = minSigma
 				end
 
+				@assert !isnan(μ)
+				@assert !isnan(σ)
+
 				idCounter += 1
 
 				leaf = NormalDistributionNode(idCounter, dimMapping[d], μ = μ, σ = σ, logz = normlogpdf(μ, σ, μ))
