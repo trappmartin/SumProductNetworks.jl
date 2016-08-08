@@ -156,7 +156,6 @@ function add!(parent::SumNode, child::SPNNode)
   else
     add!(parent, child, rand())
   end
-  parent
 end
 
 @doc doc"""
@@ -164,10 +163,11 @@ Add a node to a sum node with given weight in place.
 add!(node::SumNode, child::SPNNode, weight::Float64) -> SumNode
 """ ->
 function add!(parent::SumNode, child::SPNNode, weight::Float64)
-  push!(parent.children, child)
-  push!(parent.weights, weight)
-  push!(child.parents, parent)
-  parent
+	if !(child in parent.children)
+	  push!(parent.children, child)
+	  push!(parent.weights, weight)
+	  push!(child.parents, parent)
+	end
 end
 
 @doc doc"""
@@ -175,9 +175,10 @@ Add a node to a product node in place.
 add!(node::ProductNode, child::SPNNode) -> ProductNode
 """ ->
 function add!(parent::ProductNode, child::SPNNode)
-  push!(parent.children, child)
-  push!(child.parents, parent)
-  parent
+	if !(child in parent.children)
+	  push!(parent.children, child)
+	  push!(child.parents, parent)
+	end
 end
 
 @doc doc"""
@@ -241,8 +242,6 @@ function order(root::Node)
 
         data
     end
-
-    N = deeplength(root)
 
     marking = SPNMarking(Array{SPNNode}(0), Array{SPNNode}(0))
     flat!(marking.unmarked, root)
