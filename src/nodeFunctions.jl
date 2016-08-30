@@ -328,7 +328,6 @@ function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::Abstr
   cids = Int[id2index(child.id) for child in children(node)]
 
 	N = size(data, 1)
-
 	for ii in 1:N
   	llhvals[ii, id2index(node.id)] = logsumexp(vec(llhvals[ii, cids]) + log(node.weights))# .- log(sum(node.weights))
 	end
@@ -357,8 +356,9 @@ Evaluate ClassIndicatorNode on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::ClassIndicatorNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
-  @inbounds llhvals[:, id2index(node.id)] = log( convert(Vector{Int}, data[:,node.scope] .== node.class) )
-	@inbounds llhvals[isnan(data[:,node.scope]), id2index(node.id)] = 0.0
+	N = size(data, 1)
+  @inbounds llhvals[1:N, id2index(node.id)] = log( convert(Vector{Int}, data[:,node.scope] .== node.class) )
+	@inbounds llhvals[find(isnan(data[:,node.scope])), id2index(node.id)] = 0.0
 end
 
 """
@@ -366,10 +366,11 @@ Evaluate UnivariateFeatureNode on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+	N = size(data, 1)
 	if node.bias
-    @inbounds llhvals[:, id2index(node.id)] = zeros(size(data, 1))
+    @inbounds llhvals[1:N, id2index(node.id)] = 0.0
   else
-    @inbounds llhvals[:, id2index(node.id)] = data[:, node.scope]
+    @inbounds llhvals[1:N, id2index(node.id)] = data[:, node.scope]
   end
 end
 
@@ -378,7 +379,7 @@ Evaluate NormalDistributionNode on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
-	for i in 1:size(llhvals, 1)
+	for i in 1:size(data, 1)
 		@inbounds llhvals[i, id2index(node.id)] = normlogpdf(node.μ, node.σ, data[i, node.scope]) - node.logz
 	end
 end
