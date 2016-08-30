@@ -209,10 +209,11 @@ function learnSPNKMeans(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int
 				end
 
 				if isnan(μ)
+					println("size: ", size(Xhat) )
 					println("data dim: ", Xhat[:, d])
 					println("all data: ", Xhat)
 				end
-				
+
 				@assert !isnan(μ)
 				@assert !isnan(σ)
 

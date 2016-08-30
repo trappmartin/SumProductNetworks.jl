@@ -318,28 +318,28 @@ end
 Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
-function filterEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
+function filterEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}, id2index::Function)
   for i = 1:length(node)
-    BLAS.axpy!(node.weights[i], sub(llhvals, :, node.children[i].id), sub(llhvals, :, node.id))
+    BLAS.axpy!(node.weights[i], sub(llhvals, :, id2index(node.children[i].id)), sub(llhvals, :, id2index(node.id)))
   end
 end
 
-function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-  cids = Int[child.id for child in children(node)]
+function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}, id2index::Function)
+  cids = Int[id2index(child.id) for child in children(node)]
 
 	N = size(data, 1)
 
 	for ii in 1:N
-  	llhvals[ii, node.id] = logsumexp(vec(llhvals[ii, cids]) + log(node.weights))# .- log(sum(node.weights))
+  	llhvals[ii, id2index(node.id)] = logsumexp(vec(llhvals[ii, cids]) + log(node.weights))# .- log(sum(node.weights))
 	end
 
 end
 
-function eval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
+function eval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 		if node.isFilter
-      filterEval!(node, data, llhvals)
+      filterEval!(node, data, llhvals, id2index)
     else
-      sumEval!(node, data, llhvals)
+      sumEval!(node, data, llhvals, id2index)
 		end
 end
 
@@ -347,39 +347,29 @@ end
 Evaluate Product-Node on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::ProductNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-	cids = Int[child.id for child in children(node)]
-	llhvals[:, node.id] = sum(sub(llhvals, :, cids), 2)
+function eval!{T<:Real}(node::ProductNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+	cids = Int[id2index(child.id) for child in children(node)]
+	llhvals[:, id2index(node.id)] = sum(sub(llhvals, :, cids), 2)
 end
 
 """
 Evaluate ClassIndicatorNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::ClassIndicatorNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-  @inbounds llhvals[:, node.id] = eval(node, data)
-end
-
-function eval{T<:Real}(node::ClassIndicatorNode, data::AbstractArray{T})
-	llh = log( convert(Vector{Int}, data[:,node.scope] .== node.class) )
-	llh[isnan(data[:,node.scope])] = 0.0
-
-	return llh
+function eval!{T<:Real}(node::ClassIndicatorNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+  @inbounds llhvals[:, id2index(node.id)] = log( convert(Vector{Int}, data[:,node.scope] .== node.class) )
+	@inbounds llhvals[isnan(data[:,node.scope]), id2index(node.id)] = 0.0
 end
 
 """
 Evaluate UnivariateFeatureNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-  @inbounds llhvals[:, node.id] = eval(node, data)
-end
-
-function eval{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T})
-  if node.bias
-    return zeros(size(data, 1))
+function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+	if node.bias
+    @inbounds llhvals[:, id2index(node.id)] = zeros(size(data, 1))
   else
-    return data[:, node.scope]
+    @inbounds llhvals[:, id2index(node.id)] = data[:, node.scope]
   end
 end
 
@@ -387,58 +377,32 @@ end
 Evaluate NormalDistributionNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-  @inbounds llhvals[:, node.id] = eval(node, data)
-end
-
-function eval{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T})
-
-	N = size(data, 1)
-	llh = zeros(Float64, N)
-	for i in 1:N
-		llh[i] = normlogpdf(node.μ, node.σ, data[i, node.scope]) - node.logz
+function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+	for i in 1:size(llhvals, 1)
+		@inbounds llhvals[i, id2index(node.id)] = normlogpdf(node.μ, node.σ, data[i, node.scope]) - node.logz
 	end
-
-	@assert all(!isnan(llh))
-
-	return llh
 end
 
 """
 Evaluate UnivariateNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-	@inbounds llhvals[:, node.id] = eval(node, data)
+function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+	@inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope]) - logpdf(node.dist, mean(node.dist))
 end
 
-function eval{T<:Real, U<:DiscreteUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
-  llh = logpdf(node.dist, data[:, node.scope]) - logpdf(node.dist, mean(node.dist))
-	return llh
-end
-
-function eval{T<:Real, U<:ContinuousUnivariateDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
-    llh = logpdf(node.dist, data[:, node.scope]) - logpdf(node.dist, mean(node.dist))
-		return llh
-end
-
-function eval{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data::AbstractArray{T})
-    llh = logpred(node.dist, data[:, node.scope])
-    return llh
+function eval!{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+	@inbounds llhvals[:, id2index(node.id)] = logpred(node.dist, data[:, node.scope])
 end
 
 """
 Evaluate MultivariateNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64})
-  @inbounds llhvals[:, node.id] = eval(node, data)
+function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+  @inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope]')
 end
 
-function eval{T<:Real, U<:ContinuousMultivariateDistribution}(node::MultivariateNode{U}, data::AbstractArray{T})
-  return logpdf(node.dist, data[:, node.scope]')
-end
-
-function eval{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T})
-  return logpred(node.dist, data[:, node.scope])
+function eval!{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+  @inbounds llhvals[:, id2index(node.id)] = logpred(node.dist, data[:, node.scope])
 end
