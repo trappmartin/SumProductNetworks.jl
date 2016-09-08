@@ -14,9 +14,15 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 			id = rand(1:N)
 
 			idCounter += 1
-			node = NormalDistributionNode(idCounter, s, μ = X[id, s], σ = σ)
-			add!(P, node)
 
+			S = SumNode(idCounter)
+			for child in 1:sumWidth
+				node = NormalDistributionNode(idCounter, s, μ = X[id, s], σ = σ)
+				idCounter += 1
+				add!(S, node)
+			end
+
+			add!(P, S)
 		end
 
 	else
@@ -34,8 +40,15 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 			add!(P, node1)
 		else
 			idCounter += 1
-			node1 = NormalDistributionNode(idCounter, scope[s][1], μ = X[rand(1:N), scope[s][1]], σ = σ)
-			add!(P, node1)
+
+			S = SumNode(idCounter)
+			for child in 1:sumWidth
+				node1 = NormalDistributionNode(idCounter, scope[s][1], μ = X[rand(1:N), scope[s][1]], σ = σ)
+				idCounter += 1
+				add!(S, node1)
+			end
+
+			add!(P, S)
 		end
 
 		if sum(!s) >= 2
@@ -43,8 +56,14 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 			add!(P, node2)
 		else
 			idCounter += 1
-			node2 = NormalDistributionNode(idCounter, scope[!s][1], μ = X[rand(1:N), scope[!s][1]], σ = σ)
-			add!(P, node2)
+			S = SumNode(idCounter)
+			for child in 1:sumWidth
+				node2 = NormalDistributionNode(idCounter, scope[!s][1], μ = X[rand(1:N), scope[!s][1]], σ = σ)
+				idCounter += 1
+				add!(S, node2)
+			end
+
+			add!(P, S)
 		end
 	end
 
