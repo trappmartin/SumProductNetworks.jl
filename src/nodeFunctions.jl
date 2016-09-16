@@ -327,9 +327,11 @@ end
 function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}, id2index::Function)
   cids = Int[id2index(child.id) for child in children(node)]
 
+	active = (node.weights .> 0.0)
+
 	N = size(data, 1)
 	for ii in 1:N
-  	llhvals[ii, id2index(node.id)] = logsumexp(vec(llhvals[ii, cids]) + log(node.weights))# .- log(sum(node.weights))
+  	llhvals[ii, id2index(node.id)] = logsumexp(vec(llhvals[ii, cids[active]]) + log(node.weights[active]))# .- log(sum(node.weights))
 	end
 
 end
