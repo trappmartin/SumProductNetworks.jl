@@ -104,14 +104,28 @@ function randomStructureMedian(X::AbstractArray, sumWidth::Int, depth::Int; clas
 	S = SumNode(idCounter)
 
 	if classdim != -1
-		K = unique(X[:,classdim])
+
+		Y = X[:,classdim]
+		K = unique(Y)
+
+		# remove unlabeled data class
+		K = setdiff(K, NaN)
 
 		for yi in K
 
 			idCounter += 1
 			C = ProductNode(idCounter)
 
-			(child, idCounter) = generateRandomStructure(X[X[:,classdim] .== yi,setdiff(1:D, classdim)], sumWidth, depth, σ, idCounter)
+			(N, D) = size(X)
+
+			s = Y .== yi
+			s |= isnan(Y)
+
+		  XU = X[s, 1:D-1]
+
+		  (N, D) = size(XU)
+
+			(child, idCounter) = generateRandomStructure(XU, sumWidth, depth, σ, idCounter)
 			add!(C, child)
 			idCounter += 1
 			add!(C, ClassIndicatorNode(idCounter, yi, classdim))
