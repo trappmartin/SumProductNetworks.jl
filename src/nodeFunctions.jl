@@ -382,7 +382,7 @@ This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	for i in 1:size(data, 1)
-		@inbounds llhvals[i, id2index(node.id)] = normlogpdf(node.μ, node.σ, data[i, node.scope]) - node.logz
+		@inbounds llhvals[i, id2index(node.id)] = normlogpdf(node.μ, node.σ, data[i, node.scope])# - node.logz
 	end
 end
 
@@ -391,7 +391,7 @@ Evaluate UnivariateNode on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
-	@inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope]) - logpdf(node.dist, mean(node.dist))
+	@inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope])# - logpdf(node.dist, mean(node.dist))
 end
 
 function eval!{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)

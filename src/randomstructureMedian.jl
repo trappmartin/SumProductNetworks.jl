@@ -11,13 +11,14 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 
 		for s in scope
 
-			id = rand(1:N)
+			R = Clustering.kmeans(X[:,s]', sumWidth; maxiter = 1)
+			idx = assignments(R)
 
 			idCounter += 1
 
 			S = SumNode(idCounter)
 			for child in 1:sumWidth
-				node = NormalDistributionNode(idCounter, s, μ = X[id, s], σ = σ)
+				node = NormalDistributionNode(idCounter, s, μ = mean(X[idx .== child, s]), σ = σ)
 				idCounter += 1
 				add!(S, node)
 			end
@@ -41,9 +42,12 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 		else
 			idCounter += 1
 
+			R = Clustering.kmeans(X[:,scope[s][1]]', sumWidth; maxiter = 1)
+			idx = assignments(R)
+
 			S = SumNode(idCounter)
 			for child in 1:sumWidth
-				node1 = NormalDistributionNode(idCounter, scope[s][1], μ = X[rand(1:N), scope[s][1]], σ = σ)
+				node1 = NormalDistributionNode(idCounter, scope[s][1], μ = mean(X[idx .== child, scope[s][1]]), σ = σ)
 				idCounter += 1
 				add!(S, node1)
 			end
@@ -56,9 +60,13 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 			add!(P, node2)
 		else
 			idCounter += 1
+
+			R = Clustering.kmeans(X[:,scope[s][1]]', sumWidth; maxiter = 1)
+			idx = assignments(R)
+
 			S = SumNode(idCounter)
 			for child in 1:sumWidth
-				node2 = NormalDistributionNode(idCounter, scope[!s][1], μ = X[rand(1:N), scope[!s][1]], σ = σ)
+				node2 = NormalDistributionNode(idCounter, scope[!s][1], μ = mean(X[idx .== child, scope[!s][1]]), σ = σ)
 				idCounter += 1
 				add!(S, node2)
 			end
