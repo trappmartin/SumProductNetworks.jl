@@ -11,7 +11,7 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 
 		for s in scope
 
-			if sumWidth > N
+			if sumWidth < N
 				R = Clustering.kmeans(X[:,s]', sumWidth; maxiter = 1)
 				idx = assignments(R)
 			else
@@ -46,7 +46,7 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 		else
 			idCounter += 1
 
-			if sumWidth > N
+			if sumWidth < N
 				R = Clustering.kmeans(X[:,scope[s][1]]', sumWidth; maxiter = 1)
 				idx = assignments(R)
 			else
@@ -69,7 +69,7 @@ function generateRandomProduct(X::AbstractArray, sumWidth::Int, depth::Int, σ::
 		else
 			idCounter += 1
 
-			if sumWidth > N
+			if sumWidth < N
 				R = Clustering.kmeans(X[:,scope[!s][1]]', sumWidth; maxiter = 1)
 				idx = assignments(R)
 			else
