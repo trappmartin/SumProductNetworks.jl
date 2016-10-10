@@ -318,39 +318,25 @@ end
 Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
-function filterEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}, id2index::Function)
-  for i = 1:length(node)
-    BLAS.axpy!(node.weights[i], sub(llhvals, :, id2index(node.children[i].id)), sub(llhvals, :, id2index(node.id)))
-  end
-end
-
-function sumEval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}, id2index::Function)
-  cids = Int[id2index(child.id) for child in children(node)]
-
-	active = (node.weights .> 0.0)
-
-	N = size(data, 1)
-	for ii in 1:N
-  	llhvals[ii, id2index(node.id)] = logsumexp(vec(llhvals[ii, cids[active]]) + log(node.weights[active]))# .- log(sum(node.weights))
+function eval!{T<:Real}(node::SumNode, data::Matrix{T}, llhvals::Matrix{Float64}; id2index::Function = (id) -> id)
+	cids = Int[id2index(child.id) for child in children(node)]
+	logw = log(node.weights)
+	#logw = log(node.weights[node.weights .> 0.0])
+	#cids = cids[node.weights .> 0.0]
+	nid = id2index(node.id)
+	@simd for ii in 1:size(data, 1)
+		@inbounds llhvals[ii, nid] = logsumexp(llhvals[ii, cids] + logw)
 	end
-
-end
-
-function eval!{T<:Real}(node::SumNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
-		if node.isFilter
-      filterEval!(node, data, llhvals, id2index)
-    else
-      sumEval!(node, data, llhvals, id2index)
-		end
 end
 
 """
 Evaluate Product-Node on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::ProductNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+function eval!{T<:Real}(node::ProductNode, data::Matrix{T}, llhvals::Matrix{Float64}; id2index::Function = (id) -> id)
 	cids = Int[id2index(child.id) for child in children(node)]
-	llhvals[:, id2index(node.id)] = sum(sub(llhvals, :, cids), 2)
+	nid = id2index(node.id)
+	@inbounds llhvals[:, nid] = sum(llhvals[:, cids], 2)
 end
 
 """
@@ -358,9 +344,10 @@ Evaluate ClassIndicatorNode on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::ClassIndicatorNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
-	N = size(data, 1)
-  @inbounds llhvals[1:N, id2index(node.id)] = log( convert(Vector{Int}, data[:,node.scope] .== node.class) )
-	@inbounds llhvals[find(isnan(data[:,node.scope])), id2index(node.id)] = 0.0
+	nid = id2index(node.id)
+	@simd for ii in 1:size(data, 1)
+		llhvals[ii, nid] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.class)
+	end
 end
 
 """
@@ -380,9 +367,10 @@ end
 Evaluate NormalDistributionNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::NormalDistributionNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
-	for i in 1:size(data, 1)
-		@inbounds llhvals[i, id2index(node.id)] = normlogpdf(node.μ, node.σ, data[i, node.scope])# - node.logz
+function eval!(node::NormalDistributionNode, data::Matrix{Float64}, llhvals::Matrix{Float64}; id2index::Function = (id) -> id)
+	nid = id2index(node.id)
+	@simd for i in 1:size(data, 1)
+		@inbounds llhvals[i, nid] = isnan(data[i,node.scope]) ? 0.0 : normlogpdf(node.μ, node.σ, data[i, node.scope])
 	end
 end
 
