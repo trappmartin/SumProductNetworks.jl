@@ -2,19 +2,13 @@ module SPN
 
   # loading dependencies into workspaces
   using Clustering,
-				JuMP,
         Distances,
         Distributions,
         StatsFuns,
-				DistributedArrays,
 				Base,
         BNP,
         HSIC,
-        GraphLayout,
-        Compose,
-        Colors,
 				BMITest
-       # FunctionalData
 
 	import Base.getindex
 	import Base.map
