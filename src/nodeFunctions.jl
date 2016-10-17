@@ -318,15 +318,19 @@ end
 Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
+function evalSum!(M::Matrix{Float64}, iRange::Range, cids::Vector{Int}, nid::Int, logw::Vector{Float64})
+	@simd for ii in iRange
+		@inbounds M[ii, nid] = logsumexp(view(M, ii, cids) + logw)
+	end
+end
+
 function eval!{T<:Real}(node::SumNode, data::Matrix{T}, llhvals::Matrix{Float64}; id2index::Function = (id) -> id)
-	cids = Int[id2index(child.id) for child in children(node)]
-	logw = log(node.weights)
+	cids = id2index.(Int[child.id for child in children(node)])
+	logw = log.(node.weights)
 	#logw = log(node.weights[node.weights .> 0.0])
 	#cids = cids[node.weights .> 0.0]
 	nid = id2index(node.id)
-	@simd for ii in 1:size(data, 1)
-		@inbounds llhvals[ii, nid] = logsumexp(llhvals[ii, cids] + logw)
-	end
+	evalSum!(llhvals, 1:size(data, 1), cids, nid, logw)
 end
 
 """
@@ -334,7 +338,7 @@ Evaluate Product-Node on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::ProductNode, data::Matrix{T}, llhvals::Matrix{Float64}; id2index::Function = (id) -> id)
-	cids = Int[id2index(child.id) for child in children(node)]
+	cids = id2index.(Int[child.id for child in children(node)])
 	nid = id2index(node.id)
 	@inbounds llhvals[:, nid] = sum(llhvals[:, cids], 2)
 end
@@ -379,7 +383,7 @@ Evaluate UnivariateNode on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
-	@inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope])# - logpdf(node.dist, mean(node.dist))
+	@inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope])
 end
 
 function eval!{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
