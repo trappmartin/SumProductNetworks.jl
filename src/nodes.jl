@@ -1,3 +1,5 @@
+export SPNNode, Node, Leaf, SumNode, ProductNode, IndicatorNode, UnivariateFeatureNode, UnivariateNode, NormalDistributionNode, MultivariateNode
+
 # abstract definition of an SPN node
 abstract SPNNode
 abstract Node <: SPNNode
@@ -39,18 +41,18 @@ immutable ProductNode <: Node
   ProductNode(id; parents = SPNNode[], children = SPNNode[], scope = Int[]) = new(id, parents, children, scope)
 end
 
-# definition of class indicater Node
-immutable ClassIndicatorNode <: Leaf
+# definition of indicater Node
+immutable IndicatorNode <: Leaf
 
   # * immutable fields * #
   id::Int
-  class::Int
+  value::Int
   scope::Int
 
   # * mutable fields * #
 	parents::Vector{SPNNode}
 
-  ClassIndicatorNode(id, class, scope::Int; parents = SPNNode[]) = new(id, class, scope, parents)
+  IndicatorNode(id, value, scope::Int; parents = SPNNode[]) = new(id, value, scope, parents)
 end
 
 #
@@ -94,10 +96,9 @@ type NormalDistributionNode <: Leaf
 	parents::Vector{SPNNode}
   μ::Float64
   σ::Float64
-  logz::Float64
   scope::Int
 
-  NormalDistributionNode(id, scope::Int; parents = SPNNode[], μ = 0.0, σ = 1.0, logz = 0.0) = new(id, parents, μ, σ, logz, scope)
+  NormalDistributionNode(id, scope::Int; parents = SPNNode[], μ = 0.0, σ = 1.0) = new(id, parents, μ, σ, scope)
 end
 
 #

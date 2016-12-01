@@ -6,8 +6,8 @@ module SPN
         Distributions,
         StatsFuns,
 				Base,
-        BNP,
         HSIC,
+        BayesianNonparametrics,
 				BMITest
 
 	import Base.getindex
@@ -19,34 +19,15 @@ module SPN
   # include general implementations
   include("nodes.jl")
   include("nodeFunctions.jl")
-  include("layers.jl")
-  include("layerFunctions.jl")
-  include("utils.jl")
 
   # include approach specific implementations
 	include("naiveBayesClustering.jl")
 	include("gens.jl")
-  include("randomstructureMedian.jl")
-  include("randomstructureKMeans.jl")
 
-  # include visualization implementations
-  include("draw.jl")
 	include("show.jl")
 
 
   export
-    # types
-    SPNNode,
-		Node,
-		Leaf,
-    ClassIndicatorNode,
-    SumNode,
-    ProductNode,
-    UnivariateNode,
-    NormalDistributionNode,
-		UnivariateFeatureNode,
-    MultivariateNode,
-		Assignment,
 
     # spn functions
 		children,
@@ -61,11 +42,7 @@ module SPN
     map,
 
     # structure learning
-		partStructure,
-    learnSPN,
+    learnSPN
 
-    # utilities
-    drawSPN,
-    adjustedRandIndex
 
 end # module

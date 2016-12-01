@@ -1,109 +1,98 @@
-function learnSumNode(X, G0::ConjugatePostDistribution; iterations = 100, minN = 10, pointestimate = false, α = 0.01, debug = false, method = :Affinity)
+function learnSumNode{T <: AbstractFloat}(X::AbstractArray{T}; iterations = 1000, minN = 10)
 
-	(D, N) = size(X)
+	(N, D) = size(X)
 
 	if N < minN
-		return (1 => 1.0, ones(Int, N))
+		return ([1.0], ones(Int, N))
 	end
 
 	idx = zeros(Int, N)
 
-	if method == :NB
-		idClusterId = SPN.runNaiveBayes(X)
+	μ0 = vec(mean(X, 1))
+	κ0 = 5.0
+	ν0 = 9.0
+	Σ0 = cov(X)
 
-		idx = [idClusterId[i] for i in 1:N]
+	models = train(init(X, DPM(WishartGaussian(μ0, κ0, ν0, Σ0)), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
 
-	elseif method == :KMeans
+	idx = models[end].assignments
 
-		if debug
-			println("   # [learnSPN]: starting K-Means training $(now()) - iterations: $(iterations), number of clusters: $(minimum([10, round(Int, sqrt(N))]))")
-		end
+	# number of child nodes
+	uidx = unique(idx)
 
-		R = Clustering.kmeans(X, minimum([10, round(Int, sqrt(N))]); maxiter = iterations)
-		idx = assignments(R)
+	idx = Int[findfirst(uidx .== i) for i in idx]
 
-	elseif method == :Affinity
+	# compute cluster weights
+	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
 
-		R = Clustering.affinityprop(pairwise(SqEuclidean(), X) .* -1)
-		idx = assignments(R)
+	return (w, idx)
+end
 
-	elseif method == :DPM
+function learnSumNode{T <: AbstractFloat}(X::AbstractVector{T}; iterations = 1000, minN = 10)
 
-		if debug
-			println("   # [learnSPN]: starting DPMM training $(now()) - burnin: 0, iterations: $(iterations), initial number of clusters: $(minimum([10, round(Int, log(N))]))")
-		end
+	N = length(X)
 
-		models = train(DPM(G0), Gibbs(burnin = 100, maxiter = iterations, thinout = 2), RandomInitialisation(k = minimum([10, round(Int, log(N))]) ), X)
-
-		if debug
-			println("   # [learnSPN]: finished DPMM training $(now())")
-		end
-
-		# get assignments
-		Z = reduce(hcat, map(model -> vec(model.assignments), models))
-
-		# make sure assignments are in range
-		nz = zeros(Int, N)
-		for i in 1:size(Z)[2]
-			uz = unique(Z[:,i])
-
-			for (zi, z) in enumerate(uz)
-				idx = find(Z[:,i] .== z)
-				nz[idx] = zi
-			end
-
-			Z[:,i] = nz
-		end
-
-		if pointestimate == true
-
-			if debug
-				println("   # [learnSPN]: compute PSM $(now())")
-			end
-
-			psm = compute_psm(Z)
-
-			if debug
-				println("   # [learnSPN]: compute point estimate $(now())")
-			end
-
-			# NOTE: This is very slow as it does hclust for a N * N matrix.
-			(idx, value) = point_estimate(psm, method = :comp)
-
-		else
-
-			p = reduce(hcat, map(model -> model.energy, models))
-			p = exp(p - maximum(p))
-
-			j = BNP.rand_indices(p)
-
-			if debug
-				println("   # [learnSPN]: take random model $(j) with $(length(unique(Z[:,j]))) cluster(s)")
-			end
-
-			idx = Z[:,j]
-
-		end
+	if N < minN
+		return ([1.0], ones(Int, N))
 	end
 
-	if debug
-		println("   # [learnSPN]: construct node $(now())")
+	idx = zeros(Int, N)
+
+	μ0 = mean(X)
+
+	# this is a quick hack!
+	XX = reshape(X, N, 1)
+	models = train(init(XX, DPM(NormalNormal(μ0 = μ0)), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
+
+	idx = models[end].assignments
+
+	# number of child nodes
+	uidx = unique(idx)
+
+	idx = Int[findfirst(uidx .== i) for i in idx]
+
+	# compute cluster weights
+	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
+
+	return (w, idx)
+end
+
+function learnSumNode(X::AbstractArray{Int}; iterations = 1000, minN = 10)
+
+	(N, D) = size(X)
+
+	if N < minN
+		return ([1.0], ones(Int, N))
 	end
+
+	idx = zeros(Int, N)
+
+	idClusterId = SPN.runNaiveBayes(X')
+	idx = [idClusterId[i] for i in 1:N]
 
 	# number of child nodes
 	uidx = unique(idx)
 
 	# compute cluster weights
-	w = [i => sum(idx .== i) / convert(Float64, N) for i in uidx]
+	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
 
 	return (w, idx)
-
 end
 
+function isNotIndependent(x::Vector{Int}, y::Vector{Int}; pvalue = 0.05)
+	(p, logP) = BMITest.test(vec(x), vec(y), α = 1)
+	value = 1-p
+	return value > 0.5
+end
 
-function learnProductNode(X::AbstractArray; method = :HSIC, pvalue = 0.05, minN = 10)
+function isNotIndependent{T <: AbstractFloat}(x::Vector{T}, y::Vector{T}; pvalue = 0.05)
+	(value, threshold) = gammaHSIC(x', y', α = pvalue, kernelSize = 0.5)
+	return value > threshold
+end
 
-	(D, N) = size(X)
+function learnProductNode(X::AbstractArray; pvalue = 0.05, minN = 10)
+
+	(N, D) = size(X)
 
 	if N < minN
 		return collect(1:D)
@@ -135,24 +124,15 @@ function learnProductNode(X::AbstractArray; method = :HSIC, pvalue = 0.05, minN 
 			threshold = 1
 
 			if issparse(X)
-				x = full(X[d,:])'
-				y = full(X[d2,:])'
+				x = full(X[:,d])
+				y = full(X[:,d2])
 			else
-				x = X[d,:]'
-				y = X[d2,:]'
+				x = X[:,d]
+				y = X[:,d2]
 			end
 
-			if method == :HSIC
-				(value, threshold) = gammaHSIC(x, y, α = pvalue, kernelSize = 0.5)
-			elseif method == :BM
-				(p, logP) = BMITest.test(vec(x), vec(y), α = 1)
-				value = 1-p
-				threshold = 0.5
-			end
-
-			if value > threshold
+			if isNotIndependent(vec(x), vec(y), pvalue = pvalue)
 				# values are not independent
-
 				push!(indset, d2)
 				push!(toprocess, d2)
 				push!(toremove, d2)
@@ -166,110 +146,173 @@ function learnProductNode(X::AbstractArray; method = :HSIC, pvalue = 0.05, minN 
 	end
 
 	return indset
-
 end
 
-function learnSPN(X, dimMapping::Dict{Int, Int}, obsMapping::Dict{Int, Int};
-	parents = Vector{ProductNode}(0), minSamples = 10, method = :HSIC, G0Type = GaussianWishart, L0Type = NormalGamma, α = 0.01, debug = false)
+function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, scope::Int, obs::Vector{Int})
+	sigma = std(X[obs, scope])
+	sigma = isnan(sigma) ? 1e-6 : sigma + 1e-6
+	return NormalDistributionNode(id, scope, μ = mean(X[obs, scope]), σ = sigma)
+end
 
-	# learn SPN using Gens learnSPN
-	(D, N) = size(X)
+function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Vector{Int})
 
-	if debug
-		println("   # [learnSPN]: learn using $(N) samples with $(D) dimensions ($(now()))..")
-	end
+	K = maximum(X[:, scope])
+	p = Float64[sum(X[obs, scope] .== k) / length(obs) for k in 1:K]
 
-	# define G0
-	G0 = BNP.fit(G0Type, X)
+	return UnivariateNode{Categorical}(id, Categorical(p), scope)
+end
 
-	# learn sum nodes
-	(w, ids) = learnSumNode(X, G0, minN = minSamples, α = α, debug = debug)
+function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500)
 
-	# create sum node
-	scope = [dimMapping[d] for d in 1:D]
-	snode = SumNode(scope = scope)
+	(N, D) = size(X)
 
-	# check if this is supposed to be the root
-	if length(parents) != 0
-		for parent in parents
-			add!(parent, snode)
-		end
-	end
+	observations = Vector{Int}[]
+	dimensions = Vector{Int}[]
 
-	uidset = unique(ids)
+	# temp SPN structure
+	modes = [:sum]
+	ids = [1]
+	usedids = []
+	cids = Dict{Int, Vector}()
+	weights = Dict{Int, Vector}()
+	scopes = Dict{Int, Vector}()
 
-	for uid in uidset
+	nodes = SPNNode[]
 
-		Xhat = X[:,ids .== uid]
+	# push data
+	push!(observations, collect(1:N))
+	push!(dimensions, collect(1:D))
 
-		# add product node
-		node = ProductNode(scope = scope)
-		add!(snode, node, convert(Float64, w[uid]))
+	while !isempty(observations)
 
-		# compute product nodes
-		Dhat = Set(learnProductNode(Xhat, minN = minSamples, method = method))
-		Dset = Set(1:D)
+		mode = pop!(modes)
+		id = pop!(ids)
+		obs = sort(pop!(observations))
+		dims = sort(pop!(dimensions))
 
-		Ddiff = setdiff(Dset, Dhat)
+		push!(usedids, id)
 
-		# get list of children
-		if length(Ddiff) > 0
-			# split has been found
+		isuniv = length(dims) == 1
 
-			# don't recurse if only one dimension is inside the bucket
-			if length(Ddiff) == 1
-				d = pop!(Ddiff)
-
-				L0 = BNP.fit(L0Type, Xhat[d,:])
-				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(L0, Xhat[d,:]), dimMapping[d])
-				add!(node, leaf)
-
+		if mode == :sum
+			if isuniv
+				(w, assignments) = learnSumNode(X[obs, dims[1]], minN = minSamples, iterations = maxiter)
 			else
-				# recurse
+				(w, assignments) = learnSumNode(X[obs, dims], minN = minSamples, iterations = maxiter)
+			end
+			numchildren = length(w)
 
-				# update mappings
-				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Ddiff))])
-				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
-
-				learnSPN(Xhat[collect(Ddiff),:], dimMappingC, obsMappingC, parents = vec([node]), method = method, G0Type = G0Type, L0Type = L0Type)
+			cid = Int[]
+			for c in 1:numchildren
+				ccid = maximum(usedids)
+				push!(cid, ccid + c)
+				push!(ids, ccid + c)
+				push!(observations, obs[find(assignments .== c)])
+				push!(dimensions, dims)
+				push!(modes, :product)
 			end
 
-			# don't recurse if only one dimension is inside the bucket
-			if length(Dhat) == 1
-				d = pop!(Dhat)
+			weights[id] = w
+			cids[id] = cid
+			scopes[id] = dims
 
-				L0 = BNP.fit(L0Type, Xhat[d,:])
-				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(L0, Xhat[d,:]), dimMapping[d])
-				add!(node, leaf)
+		elseif mode == :product
 
-			else
-
-				# recurse
-
-				# update mappings
-				dimMappingC = Dict{Int, Int}([di => dimMapping[d] for (di, d) in enumerate(collect(Dhat))])
-				obsMappingC = Dict{Int, Int}([ni => obsMapping[n] for (ni, n) in enumerate(find(ids .== uid))])
-
-				learnSPN(Xhat[collect(Dhat),:], dimMappingC, obsMappingC, parents = vec([node]), method = method, G0Type = G0Type, L0Type = L0Type)
+			# if univariate, then push back as Leaf
+			if isuniv
+				push!(ids, id)
+				push!(observations, obs)
+				push!(dimensions, dims)
+				push!(modes, :leaf)
+				continue
 			end
 
+			assignments = learnProductNode(X[obs, dims], minN = minSamples)
+
+			p0 = dims[assignments]
+			p1 = setdiff(dims, p0)
+
+			if isempty(p1)
+
+				cid = Int[]
+				ccid = maximum(usedids)
+				for (c, d) in enumerate(p0)
+					push!(cid, ccid + c)
+					push!(ids, ccid + c)
+					push!(observations, obs)
+					push!(dimensions, [d])
+					push!(modes, :leaf)
+				end
+
+				cids[id] = cid
+			else
+
+				cid = Int[]
+				ccid = maximum(usedids)
+				push!(cid, ccid + 1)
+				push!(ids, ccid + 1)
+				push!(observations, obs)
+				push!(dimensions, p0)
+				push!(modes, :sum)
+
+				push!(cid, ccid + 2)
+				push!(ids, ccid + 2)
+				push!(observations, obs)
+				push!(dimensions, p1)
+				push!(modes, :sum)
+
+				cids[id] = cid
+			end
+
+			scopes[id] = dims
+
+		elseif mode == :leaf
+			node = fitLeafDistribution(X, id, dims[1], obs)
+			push!(nodes, node)
 		else
+			throw(ErrorException("Unknown mode: $mode"))
+		end
+	end
 
-			# construct leaf nodes
-			for d in Dhat
+	for k in keys(cids)
+		for cid in cids[k]
+			@assert cid in usedids
+		end
+	end
 
-				L0 = BNP.fit(L0Type, Xhat[d,:])
-				leaf = UnivariateNode{ConjugatePostDistribution}(BNP.add_data(L0, Xhat[d,:]), dimMapping[d])
-				add!(node, leaf)
+	# construct SPN
+	while !isempty(cids)
+		for id in sort(collect(keys(cids)), rev = true)
 
+			# check if all chidren exist
+			ncids = Int[n.id for n in nodes]
+			if all(Bool[ccid in ncids for ccid in cids[id]])
+
+				if haskey(weights, id) # sum
+					S = SumNode(id, scope = scopes[id])
+					w = weights[id]
+					for (i, ccid) in enumerate(cids[id])
+						add!(S, nodes[findfirst(ncids .== ccid)], w[i])
+					end
+					push!(nodes, S)
+					delete!(cids, id)
+					delete!(weights, id)
+
+				else # product
+					P = ProductNode(id, scope = scopes[id])
+
+					for (i, ccid) in enumerate(cids[id])
+						add!(P, nodes[findfirst(ncids .== ccid)])
+					end
+					push!(nodes, P)
+					delete!(cids, id)
+					delete!(weights, id)
+				end
 			end
 
 		end
-
 	end
 
-	if length(parents) == 0
-		return snode
-	end
-
+	ncids = Int[n.id for n in nodes]
+	return nodes[findfirst(ncids .== 1)]
 end
