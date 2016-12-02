@@ -1,6 +1,6 @@
 export SPNNode, Node, Leaf, SumNode, ProductNode, IndicatorNode, UnivariateFeatureNode, UnivariateNode, NormalDistributionNode, MultivariateNode
 
-# abstract definition of an SPN node
+# abstract definition of an SumProductNetwork node
 abstract SPNNode
 abstract Node <: SPNNode
 abstract Leaf{T} <: SPNNode

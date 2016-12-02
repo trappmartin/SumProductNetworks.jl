@@ -1,1 +1,1 @@
-# SPN
+# SumProductNetworks.jl

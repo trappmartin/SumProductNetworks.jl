@@ -1,4 +1,4 @@
-module SPN
+module SumProductNetworks
 
   # loading dependencies into workspaces
   using Clustering,
@@ -23,26 +23,5 @@ module SPN
   # include approach specific implementations
 	include("naiveBayesClustering.jl")
 	include("gens.jl")
-
-	include("show.jl")
-
-
-  export
-
-    # spn functions
-		children,
-		parent,
-    length,
-    classes,
-    add!,
-    remove!,
-    normalize!,
-    llh,
-    cmllh,
-    map,
-
-    # structure learning
-    learnSPN
-
 
 end # module

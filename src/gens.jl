@@ -1,3 +1,5 @@
+export learnSPN
+
 function learnSumNode{T <: AbstractFloat}(X::AbstractArray{T}; iterations = 1000, minN = 10)
 
 	(N, D) = size(X)
@@ -67,7 +69,7 @@ function learnSumNode(X::AbstractArray{Int}; iterations = 1000, minN = 10)
 
 	idx = zeros(Int, N)
 
-	idClusterId = SPN.runNaiveBayes(X')
+	idClusterId = runNaiveBayes(X')
 	idx = [idClusterId[i] for i in 1:N]
 
 	# number of child nodes

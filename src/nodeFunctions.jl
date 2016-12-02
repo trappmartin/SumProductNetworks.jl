@@ -1,3 +1,5 @@
+export classes, children, parents, length, add!, remove!, normalize!, llh, order
+
 """
 
 	classes(node) -> classlabels::Vector{Int}

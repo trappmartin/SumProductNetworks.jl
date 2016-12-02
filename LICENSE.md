@@ -1,4 +1,4 @@
-The SPN.jl package is licensed under the MIT "Expat" License:
+The SumProductNetworks.jl package is licensed under the MIT "Expat" License:
 
 > Copyright (c) 2015: Martin Trapp.
 >
