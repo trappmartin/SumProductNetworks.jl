@@ -164,7 +164,7 @@ function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Ve
 	return UnivariateNode{Categorical}(id, Categorical(p), scope)
 end
 
-function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500)
+function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = 100)
 
 	(N, D) = size(X)
 
@@ -172,6 +172,7 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500)
 	dimensions = Vector{Int}[]
 
 	# temp SPN structure
+	nodeDepths = [0]
 	modes = [:sum]
 	ids = [1]
 	usedids = []
@@ -187,6 +188,7 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500)
 
 	while !isempty(observations)
 
+		nodeDepth = pop!(nodeDepths)
 		mode = pop!(modes)
 		id = pop!(ids)
 		obs = sort(pop!(observations))
@@ -197,21 +199,40 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500)
 		isuniv = length(dims) == 1
 
 		if mode == :sum
-			if isuniv
-				(w, assignments) = learnSumNode(X[obs, dims[1]], minN = minSamples, iterations = maxiter)
-			else
-				(w, assignments) = learnSumNode(X[obs, dims], minN = minSamples, iterations = maxiter)
-			end
-			numchildren = length(w)
 
-			cid = Int[]
-			for c in 1:numchildren
+			# if depth has been reached, push back
+			if nodeDepth >= maxDepth
+
+				cid = Int[]
+				w = [1.0]
+
 				ccid = maximum(usedids)
-				push!(cid, ccid + c)
-				push!(ids, ccid + c)
-				push!(observations, obs[find(assignments .== c)])
+				push!(cid, ccid + 1)
+				push!(ids, ccid + 1)
+				push!(observations, obs)
 				push!(dimensions, dims)
 				push!(modes, :product)
+				push!(nodeDepths, nodeDepth + 1)
+			else
+
+				if isuniv
+					(w, assignments) = learnSumNode(X[obs, dims[1]], minN = minSamples, iterations = maxiter)
+				else
+					(w, assignments) = learnSumNode(X[obs, dims], minN = minSamples, iterations = maxiter)
+				end
+				numchildren = length(w)
+
+				cid = Int[]
+				for c in 1:numchildren
+					ccid = maximum(usedids)
+					push!(cid, ccid + c)
+					push!(ids, ccid + c)
+					push!(observations, obs[find(assignments .== c)])
+					push!(dimensions, dims)
+					push!(modes, :product)
+					push!(nodeDepths, nodeDepth + 1)
+				end
+
 			end
 
 			weights[id] = w
@@ -226,44 +247,66 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500)
 				push!(observations, obs)
 				push!(dimensions, dims)
 				push!(modes, :leaf)
+				push!(nodeDepths, nodeDepth + 1)
 				continue
 			end
 
-			assignments = learnProductNode(X[obs, dims], minN = minSamples)
-
-			p0 = dims[assignments]
-			p1 = setdiff(dims, p0)
-
-			if isempty(p1)
-
+			# if depth has been reached, push back
+			if nodeDepth >= maxDepth
 				cid = Int[]
 				ccid = maximum(usedids)
-				for (c, d) in enumerate(p0)
+				for (c, d) in enumerate(dims)
 					push!(cid, ccid + c)
 					push!(ids, ccid + c)
 					push!(observations, obs)
 					push!(dimensions, [d])
 					push!(modes, :leaf)
+					push!(nodeDepths, nodeDepth + 1)
 				end
 
 				cids[id] = cid
+
 			else
 
-				cid = Int[]
-				ccid = maximum(usedids)
-				push!(cid, ccid + 1)
-				push!(ids, ccid + 1)
-				push!(observations, obs)
-				push!(dimensions, p0)
-				push!(modes, :sum)
+				assignments = learnProductNode(X[obs, dims], minN = minSamples)
 
-				push!(cid, ccid + 2)
-				push!(ids, ccid + 2)
-				push!(observations, obs)
-				push!(dimensions, p1)
-				push!(modes, :sum)
+				p0 = dims[assignments]
+				p1 = setdiff(dims, p0)
 
-				cids[id] = cid
+				if isempty(p1)
+
+					cid = Int[]
+					ccid = maximum(usedids)
+					for (c, d) in enumerate(p0)
+						push!(cid, ccid + c)
+						push!(ids, ccid + c)
+						push!(observations, obs)
+						push!(dimensions, [d])
+						push!(modes, :leaf)
+						push!(nodeDepths, nodeDepth + 1)
+					end
+
+					cids[id] = cid
+				else
+
+					cid = Int[]
+					ccid = maximum(usedids)
+					push!(cid, ccid + 1)
+					push!(ids, ccid + 1)
+					push!(observations, obs)
+					push!(dimensions, p0)
+					push!(modes, :sum)
+					push!(nodeDepths, nodeDepth + 1)
+
+					push!(cid, ccid + 2)
+					push!(ids, ccid + 2)
+					push!(observations, obs)
+					push!(dimensions, p1)
+					push!(modes, :sum)
+					push!(nodeDepths, nodeDepth + 1)
+
+					cids[id] = cid
+				end
 			end
 
 			scopes[id] = dims
