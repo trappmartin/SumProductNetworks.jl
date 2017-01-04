@@ -153,18 +153,24 @@ end
 function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, scope::Int, obs::Vector{Int})
 	sigma = std(X[obs, scope])
 	sigma = isnan(sigma) ? 1e-6 : sigma + 1e-6
-	return NormalDistributionNode(id, scope, μ = mean(X[obs, scope]), σ = sigma)
+	mu = mean(X[obs, scope])
+
+	@assert !isnan(sigma)
+	@assert !isnan(mu)
+	return NormalDistributionNode(id, scope, μ = mu, σ = sigma)
 end
 
+#TODO: Change such that sum of indicators is returned and node id's are incremented!
 function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Vector{Int})
 
 	K = maximum(X[:, scope])
 	p = Float64[sum(X[obs, scope] .== k) / length(obs) for k in 1:K]
 
+	@assert all(!isnan(p))
 	return UnivariateNode{Categorical}(id, Categorical(p), scope)
 end
 
-function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = 100)
+function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = Inf)
 
 	(N, D) = size(X)
 

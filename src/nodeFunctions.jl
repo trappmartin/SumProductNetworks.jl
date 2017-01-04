@@ -148,10 +148,10 @@ function normalizeNode!(node::SumNode; ϵ = 1e-8)
   node
 end
 
-@doc doc"""
+"""
 Add a node to a sum node with random weight in place.
 add!(node::SumNode, child::SPNNode) -> SumNode
-""" ->
+"""
 function add!(parent::SumNode, child::SPNNode)
   if parent.isFilter
     add!(parent, child, 1e-6)
@@ -160,10 +160,10 @@ function add!(parent::SumNode, child::SPNNode)
   end
 end
 
-@doc doc"""
+"""
 Add a node to a sum node with given weight in place.
 add!(node::SumNode, child::SPNNode, weight::Float64) -> SumNode
-""" ->
+"""
 function add!(parent::SumNode, child::SPNNode, weight::Float64)
 	if !(child in parent.children)
 	  push!(parent.children, child)
@@ -172,10 +172,10 @@ function add!(parent::SumNode, child::SPNNode, weight::Float64)
 	end
 end
 
-@doc doc"""
+"""
 Add a node to a product node in place.
 add!(node::ProductNode, child::SPNNode) -> ProductNode
-""" ->
+"""
 function add!(parent::ProductNode, child::SPNNode)
 	if !(child in parent.children)
 	  push!(parent.children, child)
@@ -183,10 +183,10 @@ function add!(parent::ProductNode, child::SPNNode)
 	end
 end
 
-@doc doc"""
+"""
 Remove a node from the children list of a sum node in place.
 remove!(node::SumNode, index::Int) -> SumNode
-""" ->
+"""
 function remove!(parent::SumNode, index::Int)
 	pid = findfirst(parent .== parent.children[index].parents)
 
@@ -198,10 +198,10 @@ function remove!(parent::SumNode, index::Int)
   parent
 end
 
-@doc doc"""
+"""
 Remove a node from the children list of a product node in place.
 remove!(node::ProductNode, index::Int) -> ProductNode
-""" ->
+"""
 function remove!(parent::ProductNode, index::Int)
 	pid = findfirst(parent .== parent.children[index].parents)
 
@@ -212,19 +212,19 @@ function remove!(parent::ProductNode, index::Int)
 end
 
 
-@doc doc"""
+"""
 Type definition for topological ordering.
 Naming could be improved.
-""" ->
+"""
 type SPNMarking
   ordering::Array{SPNNode}
   unmarked::Array{SPNNode}
 end
 
-@doc doc"""
+"""
 Compute topological order of SPN using Tarjan's algoritm.
 order(spn::Node) -> SPNNode[] in topological order
-""" ->
+"""
 function order(root::Node)
 
     function visit!(node::SPNNode, data::SPNMarking)
