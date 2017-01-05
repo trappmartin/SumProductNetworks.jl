@@ -8,8 +8,6 @@ function learnSumNode{T <: AbstractFloat}(X::AbstractArray{T}; iterations = 1000
 		return ([1.0], ones(Int, N))
 	end
 
-	idx = zeros(Int, N)
-
 	μ0 = vec(mean(X, 1))
 	κ0 = 5.0
 	ν0 = 9.0
@@ -17,12 +15,12 @@ function learnSumNode{T <: AbstractFloat}(X::AbstractArray{T}; iterations = 1000
 
 	models = train(init(X, DPM(GaussianDiagonal{NormalNormal}(NormalNormal[NormalNormal(μ0 = mean(X[:,d])) for d in 1:D])), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
 
-	idx = models[end].assignments
+	ass = models[end].assignments
 
 	# number of child nodes
-	uidx = unique(idx)
+	uidx = unique(ass)
 
-	idx = Int[findfirst(uidx .== i) for i in idx]
+	idx = Int[findfirst(uidx .== i) for i in ass]
 
 	# compute cluster weights
 	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
@@ -38,20 +36,18 @@ function learnSumNode{T <: AbstractFloat}(X::AbstractVector{T}; iterations = 100
 		return ([1.0], ones(Int, N))
 	end
 
-	idx = zeros(Int, N)
-
 	μ0 = mean(X)
 
 	# this is a quick hack!
 	XX = reshape(X, N, 1)
 	models = train(init(XX, DPM(NormalNormal(μ0 = μ0)), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
 
-	idx = models[end].assignments
+	ass = models[end].assignments
 
 	# number of child nodes
-	uidx = unique(idx)
+	uidx = unique(ass)
 
-	idx = Int[findfirst(uidx .== i) for i in idx]
+	idx = Int[findfirst(uidx .== i) for i in ass]
 
 	# compute cluster weights
 	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
@@ -67,13 +63,12 @@ function learnSumNode(X::AbstractArray{Int}; iterations = 1000, minN = 10)
 		return ([1.0], ones(Int, N))
 	end
 
-	idx = zeros(Int, N)
-
 	idClusterId = runNaiveBayes(X')
-	idx = [idClusterId[i] for i in 1:N]
+	ass = [idClusterId[i] for i in 1:N]
 
 	# number of child nodes
-	uidx = unique(idx)
+	uidx = unique(ass)
+	idx = Int[findfirst(uidx .== i) for i in ass]
 
 	# compute cluster weights
 	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
