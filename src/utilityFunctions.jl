@@ -64,8 +64,16 @@ function simplify!(S::SumNode)
 		end
 	end
 
+	for child in children(S)
+		@assert findfirst(S .== child.parents) > 0
+	end
+
 	for child in reverse(childrentoremove)
 		remove!(S, child)
+	end
+
+	for child in children(S)
+		@assert findfirst(S .== child.parents) > 0
 	end
 end
 
@@ -101,6 +109,10 @@ function simplify!(S::ProductNode)
 
 	for child in reverse(childrentoremove)
 		remove!(S, child)
+	end
+
+	for child in children(S)
+		@assert findfirst(S .== child.parents) > 0
 	end
 end
 
