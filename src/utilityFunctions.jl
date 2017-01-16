@@ -1,4 +1,4 @@
-export simplify!, complexity, depth
+export simplify!, complexity, depth, prune!
 
 """
 
@@ -105,4 +105,63 @@ function simplify!(S::ProductNode)
 end
 
 function simplify!(S)
+end
+
+"""
+
+	prune!(S, σ)
+
+Prune away leaf nodes & sub-trees with std lower than σ.
+"""
+function prune!(S::SumNode, σ::Float64)
+
+	for node in filter(n -> isa(n, SumNode), order(S))
+
+	  toremove = Int[]
+
+	  for (ci, child) in enumerate(children(node))
+	    if isa(child, NormalDistributionNode)
+	      if child.σ < σ
+	        push!(toremove, ci)
+	      end
+	    elseif isa(child, ProductNode)
+	      if any([isa(childk, NormalDistributionNode) for childk in children(child)])
+	        drop = false
+	        for childk in children(child)
+	          if isa(childk, NormalDistributionNode)
+	            if childk.σ < σ
+	              drop = true
+	            end
+	          end
+	        end
+	        if drop
+	          push!(toremove, ci)
+	        end
+	      end
+	    end
+	  end
+	  reverse!(toremove)
+
+	  for ci in toremove
+	    remove!(node, ci)
+	  end
+	end
+
+	for node in filter(n -> isa(n, Node), order(S))
+
+	  toremove = Int[]
+	  for (ci, child) in enumerate(children(node))
+	    if isa(child, Node)
+	      if length(child) == 0
+	        push!(toremove, ci)
+	      end
+	    end
+	  end
+	  reverse!(toremove)
+
+	  for ci in toremove
+	    remove!(node, ci)
+	  end
+	end
+
 end

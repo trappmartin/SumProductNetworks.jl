@@ -147,7 +147,7 @@ end
 
 function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, scope::Int, obs::Vector{Int})
 	sigma = std(X[obs, scope])
-	sigma = isnan(sigma) ? 1e-6 : sigma + 1e-6
+	sigma = isnan(sigma) ? 1e-6 : sigma
 	mu = mean(X[obs, scope])
 
 	@assert !isnan(sigma)

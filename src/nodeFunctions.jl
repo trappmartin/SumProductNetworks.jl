@@ -190,8 +190,6 @@ remove!(node::SumNode, index::Int) -> SumNode
 function remove!(parent::SumNode, index::Int)
 	pid = findfirst(parent .== parent.children[index].parents)
 
-	deleteat!(parent.children[index].parents, pid)
-
 	deleteat!(parent.children, index)
   deleteat!(parent.weights, index)
 
