@@ -328,10 +328,14 @@ end
 function eval!{T<:Real}(node::SumNode, data::AbstractMatrix{T}, llhvals::AbstractMatrix{Float64}; id2index::Function = (id) -> id)
 	cids = id2index.(Int[child.id for child in children(node)])
 	logw = log.(node.weights)
-	#logw = log(node.weights[node.weights .> 0.0])
-	#cids = cids[node.weights .> 0.0]
 	nid = id2index(node.id)
 	evalSum!(llhvals, 1:size(data, 1), cids, nid, logw)
+	if any(isnan(view(llhvals, 1:size(data, 1), nid)))
+		for (j, child) in enumerate(children(node))
+			println(child.id, " - ", typeof(child), " : ", any(isnan(view(llhvals, 1:size(data, 1), id2index(child.id)))), " w: ", logw[j] )
+		end
+	end
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
 end
 
 """
@@ -342,6 +346,12 @@ function eval!{T<:Real}(node::ProductNode, data::AbstractMatrix{T}, llhvals::Abs
 	cids = id2index.(Int[child.id for child in children(node)])
 	nid = id2index(node.id)
 	@inbounds llhvals[:, nid] = sum(llhvals[:, cids], 2)
+	if any(isnan(view(llhvals, 1:size(data, 1), nid)))
+		for (j, child) in enumerate(children(node))
+			println(child.id, " - ", typeof(child), " : ", any(isnan(view(llhvals, 1:size(data, 1), id2index(child.id)))) )
+		end
+	end
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
 end
 
 """
@@ -353,6 +363,7 @@ function eval!{T<:Real}(node::IndicatorNode, data::AbstractArray{T}, llhvals::Ab
 	@simd for ii in 1:size(data, 1)
 		llhvals[ii, nid] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.value)
 	end
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
 end
 
 """
@@ -364,8 +375,9 @@ function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llh
 	if node.bias
     @inbounds llhvals[1:N, id2index(node.id)] = 0.0
   else
-    @inbounds llhvals[1:N, id2index(node.id)] = data[:, node.scope]
+    @inbounds llhvals[1:N, id2index(node.id)] = log(data[:, node.scope])
   end
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id))))
 end
 
 """
@@ -377,6 +389,8 @@ function eval!(node::NormalDistributionNode, data::AbstractMatrix{Float64}, llhv
 	@simd for i in 1:size(data, 1)
 		@inbounds llhvals[i, nid] = isnan(data[i,node.scope]) ? 0.0 : normlogpdf(node.μ, node.σ, data[i, node.scope])
 	end
+
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
 end
 
 """
@@ -385,6 +399,7 @@ This function updates the llh of the data under the model.
 """
 function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	@inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope])
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id))))
 end
 
 """
@@ -393,4 +408,5 @@ This function updates the llh of the data under the model.
 """
 function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
   @inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope]')
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id))))
 end

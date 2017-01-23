@@ -13,7 +13,7 @@ function learnSumNode{T <: AbstractFloat}(X::AbstractArray{T}; iterations = 1000
 	ν0 = 9.0
 	Σ0 = cov(X) + (10 * eye(D))
 
-	models = train(init(X, DPM(GaussianDiagonal{NormalNormal}(NormalNormal[NormalNormal(μ0 = mean(X[:,d])) for d in 1:D])), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
+	models = train(init(X, DPM(GaussianDiagonal{NormalNormal}(NormalNormal[NormalNormal(μ0 = mean(X[:,d])) for d in 1:D])), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), Gibbs(maxiter = iterations))
 
 	ass = models[end].assignments
 
@@ -40,7 +40,7 @@ function learnSumNode{T <: AbstractFloat}(X::AbstractVector{T}; iterations = 100
 
 	# this is a quick hack!
 	XX = reshape(X, N, 1)
-	models = train(init(XX, DPM(NormalNormal(μ0 = μ0)), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
+	models = train(init(XX, DPM(NormalNormal(μ0 = μ0)), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), Gibbs(maxiter = iterations))
 
 	ass = models[end].assignments
 
@@ -147,7 +147,7 @@ end
 
 function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, scope::Int, obs::Vector{Int})
 	sigma = std(X[obs, scope])
-	sigma = isnan(sigma) ? 1e-6 : sigma
+	sigma = isnan(sigma) ? 1e-6 : sigma + 1e-6
 	mu = mean(X[obs, scope])
 
 	@assert !isnan(sigma)

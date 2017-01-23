@@ -177,3 +177,125 @@ function prune!(S::SumNode, σ::Float64)
 	end
 
 end
+
+"""
+
+	prune!(S, σ)
+
+Prune away leaf nodes & sub-trees with std lower than σ.
+"""
+function prune_llh!(S::SumNode, data::AbstractArray; minrange = 0.0)
+
+	nodes = order(S)
+
+	maxId = maximum(Int[node.id for node in nodes])
+	llhval = Matrix{Float64}(size(data, 1), maxId)
+
+	for node in nodes
+			eval!(node, data, llhval)
+	end
+
+	llhval -= maximum(vec(mean(llhval, 1)))
+
+	rd = minrange + (rand(maxId) * (1-minrange))
+
+	drop = rd .> exp(vec(mean(llhval, 1)))
+
+	for node in filter(n -> isa(n, Node), order(S))
+
+	  toremove = Int[]
+
+	  for (ci, child) in enumerate(children(node))
+	    if isa(child, ProductNode)
+				if any([isa(childk, NormalDistributionNode) for childk in children(child)])
+	        for childk in children(child)
+	          if drop[childk.id]
+	            drop[child.id] = true
+	          end
+	        end
+				end
+			end
+
+			if drop[child.id]
+				push!(toremove, ci)
+			end
+	  end
+
+	  reverse!(toremove)
+
+	  for ci in toremove
+	    remove!(node, ci)
+	  end
+	end
+
+	for node in filter(n -> isa(n, Node), order(S))
+
+	  toremove = Int[]
+	  for (ci, child) in enumerate(children(node))
+	    if isa(child, Node)
+	      if length(child) == 0
+	        push!(toremove, ci)
+	      end
+	    end
+	  end
+	  reverse!(toremove)
+
+	  for ci in toremove
+	    remove!(node, ci)
+	  end
+	end
+
+end
+
+function prune_uniform!(S::SumNode, p::Float64)
+
+	nodes = order(S)
+	maxId = maximum(Int[node.id for node in nodes])
+
+	drop = rand(maxId) .> p
+
+	for node in filter(n -> isa(n, Node), order(S))
+
+	  toremove = Int[]
+
+	  for (ci, child) in enumerate(children(node))
+	    if isa(child, ProductNode)
+				if any([isa(childk, NormalDistributionNode) for childk in children(child)])
+	        for childk in children(child)
+	          if drop[childk.id]
+	            drop[child.id] = true
+	          end
+	        end
+				end
+			end
+
+			if drop[child.id]
+				push!(toremove, ci)
+			end
+	  end
+
+	  reverse!(toremove)
+
+	  for ci in toremove
+	    remove!(node, ci)
+	  end
+	end
+
+	for node in filter(n -> isa(n, Node), order(S))
+
+	  toremove = Int[]
+	  for (ci, child) in enumerate(children(node))
+	    if isa(child, Node)
+	      if length(child) == 0
+	        push!(toremove, ci)
+	      end
+	    end
+	  end
+	  reverse!(toremove)
+
+	  for ci in toremove
+	    remove!(node, ci)
+	  end
+	end
+
+end
