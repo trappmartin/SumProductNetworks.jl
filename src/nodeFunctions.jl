@@ -330,11 +330,6 @@ function eval!{T<:Real}(node::SumNode, data::AbstractMatrix{T}, llhvals::Abstrac
 	logw = log.(node.weights)
 	nid = id2index(node.id)
 	evalSum!(llhvals, 1:size(data, 1), cids, nid, logw)
-	if any(isnan(view(llhvals, 1:size(data, 1), nid)))
-		for (j, child) in enumerate(children(node))
-			println(child.id, " - ", typeof(child), " : ", any(isnan(view(llhvals, 1:size(data, 1), id2index(child.id)))), " w: ", logw[j] )
-		end
-	end
 	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
 end
 
@@ -388,6 +383,10 @@ function eval!(node::NormalDistributionNode, data::AbstractMatrix{Float64}, llhv
 	nid = id2index(node.id)
 	@simd for i in 1:size(data, 1)
 		@inbounds llhvals[i, nid] = isnan(data[i,node.scope]) ? 0.0 : normlogpdf(node.μ, node.σ, data[i, node.scope])
+	end
+
+	if any(isnan(view(llhvals, 1:size(data, 1), nid)))
+		println("Node: ", node.id, " result is nan! [μ: ", node.μ, ", σ: ", node.σ, "]")
 	end
 
 	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
