@@ -321,7 +321,7 @@ This function updates the llh of the data under the model.
 """
 function evalSum!(M::AbstractMatrix{Float64}, iRange::Range, cids::Vector{Int}, nid::Int, logw::Vector{Float64})
 	@simd for ii in iRange
-		@inbounds M[ii, nid] = logsumexp(view(M, ii, cids) + logw)
+		@inbounds M[ii, nid] = isnan(logsumexp(view(M, ii, cids) + logw)) ? -Inf : logsumexp(view(M, ii, cids) + logw)
 	end
 end
 
@@ -330,7 +330,7 @@ function eval!{T<:Real}(node::SumNode, data::AbstractMatrix{T}, llhvals::Abstrac
 	logw = log.(node.weights)
 	nid = id2index(node.id)
 	evalSum!(llhvals, 1:size(data, 1), cids, nid, logw)
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
+	@assert !any(isnan(logw)) "low weights of sum node: $(node.id) contains NaN's!"
 end
 
 """
@@ -341,12 +341,7 @@ function eval!{T<:Real}(node::ProductNode, data::AbstractMatrix{T}, llhvals::Abs
 	cids = id2index.(Int[child.id for child in children(node)])
 	nid = id2index(node.id)
 	@inbounds llhvals[:, nid] = sum(llhvals[:, cids], 2)
-	if any(isnan(view(llhvals, 1:size(data, 1), nid)))
-		for (j, child) in enumerate(children(node))
-			println(child.id, " - ", typeof(child), " : ", any(isnan(view(llhvals, 1:size(data, 1), id2index(child.id)))) )
-		end
-	end
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by product node: $(node.id) contains NaN's!"
 end
 
 """
@@ -358,7 +353,7 @@ function eval!{T<:Real}(node::IndicatorNode, data::AbstractArray{T}, llhvals::Ab
 	@simd for ii in 1:size(data, 1)
 		llhvals[ii, nid] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.value)
 	end
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by indicator node: $(node.id) contains NaN's!"
 end
 
 """
@@ -372,7 +367,7 @@ function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llh
   else
     @inbounds llhvals[1:N, id2index(node.id)] = log(data[:, node.scope])
   end
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id))))
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
 end
 
 """
@@ -385,11 +380,7 @@ function eval!(node::NormalDistributionNode, data::AbstractMatrix{Float64}, llhv
 		@inbounds llhvals[i, nid] = isnan(data[i,node.scope]) ? 0.0 : normlogpdf(node.μ, node.σ, data[i, node.scope])
 	end
 
-	if any(isnan(view(llhvals, 1:size(data, 1), nid)))
-		println("Node: ", node.id, " result is nan! [μ: ", node.μ, ", σ: ", node.σ, "]")
-	end
-
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid)))
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by normal distribution node: $(node.id) with μ: $(node.μ) and σ: $(node.σ) contains NaN's!"
 end
 
 """
@@ -398,7 +389,7 @@ This function updates the llh of the data under the model.
 """
 function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	@inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope])
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id))))
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate distribution node: $(node.id) with distribution: $(node.dist) contains NaN's!"
 end
 
 """
@@ -407,5 +398,5 @@ This function updates the llh of the data under the model.
 """
 function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
   @inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope]')
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id))))
+	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by multivariate distribution node: $(node.id) with distribution: $(node.dist) contains NaN's!"
 end

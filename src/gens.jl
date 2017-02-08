@@ -150,8 +150,8 @@ function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, s
 	sigma = isnan(sigma) ? 1e-6 : sigma + 1e-6
 	mu = mean(X[obs, scope])
 
-	@assert !isnan(sigma)
-	@assert !isnan(mu)
+	@assert !isnan(sigma) "Estimated variance is NaN, check if your data contains NaNs!"
+	@assert !isnan(mu) "Estimated mean is NaN, check if your data contains NaNs!"
 	return NormalDistributionNode(id, scope, μ = mu, σ = sigma)
 end
 
@@ -161,7 +161,7 @@ function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Ve
 	K = maximum(X[:, scope])
 	p = Float64[sum(X[obs, scope] .== k) / length(obs) for k in 1:K]
 
-	@assert all(!isnan(p))
+	@assert all(!isnan(p)) "Estimated probablitiy distribution is NaN, check if your data contains NaNs!"
 	return UnivariateNode{Categorical}(id, Categorical(p), scope)
 end
 
@@ -317,12 +317,6 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 			push!(nodes, node)
 		else
 			throw(ErrorException("Unknown mode: $mode"))
-		end
-	end
-
-	for k in keys(cids)
-		for cid in cids[k]
-			@assert cid in usedids
 		end
 	end
 
