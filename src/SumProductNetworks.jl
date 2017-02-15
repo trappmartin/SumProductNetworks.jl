@@ -1,3 +1,5 @@
+__precompile__(true)
+
 module SumProductNetworks
 
   # loading dependencies into workspaces
