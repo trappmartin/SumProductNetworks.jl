@@ -13,7 +13,7 @@ function learnSumNode{T <: AbstractFloat}(X::AbstractArray{T}; iterations = 1000
 	ν0 = 9.0
 	Σ0 = cov(X) + (10 * eye(D))
 
-	models = train(init(X, DPM(GaussianDiagonal{NormalNormal}(NormalNormal[NormalNormal(μ0 = mean(X[:,d])) for d in 1:D])), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
+	models = train(init(X, DPM(GaussianDiagonal{NormalNormal}(NormalNormal[NormalNormal(μ0 = mean(X[:,d])) for d in 1:D])), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), Gibbs(maxiter = iterations))
 
 	ass = models[end].assignments
 
