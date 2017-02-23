@@ -1,4 +1,4 @@
-export SPNNode, Node, Leaf, SumNode, ProductNode, IndicatorNode, UnivariateFeatureNode, UnivariateNode, NormalDistributionNode, MultivariateNode
+export SPNNode, Node, Leaf, SumNode, ProductNode, IndicatorNode, UnivariateFeatureNode, MultivariateFeatureNode, UnivariateNode, NormalDistributionNode, MultivariateNode
 
 # abstract definition of an SumProductNetwork node
 abstract SPNNode
@@ -12,7 +12,6 @@ immutable SumNode <: Node
 
   # * immutable fields * #
   id::Int
-  isFilter::Bool
 
   # * mutable fields * #
 	parents::Vector{SPNNode}
@@ -20,8 +19,8 @@ immutable SumNode <: Node
   weights::Vector{Float64}
   scope::Vector{Int}
 
-  SumNode(id; parents = SPNNode[], scope = Int[]) = new(id, false, parents, SPNNode[], Float64[], scope)
-  SumNode(id, children::Vector{SPNNode}, weights::Vector{Float64}; parents = SPNNode[], scope = Int[]) = new(id, false, parents, children, weights, scope)
+  SumNode(id; parents = SPNNode[], scope = Int[]) = new(id, parents, SPNNode[], Float64[], scope)
+  SumNode(id, children::Vector{SPNNode}, weights::Vector{Float64}; parents = SPNNode[], scope = Int[]) = new(id, parents, children, weights, scope)
 
 end
 
@@ -62,13 +61,26 @@ immutable UnivariateFeatureNode <: Leaf
 
   # * immutable fields * #
   id::Int
-  bias::Bool
+  weight::Float64
   scope::Int
 
   # * mutable fields * #
 	parents::Vector{SPNNode}
 
-  UnivariateFeatureNode(id, scope::Int; parents = SPNNode[], isbias = false) = new(id, isbias, scope, parents)
+  UnivariateFeatureNode(id, scope::Int; parents = SPNNode[], weight = 0.) = new(id, weight, scope, parents)
+end
+
+immutable MultivariateFeatureNode <: Leaf
+
+  # * immutable fields * #
+  id::Int
+  weights::Vector{Float64}
+  scope::Vector{Int}
+
+  # * mutable fields * #
+	parents::Vector{SPNNode}
+
+  MultivariateFeatureNode(id, scope::Vector{Int}; parents = SPNNode[]) = new(id, zeros(length(scope)), scope, parents)
 end
 
 #

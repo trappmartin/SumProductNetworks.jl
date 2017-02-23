@@ -1,6 +1,6 @@
 export randomSPN
 
-function randomSPN(X::AbstractArray; minSamples = 10, maxDepth = Inf, minChildren = 1, maxChildren = 10)
+function randomSPN(X::AbstractArray; minSamples = 10, maxDepth = Inf, minChildren = 1, maxChildren = 10, allowScopeOverlap = false)
 
   (N, D) = size(X)
 
@@ -108,10 +108,18 @@ function randomSPN(X::AbstractArray; minSamples = 10, maxDepth = Inf, minChildre
 
 			else
 
-				assignments = learnProductNode(X[obs, dims], minN = minSamples)
+        if !allowScopeOverlap
+				  assignments = learnProductNode(X[obs, dims], minN = minSamples)
 
-				p0 = dims[assignments]
-				p1 = setdiff(dims, p0)
+          p0 = dims[assignments]
+          p1 = setdiff(dims, p0)
+          p2 = []
+        else
+          k = rand(minChildren:maxChildren)
+          p0 = rand(dims, k)
+          p1 = rand(dims, k)
+          p2 = setdiff(dims, union(p0, p1))
+        end
 
 				if isempty(p1)
 
@@ -144,6 +152,15 @@ function randomSPN(X::AbstractArray; minSamples = 10, maxDepth = Inf, minChildre
 					push!(dimensions, p1)
 					push!(modes, :sum)
 					push!(nodeDepths, nodeDepth + 1)
+
+          if !isempty(p2)
+            push!(cid, ccid + 3)
+            push!(ids, ccid + 3)
+            push!(observations, obs)
+            push!(dimensions, p2)
+            push!(modes, :sum)
+            push!(nodeDepths, nodeDepth + 1)
+          end
 
 					cids[id] = cid
 				end

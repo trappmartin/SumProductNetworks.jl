@@ -358,16 +358,22 @@ end
 
 """
 Evaluate UnivariateFeatureNode on data.
-This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	N = size(data, 1)
-	if node.bias
-    @inbounds llhvals[1:N, id2index(node.id)] = 0.0
-  else
-    @inbounds llhvals[1:N, id2index(node.id)] = log(data[:, node.scope])
-  end
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
+	@inbounds llhvals[1:N, id2index(node.id)] = node.weight * data[:, node.scope]
+  @assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
+end
+
+"""
+Evaluate MultivariateFeatureNode on data.
+"""
+function eval!{T<:Real}(node::MultivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+	N = size(data, 1)
+	for ii in 1:N
+		@inbounds llhvals[ii, id2index(node.id)] = dot(node.weights, data[ii, node.scope])
+	end
+  @assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
 end
 
 """
