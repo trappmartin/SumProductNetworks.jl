@@ -153,11 +153,7 @@ Add a node to a sum node with random weight in place.
 add!(node::SumNode, child::SPNNode) -> SumNode
 """
 function add!(parent::SumNode, child::SPNNode)
-  if parent.isFilter
-    add!(parent, child, 1e-6)
-  else
-    add!(parent, child, rand())
-  end
+  add!(parent, child, rand())
 end
 
 """
