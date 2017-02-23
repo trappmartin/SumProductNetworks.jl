@@ -317,7 +317,7 @@ This function updates the llh of the data under the model.
 """
 function evalSum!(M::AbstractMatrix{Float64}, iRange::Range, cids::Vector{Int}, nid::Int, logw::Vector{Float64})
 	@simd for ii in iRange
-		@inbounds M[ii, nid] = isnan(logsumexp(view(M, ii, cids) + logw)) ? -Inf : logsumexp(view(M, ii, cids) + logw)
+		@inbounds M[ii, nid] = logsumexp(view(M, ii, cids) + logw)
 	end
 end
 
