@@ -26,6 +26,7 @@ module SumProductNetworks
 	include("naiveBayesClustering.jl")
 	include("gens.jl")
   include("randomStructure.jl")
+  include("imageStructure.jl")
 
 	# include utilities
 	include("utilityFunctions.jl")
