@@ -347,7 +347,7 @@ This function updates the llh of the data under the model.
 function eval!{T<:Real}(node::IndicatorNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	nid = id2index(node.id)
 	@simd for ii in 1:size(data, 1)
-		llhvals[ii, nid] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.value)
+		@inbounds llhvals[ii, nid] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.value)
 	end
 	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by indicator node: $(node.id) contains NaN's!"
 end
@@ -366,8 +366,9 @@ Evaluate MultivariateFeatureNode on data.
 """
 function eval!{T<:Real}(node::MultivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	N = size(data, 1)
-	for ii in 1:N
-		@inbounds llhvals[ii, id2index(node.id)] = dot(node.weights, data[ii, node.scope])
+	D = length(node.weights)
+	@simd for ii in 1:N
+		@inbounds llhvals[ii, id2index(node.id)] = dot(D, node.weights, 1, data[ii, node.scope], 1)
 	end
   @assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
 end
