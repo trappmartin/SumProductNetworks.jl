@@ -57,6 +57,16 @@ facts("Layers Test") do
           end
         end
         @fact llhvals[1:C,:] --> Y[1:C,:]
+
+        # set some weights to 0. should still validate to llhvals > -Inf
+        layer.weights[2:end, :] = 0.
+        eval!(layer, X, llhvals)
+        @fact all(isfinite(llhvals[1:C,:])) --> true
+        
+        # set all weights to 0. should validate to llhvals = -Inf
+        layer.weights[:, :] = 0.
+        eval!(layer, X, llhvals)
+        @fact all(isfinite(llhvals[1:C,:])) --> false
     end
 
     context("Product Layer") do
@@ -88,6 +98,7 @@ facts("Layers Test") do
           end
         end
         @fact llhvals[1:C,:] --> Y[1:C,:]
+        @fact all(isfinite(llhvals)) --> true
     end
 
     context("Product Class Layer") do

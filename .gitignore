@@ -1,6 +1,6 @@
 *.jl.cov
 *.jl.mem
-playground/.ipynb_checkpoints/
+experiments
 *.data
 *.svg
 *.mat
