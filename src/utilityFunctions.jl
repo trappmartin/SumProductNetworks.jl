@@ -10,6 +10,10 @@ function depth(S::Node)
 	return maximum(ndepth(child, 1) for child in children(S))
 end
 
+function depth(S::Leaf)
+	return 0
+end
+
 function ndepth(S::Node, d::Int)
 	return maximum(ndepth(child, d+1) for child in children(S))
 end

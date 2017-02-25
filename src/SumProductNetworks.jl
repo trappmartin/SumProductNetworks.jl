@@ -13,23 +13,24 @@ module SumProductNetworks
 				BMITest
 
     import Base.getindex
-	import Base.map
+    import Base.map
     import Base.parent
     import Base.length
-	import Base.show
+    import Base.size
+    import Base.show
 
     # include general implementations
     include("nodes.jl")
     include("nodeFunctions.jl")
     include("layers.jl")
+    include("layerFunctions.jl")
 
     # include approach specific implementations
-	include("naiveBayesClustering.jl")
-	include("gens.jl")
+    include("naiveBayesClustering.jl")
+    include("gens.jl")
     include("randomStructure.jl")
     include("imageStructure.jl")
 
-	# include utilities
-	include("utilityFunctions.jl")
-
+    # include utilities
+    include("utilityFunctions.jl")
 end # module

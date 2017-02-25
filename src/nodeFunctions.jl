@@ -367,8 +367,9 @@ Evaluate MultivariateFeatureNode on data.
 function eval!{T<:Real}(node::MultivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	N = size(data, 1)
 	D = length(node.weights)
+	nid = id2index(node.id)
 	@simd for ii in 1:N
-		@inbounds llhvals[ii, id2index(node.id)] = dot(D, node.weights, 1, data[ii, node.scope], 1)
+		@inbounds llhvals[ii, nid] = dot(node.weights, @view data[ii, node.scope])
 	end
   @assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
 end
