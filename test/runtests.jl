@@ -2,8 +2,6 @@ using SumProductNetworks
 using FactCheck
 using Distributions, StatsFuns
 
-FactCheck.setstyle(:compact)
-
 println("Running test: ", now())
 
 facts("Layers Test") do
