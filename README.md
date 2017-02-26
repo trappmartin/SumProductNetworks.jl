@@ -18,6 +18,7 @@ Sum Layers consist of a weight matrix of size $Ch \times C$, where $C$ is the nu
 $$
 Y_c = \sum_{j \in ch(c)} w_{cj} S_j[X]
 $$
+
 where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of node $j$ on input $X$.
 
 #### Example
@@ -25,11 +26,12 @@ where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of n
 C = 50 # number of nodes
 Ch = 5 # number of children
 
-parentId = ... # specify the unique parent id, use -1 the layer has no parent
+parent = ... # specify the reference to the parent layer, or nothing
+children = ... # specify the references to the children, or nothing
 ids = ... # specify the unique ids, e.g. collect(1:C)
 childIds = ... # get a Ch x C matrix of all child ids
 weights = rand(Dirichlet([1./Ch for j in 1:Ch]), C) # random weights
-layer = SumLayer(ids, childIds, weights, parentId)
+layer = SumLayer(ids, childIds, weights, children, parent)
 
 ```
 
@@ -39,6 +41,7 @@ Product Layers apply the following computation:
 $$
 Y_c = \prod_{j \in ch(c)} S_j[X]
 $$
+
 where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of node $j$ on input $X$.
 
 #### Example
@@ -46,10 +49,11 @@ where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of n
 C = 50 # number of nodes
 Ch = 5 # number of children
 
-parentId = ... # specify the unique parent id, use -1 the layer has no parent
+parent = ... # specify the reference to the parent layer, or nothing
+children = ... # specify the references to the children, or nothing
 ids = ... # specify the unique ids, e.g. collect(1:C)
 childIds = ... # get a Ch x C matrix of all child ids
-layer = ProductLayer(ids, childIds, parentId)
+layer = ProductLayer(ids, childIds, children, parent)
 
 ```
 
@@ -59,6 +63,7 @@ In Product Layer with class labels each node is additionally asociated with a cl
 $$
 Y_c = \prod_{j \in ch(c)} \mathcal{1}(y_c)  S_j[X]
 $$
+
 where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of node $j$ on input $X$ and $\mathcal{1}(y_c)$ is a indicator function retuning one if the class label of node $c$ and those of the observation are equivalent.
 
 #### Example
@@ -66,11 +71,12 @@ where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of n
 C = 50 # number of nodes
 Ch = 5 # number of children
 
-parentId = ... # specify the unique parent id, use -1 the layer has no parent
+parent = ... # specify the reference to the parent layer, or nothing
+children = ... # specify the references to the children, or nothing
 ids = ... # specify the unique ids, e.g. collect(1:C)
 childIds = ... # get a Ch x C matrix of all child ids
 clabels = collect(1:C) # class labels have to start at 1
-layer = ProductCLayer(ids, childIds, clabels, parentId)
+layer = ProductCLayer(ids, childIds, clabels, children, parent)
 
 ```
 
@@ -80,6 +86,7 @@ This layer consists of filter matrix of size $C \times D$, where $C$ is the numb
 $$
 Y = \exp( W \cdot X )
 $$
+
 where we assume that $X \in \mathcal{R}^{D \times N}$.
 
 #### Example
@@ -87,11 +94,11 @@ where we assume that $X \in \mathcal{R}^{D \times N}$.
 C = 50 # number of nodes
 D = 10 # dimensionality
 
-parentId = ... # specify the unique parent id, use -1 the layer has no parent
+parent = ... # specify the reference to the parent layer, or nothing
 ids = ... # specify the unique ids, e.g. collect(1:C)
 weights = rand(C, D)
 scopes = rand(Bool, C, D) # mask
-layer = MultivariateFeatureLayer(ids, weights, scopes, parentId)
+layer = MultivariateFeatureLayer(ids, weights, scopes, parent)
 
 ```
 

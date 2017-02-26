@@ -1,4 +1,62 @@
-export simplify!, complexity, depth, prune!
+export simplify!, complexity, depth, prune!, order
+
+"""
+Type definition for topological ordering.
+"""
+type SPNMarking
+  ordering::Array
+  unmarked::Array
+end
+
+"""
+Compute topological order of an SPN using Tarjan's algoritm.
+"""
+function order(root)
+
+    function visit!(node, data)
+
+        if node in data.unmarked
+
+            if in(:children, fieldnames(node))
+                for n in node.children
+                    data = visit!(n, data)
+                end
+            end
+
+            idx = findfirst(data.unmarked, node)
+            splice!(data.unmarked, idx)
+            push!(data.ordering, node)
+        end
+
+        data
+    end
+
+    marking = SPNMarking(Any[], Any[])
+    flat!(marking.unmarked, root)
+
+    while(Base.length(marking.unmarked) > 0)
+        n = marking.unmarked[end]
+
+        visit!(n, marking)
+
+    end
+
+    marking.ordering
+end
+
+function flat!(nodes::Array, node)
+    if in(:children, fieldnames(node))
+        for n in node.children
+            flat!(nodes, n)
+        end
+    end
+
+    if !(node in nodes)
+        push!(nodes, node)
+    end
+
+    nodes
+end
 
 """
 

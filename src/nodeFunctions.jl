@@ -1,4 +1,4 @@
-export classes, children, parents, length, add!, remove!, normalize!, llh, order
+export classes, children, parents, length, add!, remove!, normalize!, llh
 
 """
 
@@ -207,52 +207,6 @@ function remove!(parent::ProductNode, index::Int)
 end
 
 
-"""
-Type definition for topological ordering.
-Naming could be improved.
-"""
-type SPNMarking
-  ordering::Array{SPNNode}
-  unmarked::Array{SPNNode}
-end
-
-"""
-Compute topological order of SPN using Tarjan's algoritm.
-order(spn::Node) -> SPNNode[] in topological order
-"""
-function order(root::Node)
-
-    function visit!(node::SPNNode, data::SPNMarking)
-
-        if node in data.unmarked
-
-            if isa(node, Node)
-                for n in node.children
-                    data = visit!(n, data)
-                end
-            end
-
-            idx = findfirst(data.unmarked, node)
-            splice!(data.unmarked, idx)
-            push!(data.ordering, node)
-        end
-
-        data
-    end
-
-    marking = SPNMarking(Array{SPNNode}(0), Array{SPNNode}(0))
-    flat!(marking.unmarked, root)
-
-    while(Base.length(marking.unmarked) > 0)
-        n = marking.unmarked[end]
-
-        visit!(n, marking)
-
-    end
-
-    marking.ordering
-end
-
 "Recursively get number of children including children of children..."
 function deeplength(node::SPNNode)
 
@@ -276,20 +230,6 @@ function length(node::SPNNode)
         return 0
     end
 
-end
-
-function flat!(nodes::Array{SPNNode}, node::SPNNode)
-    if isa(node, Node)
-        for n in node.children
-            flat!(nodes, n)
-        end
-    end
-
-    if !(node in nodes)
-        push!(nodes, node)
-    end
-
-    nodes
 end
 
 """

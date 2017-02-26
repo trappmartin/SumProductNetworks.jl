@@ -9,7 +9,8 @@ type SumLayer <: SPNLayer
     childIds::Matrix{Int} # Ch x C child ids
     weights::Matrix{AbstractFloat} # Ch x C filter matrix
 
-    parentId::Int
+    children
+    parent
 
 end
 
@@ -20,7 +21,8 @@ type ProductLayer <: AbstractProductLayer
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
 
-    parentId::Int
+    children
+    parent
 
 end
 
@@ -31,7 +33,8 @@ type ProductCLayer <: AbstractProductLayer
     childIds::Matrix{Int} # Ch x C child ids
     clabels::Vector{Int} # C class labels
 
-    parentId::Int
+    children
+    parent
 
 end
 
@@ -42,6 +45,6 @@ type MultivariateFeatureLayer <: SPNLayer
     weights::Matrix{AbstractFloat} # C x D filter matrix
     scopes::Matrix{Bool} # C x D mask
 
-    parentId::Int
+    parent
 
 end
