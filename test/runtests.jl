@@ -1,6 +1,7 @@
 using SumProductNetworks
 using FactCheck
 using Distributions, StatsFuns
+import RDatasets.dataset
 
 println("Running test: ", now())
 
@@ -187,6 +188,46 @@ facts("Topological Order Test") do
         println("tbd")
         @fact 1 --> 1
     end
+end
 
+facts("Structure Generation") do
 
+    # create dummy data
+    iris = convert(Array, dataset("datasets", "iris"))
+    X = iris[:, 1:4]
+    Y = Int[findfirst(unique(iris[:,5]) .== yi) for yi in iris[:,5]]
+
+    (N, D) = size(X)
+    C = length(unique(Y))
+    G = 1
+    K = 4
+    
+    context("Filter Structure") do
+        P = 10
+        M = 2
+        W = 0
+        
+        context("Nodes") do
+            spn = SumNode(1)
+            imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
+        
+            numNodes = length(filter(n -> isa(n, MultivariateFeatureNode), order(spn)))
+            @fact numNodes --> M*P*C
+        
+            numNodes = length(filter(n -> isa(n, SumNode), order(spn)))
+            @fact numNodes --> M*P*C + P*C + 1
+        
+            numNodes = length(filter(n -> isa(n, ProductNode), order(spn)))
+            @fact numNodes --> C
+
+            @fact isa(spn, SumNode) --> true
+            @fact length(spn) --> C
+        end
+
+        context("Layers") do
+            spn = SumLayer([1], Array{Int,2}(0, 0), Array{Float32, 2}(0, 0), SPNLayer[], nothing)
+            imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
+        end
+
+    end
 end
