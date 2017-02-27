@@ -106,7 +106,8 @@ layer = MultivariateFeatureLayer(ids, weights, scopes, parent)
 The following helper functions are accesable for all layers:
 
 ```
-size(layer) # returns the size in Nodes x Children
+size(layer) # returns the size in nodes x children
+eval!(layer, X, llhvalues) # computes the output llh values of the layer in-place
 ```
 
 ## Structure Generation

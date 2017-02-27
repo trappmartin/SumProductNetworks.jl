@@ -102,7 +102,10 @@ function eval!(layer::ProductCLayer, data::AbstractArray, labels::Vector{Int}, l
       @inbounds llhvals[id, n] = sum(llhvals[cids, n]) + log(labels[n] == label)
     end
   end
+end
 
+function eval!(layer::SPNLayer, data::AbstractArray, labels::Vector{Int}, llhvals::AbstractArray)
+  eval!(layer, data, llhvals)
 end
 
 """
