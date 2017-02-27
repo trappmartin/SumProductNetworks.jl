@@ -1,4 +1,4 @@
-export SPNLayer, MultivariateFeatureLayer, SumLayer, ProductLayer, ProductCLayer
+export SPNLayer, MultivariateFeatureLayer, SumLayer, ProductLayer, ProductCLayer, AbstractProductLayer
 
 abstract SPNLayer
 

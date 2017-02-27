@@ -33,7 +33,7 @@ function eval!(layer::SumLayer, data::AbstractArray, llhvals::AbstractArray)
   (C, Ch) = size(layer)
 
   # clear data
-  fill!(llhvals[:,layer.ids], -Inf)
+  llhvals[:, layer.ids] = -Inf
 
   logw = log(layer.weights)
 
@@ -43,7 +43,7 @@ function eval!(layer::SumLayer, data::AbstractArray, llhvals::AbstractArray)
     @inbounds cids = layer.childIds[:,c]
     @inbounds w = logw[:,c]
     @simd for n in 1:N
-      @inbounds llhvals[id, n] = logsumexp(llhvals[cids, n] + w)
+      @inbounds llhvals[n, id] = logsumexp(llhvals[n, cids] + w)
     end
   end
 
@@ -63,15 +63,13 @@ function eval!(layer::AbstractProductLayer, data::AbstractArray, llhvals::Abstra
   (C, Ch) = size(layer)
 
   # clear data
-  fill!(llhvals[:,layer.ids], -Inf)
+  llhvals[:,layer.ids] = -Inf
 
   id = 0
   @simd for c in 1:C
     @inbounds id = layer.ids[c]
     @inbounds cids = layer.childIds[:,c]
-    @simd for n in 1:N
-      @inbounds llhvals[id, n] = sum(llhvals[cids, n])
-    end
+    @inbounds llhvals[:,id] = sum(llhvals[:,cids], 2)
   end
 
 end
@@ -91,7 +89,7 @@ function eval!(layer::ProductCLayer, data::AbstractArray, labels::Vector{Int}, l
   (C, Ch) = size(layer)
 
   # clear data
-  fill!(llhvals[:,layer.ids], -Inf)
+  llhvals[:,layer.ids] = -Inf
 
   id = 0
   @simd for c in 1:C
@@ -99,7 +97,7 @@ function eval!(layer::ProductCLayer, data::AbstractArray, labels::Vector{Int}, l
     @inbounds label = layer.clabels[c]
     @inbounds cids = layer.childIds[:,c]
     @simd for n in 1:N
-      @inbounds llhvals[id, n] = sum(llhvals[cids, n]) + log(labels[n] == label)
+      @inbounds llhvals[n,id] = sum(llhvals[n,cids]) + log(labels[n] == label)
     end
   end
 end
@@ -121,10 +119,10 @@ function eval!(layer::MultivariateFeatureLayer, data::AbstractArray, llhvals::Ab
   (Dx, N) = size(data)
   (C, Dl) = size(layer.scopes)
 
-  @assert Dl == Dx
+  @assert Dl == Dx "data dimensionality $(Dx) does not match layer dimensionality $(Dl)"
 
   # clear data
-  fill!(llhvals[:,layer.ids], 0.)
+  llhvals[:, layer.ids] = 0.
 
   id = 0
   @simd for d in 1:Dx
@@ -132,7 +130,7 @@ function eval!(layer::MultivariateFeatureLayer, data::AbstractArray, llhvals::Ab
       @inbounds id = layer.ids[c]
       @inbounds w = layer.weights[c, d] * layer.scopes[c, d]
       @simd for n in 1:N
-	       @inbounds llhvals[id, n] += w * data[d, n]
+	       @inbounds llhvals[n, id] += w * data[d, n]
       end
     end
 	end

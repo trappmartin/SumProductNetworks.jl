@@ -100,6 +100,7 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   classesLayer = ProductCLayer(collect(maxId + 1:maxId + C), Array{Int,2}(0, 0), collect(1:C), SPNLayer[], spn)
   push!(spn.children, classesLayer)
   spn.childIds = reshape(classesLayer.ids, length(classesLayer.ids), 1)
+  spn.weights = rand(Dirichlet([1./C for j in 1:C]), 1)
 
   # add parts
   maxId = maximum(classesLayer.ids)

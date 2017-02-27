@@ -108,6 +108,7 @@ The following helper functions are accesable for all layers:
 ```
 size(layer) # returns the size in nodes x children
 eval!(layer, X, llhvalues) # computes the output llh values of the layer in-place
+eval!(layer, X, y, llhvalues) # computes the output llh values of the layer conditioned on y in-place
 ```
 
 ## Structure Generation

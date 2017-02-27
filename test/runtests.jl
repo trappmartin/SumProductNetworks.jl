@@ -19,12 +19,10 @@ facts("Layers Test") do
         @fact size(layer) --> (C, 1)
 
         X = rand(D, N)
-        llhvals = zeros(C, N)
+        llhvals = zeros(N, C)
         @fact all(llhvals .== 0.) --> true
 
         eval!(layer, X, llhvals)
-        W = weights .* scopes # C x D
-        @fact llhvals --> W * X
     end
 
     context("Sum Layer") do
@@ -43,31 +41,31 @@ facts("Layers Test") do
         @fact size(layer.childIds) --> (Ch, C)
 
         X = rand(D, N)
-        llhvals = zeros(C + C*Ch, N)
+        llhvals = zeros(N, C + C*Ch)
         @fact all(llhvals .== 0.) --> true
 
-        llhvals[C+1:end, :] = rand(C*Ch, N)
+        llhvals[:, C+1:end] = rand(N, C*Ch)
 
         eval!(layer, X, llhvals)
 
-        Y = zeros(C + C*Ch, N)
-        Y[C+1:end, :] = llhvals[C+1:end, :]
+        Y = zeros(N, C + C*Ch)
+        Y[:, C+1:end] = llhvals[:, C+1:end]
         for c in 1:C
           for n in 1:N
-            Y[c,n] = logsumexp(Y[childIds[:,c],n] + log(weights[:,c]))
+            Y[n, c] = logsumexp(Y[n, childIds[:,c]] + log(weights[:,c]))
           end
         end
-        @fact llhvals[1:C,:] --> Y[1:C,:]
+        @fact llhvals[:,1:C] --> Y[:,1:C]
 
         # set some weights to 0. should still validate to llhvals > -Inf
         layer.weights[2:end, :] = 0.
         eval!(layer, X, llhvals)
-        @fact all(isfinite(llhvals[1:C,:])) --> true
+        @fact all(isfinite(llhvals[:,1:C])) --> true
 
         # set all weights to 0. should validate to llhvals = -Inf
         layer.weights[:, :] = 0.
         eval!(layer, X, llhvals)
-        @fact all(isfinite(llhvals[1:C,:])) --> false
+        @fact all(isfinite(llhvals[:,1:C])) --> false
     end
 
     context("Product Layer") do
@@ -84,21 +82,21 @@ facts("Layers Test") do
         @fact size(layer.childIds) --> (Ch, C)
 
         X = rand(D, N)
-        llhvals = zeros(C + C*Ch, N)
+        llhvals = zeros(N, C + C*Ch)
         @fact all(llhvals .== 0.) --> true
 
-        llhvals[C+1:end, :] = rand(C*Ch, N)
+        llhvals[:, C+1:end] = rand(N, C*Ch)
 
         eval!(layer, X, llhvals)
 
-        Y = zeros(C + C*Ch, N)
-        Y[C+1:end, :] = llhvals[C+1:end, :]
+        Y = zeros(N, C + C*Ch)
+        Y[:, C+1:end] = llhvals[:, C+1:end]
         for c in 1:C
           for n in 1:N
-            Y[c,n] = sum(Y[childIds[:,c],n])
+            Y[n, c] = sum(Y[n, childIds[:,c]])
           end
         end
-        @fact llhvals[1:C,:] --> Y[1:C,:]
+        @fact llhvals[:,1:C] --> Y[:,1:C]
         @fact all(isfinite(llhvals)) --> true
     end
 
@@ -118,21 +116,21 @@ facts("Layers Test") do
 
         X = rand(D, N)
         y = rand(1:C, N)
-        llhvals = zeros(C + C*Ch, N)
+        llhvals = zeros(N,C + C*Ch)
         @fact all(llhvals .== 0.) --> true
 
-        llhvals[C+1:end, :] = rand(C*Ch, N)
+        llhvals[:,C+1:end] = rand(N,C*Ch)
 
         eval!(layer, X, y, llhvals)
 
-        Y = zeros(C + C*Ch, N)
-        Y[C+1:end, :] = llhvals[C+1:end, :]
+        Y = zeros(N,C + C*Ch)
+        Y[:,C+1:end] = llhvals[:,C+1:end]
         for c in 1:C
           for n in 1:N
-            Y[c,n] = sum(Y[childIds[:,c],n]) + log(y[n] == clabels[c])
+            Y[n,c] = sum(Y[n,childIds[:,c]]) + log(y[n] == clabels[c])
           end
         end
-        @fact llhvals[1:C,:] --> Y[1:C,:]
+        @fact llhvals[:,1:C] --> Y[:,1:C]
     end
 end
 
