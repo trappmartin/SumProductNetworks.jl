@@ -4,7 +4,7 @@ export size, eval!
 Returns the size of a SPN layer object.
 """
 function size(layer::MultivariateFeatureLayer)
-  return size(layer.scopes)
+  return (size(layer.scopes, 1), 1)
 end
 
 function size(layer::SumLayer)
@@ -116,7 +116,7 @@ Evaluates a MultivariateFeatureLayer using its weights on the data matrix.
 function eval!(layer::MultivariateFeatureLayer, data::AbstractArray, llhvals::AbstractArray)
 
   (Dx, N) = size(data)
-  (C, Dl) = size(layer)
+  (C, Dl) = size(layer.scopes)
 
   @assert Dl == Dx
 

@@ -16,7 +16,7 @@ facts("Layers Test") do
         scopes = rand(Bool, C, D)
         layer = MultivariateFeatureLayer(collect(1:C), weights, scopes, nothing)
 
-        @fact size(layer) --> (C, D)
+        @fact size(layer) --> (C, 1)
 
         X = rand(D, N)
         llhvals = zeros(C, N)
@@ -63,7 +63,7 @@ facts("Layers Test") do
         layer.weights[2:end, :] = 0.
         eval!(layer, X, llhvals)
         @fact all(isfinite(llhvals[1:C,:])) --> true
-        
+
         # set all weights to 0. should validate to llhvals = -Inf
         layer.weights[:, :] = 0.
         eval!(layer, X, llhvals)
@@ -145,7 +145,7 @@ facts("Topological Order Test") do
         layer1 = MultivariateFeatureLayer(collect(1:C), rand(C, D), rand(Bool, C, D), nothing)
         layer2 = MultivariateFeatureLayer(collect(1:C), rand(C, D), rand(Bool, C, D), nothing)
         layer3 = ProductLayer(collect(1:C), rand(Int, Ch, C), SPNLayer[], nothing)
-        
+
         layer4 = MultivariateFeatureLayer(collect(1:C), rand(C, D), rand(Bool, C, D), nothing)
         layer5 = MultivariateFeatureLayer(collect(1:C), rand(C, D), rand(Bool, C, D), nothing)
         layer6 = ProductLayer(collect(1:C), rand(Int, Ch, C), SPNLayer[], nothing)
@@ -199,25 +199,27 @@ facts("Structure Generation") do
 
     (N, D) = size(X)
     C = length(unique(Y))
-    G = 1
-    K = 4
-    
+    G = 2
+    K = 1
+
     context("Filter Structure") do
         P = 10
         M = 2
         W = 0
-        
+
         context("Nodes") do
             spn = SumNode(1)
             imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
-        
-            numNodes = length(filter(n -> isa(n, MultivariateFeatureNode), order(spn)))
-            @fact numNodes --> M*P*C
-        
-            numNodes = length(filter(n -> isa(n, SumNode), order(spn)))
+
+            computationOrder = order(spn)
+
+            numNodes = length(filter(n -> isa(n, MultivariateFeatureNode), computationOrder))
+            @fact numNodes --> 4*M*P*C
+
+            numNodes = length(filter(n -> isa(n, SumNode), computationOrder))
             @fact numNodes --> M*P*C + P*C + 1
-        
-            numNodes = length(filter(n -> isa(n, ProductNode), order(spn)))
+
+            numNodes = length(filter(n -> isa(n, ProductNode), computationOrder))
             @fact numNodes --> C
 
             @fact isa(spn, SumNode) --> true
@@ -227,6 +229,15 @@ facts("Structure Generation") do
         context("Layers") do
             spn = SumLayer([1], Array{Int,2}(0, 0), Array{Float32, 2}(0, 0), SPNLayer[], nothing)
             imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
+
+            computationOrder = order(spn)
+            @fact length(computationOrder) --> 5
+
+            @fact size(computationOrder[1]) --> (4*M*P*C, 1)
+            @fact size(computationOrder[2]) --> (M*P*C, 4)
+            @fact size(computationOrder[3]) --> (P*C, M)
+            @fact size(computationOrder[4]) --> (C, P)
+            @fact size(computationOrder[5]) --> (1, C)
         end
 
     end

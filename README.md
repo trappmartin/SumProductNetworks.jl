@@ -102,6 +102,13 @@ layer = MultivariateFeatureLayer(ids, weights, scopes, parent)
 
 ```
 
+## Layer Functions
+The following helper functions are accesable for all layers:
+
+```
+size(layer) # returns the size in Nodes x Children
+```
+
 ## Structure Generation
 The SumProductNetworks package provides implementations of the following heuristic structure learning approaches.
 
