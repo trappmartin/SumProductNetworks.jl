@@ -22,14 +22,14 @@ $$
 where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of node $j$ on input $X$.
 
 #### Example
-```
-C = 50 # number of nodes
-Ch = 5 # number of children
+```jl
+C = 50 		# number of nodes
+Ch = 5 		# number of children
 
-parent = ... # specify the reference to the parent layer, or nothing
-children = ... # specify the references to the children, or nothing
-ids = ... # specify the unique ids, e.g. collect(1:C)
-childIds = ... # get a Ch x C matrix of all child ids
+parent = ... 	# specify the reference to the parent layer, or nothing
+children = ... 	# specify the references to the children, or nothing
+ids = ... 		# specify the unique ids, e.g. collect(1:C)
+childIds = ... 	# specify a Ch x C matrix of all child ids
 weights = rand(Dirichlet([1./Ch for j in 1:Ch]), C) # random weights
 layer = SumLayer(ids, childIds, weights, children, parent)
 
@@ -45,14 +45,15 @@ $$
 where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of node $j$ on input $X$.
 
 #### Example
-```
-C = 50 # number of nodes
-Ch = 5 # number of children
 
-parent = ... # specify the reference to the parent layer, or nothing
-children = ... # specify the references to the children, or nothing
-ids = ... # specify the unique ids, e.g. collect(1:C)
-childIds = ... # get a Ch x C matrix of all child ids
+```jl
+C = 50 		# number of nodes
+Ch = 5 		# number of children
+
+parent = ... 	# specify the reference to the parent layer, or nothing
+children = ... 	# specify the references to the children, or nothing
+ids = ... 		# specify the unique ids, e.g. collect(1:C)
+childIds = ... 	# specify a Ch x C matrix of all child ids
 layer = ProductLayer(ids, childIds, children, parent)
 
 ```
@@ -67,14 +68,15 @@ $$
 where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of node $j$ on input $X$ and $\mathcal{1}(y_c)$ is a indicator function retuning one if the class label of node $c$ and those of the observation are equivalent.
 
 #### Example
-```
-C = 50 # number of nodes
-Ch = 5 # number of children
 
-parent = ... # specify the reference to the parent layer, or nothing
-children = ... # specify the references to the children, or nothing
-ids = ... # specify the unique ids, e.g. collect(1:C)
-childIds = ... # get a Ch x C matrix of all child ids
+```jl
+C = 50 		# number of nodes
+Ch = 5 		# number of children
+
+parent = ... 	# specify the reference to the parent layer, or nothing
+children = ... 	# specify the references to the children, or nothing
+ids = ... 		# specify the unique ids, e.g. collect(1:C)
+childIds = ... 	# specify a Ch x C matrix of all child ids
 clabels = collect(1:C) # class labels have to start at 1
 layer = ProductCLayer(ids, childIds, clabels, children, parent)
 
@@ -90,14 +92,15 @@ $$
 where we assume that $X \in \mathcal{R}^{D \times N}$.
 
 #### Example
-```
-C = 50 # number of nodes
-D = 10 # dimensionality
 
-parent = ... # specify the reference to the parent layer, or nothing
-ids = ... # specify the unique ids, e.g. collect(1:C)
-weights = rand(C, D)
-scopes = rand(Bool, C, D) # mask
+```jl
+C = 50 					# number of nodes
+D = 10 					# dimensionality
+
+parent = ... 				# specify the reference to the parent layer, or nothing
+ids = ... 					# specify the unique ids, e.g. collect(1:C)
+weights = zeros(C, D)		# use zero initialised filter weights
+scopes = rand(Bool, C, D)	# mask
 layer = MultivariateFeatureLayer(ids, weights, scopes, parent)
 
 ```
@@ -105,10 +108,10 @@ layer = MultivariateFeatureLayer(ids, weights, scopes, parent)
 ## Layer Functions
 The following helper functions are accesable for all layers:
 
-```
-size(layer) # returns the size in nodes x children
-eval!(layer, X, llhvalues) # computes the output llh values of the layer in-place
-eval!(layer, X, y, llhvalues) # computes the output llh values of the layer conditioned on y in-place
+```jl
+size(layer) 				# returns the size in nodes x children
+eval!(layer, X, llhvalues) 	# computes the output llh values of the layer in-place
+eval!(layer, X, y, llhvalues) 	# computes the output llh values of the layer conditioned on y in-place
 ```
 
 ## Structure Generation
@@ -122,15 +125,15 @@ The input data $X \in R^{K \times G^2}$ where $G$ represents some feature map di
 #### Example
 This example shows how to generate an image convolution structure.
 
-```
-C = 10 # number of classes in the data set
-G = 8 # feature map size
-K = 100 # feature vector size, e.g. number of nodes in CNN
+```jl
+C = 10 		# number of classes in the data set
+G = 8 		# feature map size
+K = 100 		# feature vector size, e.g. number of nodes in CNN
 D = G^2 * K
 
-P = 10 # number of part sum nodes that should be generated
-M = 2 # number of mixture sum nodes that should be generated
-W = 4 # window size used for the sliding window approach
+P = 10 		# number of part sum nodes that should be generated
+M = 2 		# number of mixture sum nodes that should be generated
+W = 4 		# window size used for the sliding window approach
 
 spn = SumLayer(1) # the root node
 imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
@@ -138,7 +141,7 @@ imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
 
 Alternatively to the generated nodes based representation, the structure can also be generated using a sum layers as root, see:
 
-```
+```jl
 ...
 spn = SumLayer(...)
 imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
