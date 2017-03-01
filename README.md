@@ -22,16 +22,16 @@ $$
 where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of node $j$ on input $X$.
 
 #### Example
-```jl
+```julia
 C = 50 		# number of nodes
 Ch = 5 		# number of children
 
-parent = ... 	# specify the reference to the parent layer, or nothing
+parentLayer = ... 	# specify the reference to the parent layer, or nothing
 children = ... 	# specify the references to the children, or nothing
 ids = ... 		# specify the unique ids, e.g. collect(1:C)
 childIds = ... 	# specify a Ch x C matrix of all child ids
 weights = rand(Dirichlet([1./Ch for j in 1:Ch]), C) # random weights
-layer = SumLayer(ids, childIds, weights, children, parent)
+layer = SumLayer(ids, childIds, weights, children, parentLayer)
 
 ```
 
@@ -46,15 +46,15 @@ where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of n
 
 #### Example
 
-```jl
+```julia
 C = 50 		# number of nodes
 Ch = 5 		# number of children
 
-parent = ... 	# specify the reference to the parent layer, or nothing
+parentLayer = ... 	# specify the reference to the parent layer, or nothing
 children = ... 	# specify the references to the children, or nothing
 ids = ... 		# specify the unique ids, e.g. collect(1:C)
 childIds = ... 	# specify a Ch x C matrix of all child ids
-layer = ProductLayer(ids, childIds, children, parent)
+layer = ProductLayer(ids, childIds, children, parentLayer)
 
 ```
 
@@ -69,16 +69,16 @@ where $ch(c)$ are the children of node $c$ and $S_{j}[X]$ denotes the value of n
 
 #### Example
 
-```jl
+```julia
 C = 50 		# number of nodes
 Ch = 5 		# number of children
 
-parent = ... 	# specify the reference to the parent layer, or nothing
+parentLayer = ... 	# specify the reference to the parent layer, or nothing
 children = ... 	# specify the references to the children, or nothing
 ids = ... 		# specify the unique ids, e.g. collect(1:C)
 childIds = ... 	# specify a Ch x C matrix of all child ids
 clabels = collect(1:C) # class labels have to start at 1
-layer = ProductCLayer(ids, childIds, clabels, children, parent)
+layer = ProductCLayer(ids, childIds, clabels, children, parentLayer)
 
 ```
 
@@ -93,25 +93,27 @@ where we assume that $X \in \mathcal{R}^{D \times N}$.
 
 #### Example
 
-```jl
+```julia
 C = 50 					# number of nodes
 D = 10 					# dimensionality
 
-parent = ... 				# specify the reference to the parent layer, or nothing
+parentLayer = ... 				# specify the reference to the parent layer, or nothing
 ids = ... 					# specify the unique ids, e.g. collect(1:C)
 weights = zeros(C, D)		# use zero initialised filter weights
 scopes = rand(Bool, C, D)	# mask
-layer = MultivariateFeatureLayer(ids, weights, scopes, parent)
+layer = MultivariateFeatureLayer(ids, weights, scopes, parentLayer)
 
 ```
 
 ## Layer Functions
 The following helper functions are accesable for all layers:
 
-```jl
-size(layer) 				# returns the size in nodes x children
-eval!(layer, X, llhvalues) 	# computes the output llh values of the layer in-place
-eval!(layer, X, y, llhvalues) 	# computes the output llh values of the layer conditioned on y in-place
+```julia
+size(layer) => C x Ch matrix				# the size of a layer in nodes x children
+eval(layer, X, llhvalues) => N x C matrix 	# computes the output llh values of the layer
+eval!(layer, X, llhvalues) 				# computes the output llh values of the layer in-place
+eval(layer, X, y, llhvalues) => N x C matrix	# computes the output llh values of the layer conditioned on y
+eval!(layer, X, y, llhvalues) 				# computes the output llh values of the layer conditioned on y in-place
 ```
 
 ## Structure Generation
