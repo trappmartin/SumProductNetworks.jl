@@ -99,8 +99,8 @@ D = 10 					# dimensionality
 
 parentLayer = ... 				# specify the reference to the parent layer, or nothing
 ids = ... 					# specify the unique ids, e.g. collect(1:C)
-weights = zeros(C, D)		# use zero initialised filter weights
-scopes = rand(Bool, C, D)	# mask
+weights = zeros(D, C)		# use zero initialised filter weights
+scopes = rand(Bool, D, C)	# mask
 layer = MultivariateFeatureLayer(ids, weights, scopes, parentLayer)
 
 ```

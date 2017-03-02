@@ -4,7 +4,7 @@ export size, eval!, eval
 Returns the size of a SPN layer object.
 """
 function size(layer::MultivariateFeatureLayer)
-  return (size(layer.scopes, 1), 1)
+  return (size(layer.scopes, 2), 1)
 end
 
 function size(layer::SumLayer)
@@ -59,7 +59,6 @@ function eval!(layer::SumLayer, data::AbstractArray, llhvals::Matrix, llhval::Ab
 
   # clear data
   llhval[:] = -Inf
-
   logw = log(layer.weights)
 
   @simd for c in 1:C
@@ -69,7 +68,6 @@ function eval!(layer::SumLayer, data::AbstractArray, llhvals::Matrix, llhval::Ab
       @inbounds llhval[n, c] = logsumexp(llhvals[n, cids] + w)
     end
   end
-
 end
 
 """
@@ -132,20 +130,23 @@ Evaluates a MultivariateFeatureLayer using its weights on the data matrix.
 function eval!(layer::MultivariateFeatureLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
 
   (Dx, N) = size(data)
-  (C, Dl) = size(layer.scopes)
+  (Dl, C) = size(layer.scopes)
 
   @assert Dl == Dx "data dimensionality $(Dx) does not match layer dimensionality $(Dl)"
 
   # clear data
   llhval[:] = 0.
 
-  @simd for d in 1:Dx
+  # apply the standard logistic function: $\frac{1}{1+exp(-x*w')}$
+  # derivative: $\frac{x * exp(w*x)}{(1+exp(w*x))^2}$
+
     @simd for c in 1:C
-      @inbounds w = layer.weights[c, d] * layer.scopes[c, d]
-      @simd for n in 1:N
-	       @inbounds llhval[n, c] += w * data[d, n]
-      end
+        @inbounds w = layer.weights[:, c] .* layer.scopes[:, c]
+        @simd for n in 1:N
+            x = dot(data[:,n], w)
+            # compute log(1) - log(1+exp(-wx))
+            @inbounds llhval[n, c] = -(1. + exp(-x))
+        end
     end
-	end
 
 end

@@ -119,8 +119,10 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   # number of nodes in the MultivariateFeatureLayer
   maxId = maximum(mixturesLayer.ids)
   L = C * parts * mixtures * locations
-  filterLayer = MultivariateFeatureLayer(collect(maxId + 1:maxId + L), zeros(Float32, L, D), repmat(scopes, M, 1), mixturesLayer)
+  filterLayer = MultivariateFeatureLayer(collect(maxId + 1:maxId + L), zeros(Float32, D, L), repmat(scopes, 1, M), mixturesLayer)
   push!(mixturesLayer.children, filterLayer)
   mixturesLayer.childIds = reshape(filterLayer.ids, locations, M)
 
+  println(size(filterLayer.scopes))
+  
 end

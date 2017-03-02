@@ -12,8 +12,8 @@ facts("Layers Test") do
         D = 10 # dimensionality
         N = 100 # number of samples
 
-        weights = rand(C, D)
-        scopes = rand(Bool, C, D)
+        weights = rand(D, C)
+        scopes = rand(Bool, D, C)
         layer = MultivariateFeatureLayer(collect(1:C), weights, scopes, nothing)
 
         @fact size(layer) --> (C, 1)
@@ -44,7 +44,7 @@ facts("Layers Test") do
         llhvals = zeros(N, C + C*Ch)
         @fact all(llhvals .== 0.) --> true
 
-        llhvals[:, C+1:end] = rand(N, C*Ch)
+        llhvals[:, C+1:end] = log(rand(N, C*Ch))
 
         eval!(layer, X, llhvals)
 
@@ -61,11 +61,6 @@ facts("Layers Test") do
         layer.weights[2:end, :] = 0.
         eval!(layer, X, llhvals)
         @fact all(isfinite(llhvals[:,1:C])) --> true
-
-        # set all weights to 0. should validate to llhvals = -Inf
-        layer.weights[:, :] = 0.
-        eval!(layer, X, llhvals)
-        @fact all(isfinite(llhvals[:,1:C])) --> false
     end
 
     context("Product Layer") do
