@@ -145,7 +145,7 @@ function eval!(layer::MultivariateFeatureLayer, data::AbstractArray, llhvals::Ma
         @simd for n in 1:N
             x = dot(data[:,n], w)
             # compute log(1) - log(1+exp(-wx))
-            @inbounds llhval[n, c] = -(1. + exp(-x))
+            @inbounds llhval[n, c] = -log(1. + exp(-x))
         end
     end
 
