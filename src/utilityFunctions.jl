@@ -1,4 +1,4 @@
-export simplify!, complexity, depth, prune!, order
+export simplify!, complexity, depth, prune!, order, copySPN
 
 """
 Type definition for topological ordering.
@@ -360,4 +360,54 @@ function prune_uniform!(S::SumNode, p::Float64)
 	  end
 	end
 
+end
+
+function copySPN(source::SumNode; idIncrement = 0)
+
+	nodes = order(source)
+  destinationNodes = Vector{SPNNode}()
+  id2index = Dict{Int, Int}()
+
+  for node in nodes
+
+    if isa(node, NormalDistributionNode)
+      dnode = NormalDistributionNode(copy(node.id) + idIncrement, copy(node.scope))
+      dnode.μ = copy(node.μ)
+      dnode.σ = copy(node.σ)
+      push!(destinationNodes, dnode)
+      id2index[dnode.id] = length(destinationNodes)
+		elseif isa(node, MultivariateFeatureNode)
+			dnode = MultivariateFeatureNode(copy(node.id) + idIncrement, copy(node.scope))
+			dnode.weights[:] = node.weights
+			push!(destinationNodes, dnode)
+			id2index[dnode.id] = length(destinationNodes)
+    elseif isa(node, IndicatorNode)
+      dnode = IndicatorNode(copy(node.id) + idIncrement, copy(node.value), copy(node.scope))
+      push!(destinationNodes, dnode)
+      id2index[dnode.id] = length(destinationNodes)
+    elseif isa(node, SumNode)
+      dnode = SumNode(copy(node.id) + idIncrement, scope = copy(node.scope))
+      cids = Int[child.id for child in children(node)]
+      for (i, cid) in enumerate(cids)
+        add!(dnode, destinationNodes[id2index[cid + idIncrement]], copy(node.weights[i]))
+      end
+			push!(destinationNodes, dnode)
+			id2index[dnode.id] = length(destinationNodes)
+		elseif isa(node, ProductNode)
+			dnode = ProductNode(copy(node.id) + idIncrement, scope = copy(node.scope))
+			cids = Int[child.id for child in children(node)]
+			for (i, cid) in enumerate(cids)
+				add!(dnode, destinationNodes[id2index[cid + idIncrement]])
+			end
+
+			push!(destinationNodes, dnode)
+			id2index[dnode.id] = length(destinationNodes)
+
+		else
+			throw(TypeError(node, "Node type not supported."))
+		end
+
+	end
+
+  return destinationNodes[end]
 end

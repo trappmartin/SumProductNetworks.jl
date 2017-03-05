@@ -30,6 +30,7 @@ module SumProductNetworks
     include("gens.jl")
     include("randomStructure.jl")
     include("imageStructure.jl")
+    include("structureUtilities.jl")
 
     # include utilities
     include("utilityFunctions.jl")

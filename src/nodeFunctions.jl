@@ -309,7 +309,8 @@ function eval!{T<:Real}(node::MultivariateFeatureNode, data::AbstractArray{T}, l
 	D = length(node.weights)
 	nid = id2index(node.id)
 	@simd for ii in 1:N
-		@inbounds llhvals[ii, nid] = dot(node.weights, @view data[ii, node.scope])
+		@inbounds llhvals[ii, nid] = dot(node.weights, @view data[ii, node.scope]) # formulation by Gens et al.
+		# @inbounds llhvals[ii, nid] = -log(1+exp(-dot(node.weights, @view data[ii, node.scope]))) # standard logistic function 1/(1+exp(-x))
 	end
   @assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
 end
