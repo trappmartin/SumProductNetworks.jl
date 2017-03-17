@@ -15,8 +15,9 @@ function learnSPNStructure(X, Y, maxiterations, maxdepth, randomseed; method = :
 
 	nodeidincrement = 1
 	Sinit = SumNode(nodeidincrement)
+
 	for label in unique(Y)
-	  nodeidincrement += 1
+		nodeidincrement += 1
 	  P = ProductNode(nodeidincrement)
 	  add!(P, copySPN(SStructure, idIncrement = nodeidincrement))
 	  nodeidincrement = maximum([node.id for node in SumProductNetworks.order(P)]) + 1
@@ -31,8 +32,8 @@ function learnSPNStructure(X, Y, maxiterations, maxdepth, randomseed; method = :
 		prune!(Sinit, percentile(vec(minimum(dists, 1)), pi))
 	end
 
-	SumProductNetworks.normalize!(Sinit)
-	simplify!(Sinit)
+	#SumProductNetworks.normalize!(Sinit)
+	#simplify!(Sinit)
 	SumProductNetworks.normalize!(Sinit)
 
 	return Sinit

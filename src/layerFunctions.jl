@@ -1,4 +1,4 @@
-export size, eval!, eval
+export size, eval!, eval, llh, cllh
 
 """
 Returns the size of a SPN layer object.
@@ -15,8 +15,70 @@ function size(layer::AbstractProductLayer)
   return size(layer.childIds')
 end
 
+function size(layer::IndicatorLayer)
+  return (length(layer.scopes), length(layer.values))
+end
+
+function size(layer::GaussianLayer)
+  return (length(layer.scopes), 1)
+end
+
 function size(layer::SPNLayer)
   error("Not implemented!")
+end
+
+"""
+  Compute log likelihood of the network given the data.
+"""
+function llh{T<:Real}(spn::SPNLayer, data::AbstractArray{T})
+    # get topological order
+    computationOrder = order(spn)
+
+		maxId = maximum(maximum(layer.ids) for layer in computationOrder)
+    (D, N) = size(data)
+
+    llhval = Matrix{Float32}(N, maxId)
+
+		fill!(llhval, -Inf)
+
+    for layer in computationOrder
+        eval!(layer, data, llhval)
+    end
+
+    return vec(llhval[:, spn.ids])
+end
+
+"""
+  Compute conditional log likelihood of the network given the data.
+"""
+function cllh{T<:Real}(spn::SPNLayer, data::AbstractArray{T}, labels::Vector{Int})
+    # get topological order
+    computationOrder = order(spn)
+
+		maxId = maximum(maximum(layer.ids) for layer in computationOrder)
+    (D, N) = size(data)
+
+    llhval = Matrix{Float32}(N, maxId)
+
+		fill!(llhval, -Inf)
+
+    # -- compute S[x, y] --
+    for layer in computationOrder
+        eval!(layer, data, labels, llhval)
+    end
+
+    Sy = vec(llhval[:, spn.ids])
+
+    fill!(llhval, -Inf)
+
+    # -- compute S[x, 1] --
+    for layer in computationOrder
+        eval!(layer, data, llhval)
+    end
+
+    S1 = vec(llhval[:, spn.ids])
+
+    return Sy - S1
 end
 
 function eval!(layer::SPNLayer, data::AbstractArray, labels::Vector{Int}, llhvals::Matrix)
@@ -61,6 +123,8 @@ function eval!(layer::SumLayer, data::AbstractArray, llhvals::Matrix, llhval::Ab
   llhval[:] = -Inf
   logw = log(layer.weights)
 
+  # r = SharedArray(typeof(llhval[1]), size(llhval))
+
   @simd for c in 1:C
     @inbounds cids = layer.childIds[:,c]
     @inbounds w = logw[:,c]
@@ -68,6 +132,16 @@ function eval!(layer::SumLayer, data::AbstractArray, llhvals::Matrix, llhval::Ab
       @inbounds llhval[n, c] = logsumexp(llhvals[n, cids] + w)
     end
   end
+
+  # @parallel for c in 1:C
+  #   cids = layer.childIds[:,c]
+  #   w = logw[:,c]
+  #   for n in 1:N
+  #     r[n, c] = logsumexp(llhvals[n, cids] + w)
+  #   end
+  # end
+
+  # @inbounds llhval[:] = fetch(r)[:]
 end
 
 """
@@ -149,4 +223,63 @@ function eval!(layer::MultivariateFeatureLayer, data::AbstractArray, llhvals::Ma
         end
     end
 
+end
+
+"""
+Evaluates a IndicatorLayer on the data matrix.
+
+# Arguments
+* `layer`: layer used for the computation.
+* `data`: data matrix (in D × N format) used for the computation.
+* `llhvals`: resulting llh values (in C × N format).
+"""
+function eval!(layer::IndicatorLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
+
+  (Dx, N) = size(data)
+  (Dl, C) = size(layer)
+
+  @assert Dl == Dx "data dimensionality $(Dx) does not match layer dimensionality $(Dl)"
+
+  # clear data
+  llhval[:] = -Inf
+
+  # r = SharedArray(typeof(llhval[1]), size(llhval))
+
+  # @parallel for c in 1:C
+  for c in 1:C
+    for n in 1:N
+      idx = Int[sub2ind((Dl, C), i, c) for i in 1:Dl]
+      # @inbounds r[n, idx] = log(data[layer.scopes,n] .== layer.values[c])
+      @inbounds llhval[n, idx] = log(data[layer.scopes,n] .== layer.values[c])
+    end
+  end
+
+  # @inbounds llhval[:] = fetch(r)[:]
+end
+
+"""
+Evaluates a GaussianLayer on the data matrix.
+
+# Arguments
+* `layer`: layer used for the computation.
+* `data`: data matrix (in D × N format) used for the computation.
+* `llhvals`: resulting llh values (in C × N format).
+"""
+function eval!(layer::GaussianLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
+
+  (Dx, N) = size(data)
+  (C, _) = size(layer)
+
+  # clear data
+  llhval[:] = -Inf
+
+  # r = SharedArray(typeof(llhval[1]), size(llhval))
+
+  # @parallel for c in 1:C
+  for c in 1:C
+    # @inbounds d = layer.
+    @inbounds llhval[n, c] = normlogpdf.(node.μ, node.σ, data[i, node.scope])
+  end
+
+  # @inbounds llhval[:] = fetch(r)[:]
 end

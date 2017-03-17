@@ -152,17 +152,27 @@ function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, s
 
 	@assert !isnan(sigma) "Estimated variance is NaN, check if your data contains NaNs!"
 	@assert !isnan(mu) "Estimated mean is NaN, check if your data contains NaNs!"
-	return NormalDistributionNode(id, scope, μ = mu, σ = sigma)
+	return [NormalDistributionNode(id, scope, μ = mu, σ = sigma)]
 end
 
-#TODO: Change such that sum of indicators is returned and node id's are incremented!
 function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Vector{Int})
 
 	K = maximum(X[:, scope])
-	p = Float64[sum(X[obs, scope] .== k) / length(obs) for k in 1:K]
+	p = Float64[sum(X[obs, scope] .== k) / length(obs) for k in 0:K]
 
 	@assert all(!isnan(p)) "Estimated probablitiy distribution is NaN, check if your data contains NaNs!"
-	return UnivariateNode{Categorical}(id, Categorical(p), scope)
+
+	iid = id
+
+	S = SumNode(iid, scope = Int[scope])
+	L = SPNNode[]
+	for k in 0:K
+		iid += 1
+		push!(L, IndicatorNode(iid, k, scope))
+		add!(S, L[k+1], p[k+1])
+	end
+
+	return cat(1, L, [S])
 end
 
 function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = Inf)
@@ -207,7 +217,7 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 				cid = Int[]
 				w = [1.0]
 
-				ccid = maximum(usedids)
+				ccid = maximum(union(ids, usedids))
 				push!(cid, ccid + 1)
 				push!(ids, ccid + 1)
 				push!(observations, obs)
@@ -225,9 +235,9 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 
 				cid = Int[]
 				for c in 1:numchildren
-					ccid = maximum(usedids)
-					push!(cid, ccid + c)
-					push!(ids, ccid + c)
+					ccid = maximum(union(ids, usedids)) + 1
+					push!(cid, ccid)
+					push!(ids, ccid)
 					push!(observations, obs[find(assignments .== c)])
 					push!(dimensions, dims)
 					push!(modes, :product)
@@ -244,25 +254,29 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 
 			# if univariate, then push back as Leaf
 			if isuniv
-				push!(ids, id)
-				push!(observations, obs)
-				push!(dimensions, dims)
-				push!(modes, :leaf)
-				push!(nodeDepths, nodeDepth + 1)
+
+				leafnodes = fitLeafDistribution(X, id, dims[1], obs)
+
+				for node in leafnodes
+					push!(nodes, node)
+					push!(usedids, node.id)
+				end
 				continue
 			end
 
 			# if depth has been reached, push back
 			if nodeDepth >= maxDepth
 				cid = Int[]
-				ccid = maximum(usedids)
 				for (c, d) in enumerate(dims)
-					push!(cid, ccid + c)
-					push!(ids, ccid + c)
-					push!(observations, obs)
-					push!(dimensions, [d])
-					push!(modes, :leaf)
-					push!(nodeDepths, nodeDepth + 1)
+					ccid = maximum(union(usedids, ids)) + 1
+					leafnodes = fitLeafDistribution(X, ccid, d, obs)
+
+					push!(cid, ccid)
+
+					for node in leafnodes
+						push!(nodes, node)
+						push!(usedids, node.id)
+					end
 				end
 
 				cids[id] = cid
@@ -277,21 +291,23 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 				if isempty(p1)
 
 					cid = Int[]
-					ccid = maximum(usedids)
 					for (c, d) in enumerate(p0)
-						push!(cid, ccid + c)
-						push!(ids, ccid + c)
-						push!(observations, obs)
-						push!(dimensions, [d])
-						push!(modes, :leaf)
-						push!(nodeDepths, nodeDepth + 1)
+						ccid = maximum(union(usedids, ids)) + 1
+						leafnodes = fitLeafDistribution(X, ccid, d, obs)
+
+						push!(cid, ccid)
+
+						for node in leafnodes
+							push!(nodes, node)
+							push!(usedids, node.id)
+						end
 					end
 
 					cids[id] = cid
 				else
 
 					cid = Int[]
-					ccid = maximum(usedids)
+					ccid = maximum(union(usedids, ids))
 					push!(cid, ccid + 1)
 					push!(ids, ccid + 1)
 					push!(observations, obs)
@@ -311,10 +327,6 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 			end
 
 			scopes[id] = dims
-
-		elseif mode == :leaf
-			node = fitLeafDistribution(X, id, dims[1], obs)
-			push!(nodes, node)
 		else
 			throw(ErrorException("Unknown mode: $mode"))
 		end

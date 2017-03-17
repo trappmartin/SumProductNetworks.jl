@@ -244,6 +244,8 @@ function llh{T<:Real}(S::Node, data::AbstractArray{T})
 		maxId = maximum(Int[node.id for node in nodes])
     llhval = Matrix{Float64}(size(data, 1), maxId)
 
+		fill!(llhval, -Inf)
+
     for node in nodes
         eval!(node, data, llhval)
     end
@@ -259,6 +261,7 @@ function evalSum!(M::AbstractMatrix{Float64}, iRange::Range, cids::Vector{Int}, 
 	@simd for ii in iRange
 		@inbounds M[ii, nid] = logsumexp(view(M, ii, cids) + logw)
 	end
+	M[isnan(M[:,nid]), nid] = -Inf
 end
 
 function eval!{T<:Real}(node::SumNode, data::AbstractMatrix{T}, llhvals::AbstractMatrix{Float64}; id2index::Function = (id) -> id)
@@ -266,7 +269,8 @@ function eval!{T<:Real}(node::SumNode, data::AbstractMatrix{T}, llhvals::Abstrac
 	logw = log.(node.weights)
 	nid = id2index(node.id)
 	evalSum!(llhvals, 1:size(data, 1), cids, nid, logw)
-	@assert !any(isnan(logw)) "low weights of sum node: $(node.id) contains NaN's!"
+	# @assert !any(isnan(logw)) "low weights of sum node: $(node.id) contains NaN's!"
+	# @assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by product node: $(node.id) contains NaN's!"
 end
 
 """
@@ -277,7 +281,7 @@ function eval!{T<:Real}(node::ProductNode, data::AbstractMatrix{T}, llhvals::Abs
 	cids = id2index.(Int[child.id for child in children(node)])
 	nid = id2index(node.id)
 	@inbounds llhvals[:, nid] = sum(llhvals[:, cids], 2)
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by product node: $(node.id) contains NaN's!"
+	# @assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by product node: $(node.id) contains NaN's!"
 end
 
 """
@@ -289,7 +293,7 @@ function eval!{T<:Real}(node::IndicatorNode, data::AbstractArray{T}, llhvals::Ab
 	@simd for ii in 1:size(data, 1)
 		@inbounds llhvals[ii, nid] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.value)
 	end
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by indicator node: $(node.id) contains NaN's!"
+	# @assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by indicator node: $(node.id) contains NaN's!"
 end
 
 """

@@ -127,6 +127,24 @@ facts("Layers Test") do
         end
         @fact llhvals[:,1:C] --> Y[:,1:C]
     end
+
+    context("Indicator Layer") do
+      C = 5 # number of nodes (values)
+      D = 10 # dimensionality
+      N = 100 # number of samples
+
+      ids = collect(1:D*C) # reshape ids to D * C
+      layer = IndicatorLayer(ids, collect(1:D), collect(1:C), nothing)
+
+      @fact size(layer) --> (D, C)
+
+      X = rand(1:C, D, N)
+      llhvals = zeros(N, D * C)
+
+      eval!(layer, X, llhvals)
+      @fact llhvals[1, :] --> reduce(vcat, [log(X[:,1] .== c) for c in 1:C])
+
+    end
 end
 
 facts("Topological Order Test") do

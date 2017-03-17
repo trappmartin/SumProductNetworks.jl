@@ -1,4 +1,4 @@
-export SPNLayer, MultivariateFeatureLayer, SumLayer, ProductLayer, ProductCLayer, AbstractProductLayer
+export SPNLayer, MultivariateFeatureLayer, SumLayer, ProductLayer, ProductCLayer, AbstractProductLayer, IndicatorLayer, GaussianLayer
 
 abstract SPNLayer
 
@@ -44,6 +44,29 @@ type MultivariateFeatureLayer <: SPNLayer
     ids::Vector{Int}
     weights::Matrix{AbstractFloat} # C x D filter matrix
     scopes::Matrix{Bool} # C x D mask
+
+    parent
+
+end
+
+# Layer with indicator nodes
+type IndicatorLayer <: SPNLayer
+
+    ids::Vector{Int} # flatten vector representing C x D ids matrix
+    scopes::Vector{Int} # D dimensional vector
+    values::Vector # C dimensional vector of values used for the indicator functions
+
+    parent
+
+end
+
+# Layer with univariate Gauss distributions
+type GaussianLayer <: SPNLayer
+
+    ids::Vector{Int} # C dimensional vector
+    scopes::Vector{Int} # C dimensional vector
+    μ::Vector{Float32} # C dimensional vector of values location parameters
+    σ::Vector{Float32} # C dimensional vector of values scale parameters
 
     parent
 
