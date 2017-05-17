@@ -1,10 +1,8 @@
-# Sum-Product Networks in Julia
-
-## Structure Generation
+# Structure Generation
 The SumProductNetworks package provides implementations of the following heuristic structure learning approaches.
 
-### Image Convolution Structure
-This approach is suitable if the features represent responses from convolutions neural network (or similar kind) and spatial relationships can be assumes.
+## Image Convolution Structure
+This approach is suitable if the features represent responses from convolutions neural network (or similar kind) where spatial relationships can be assumes.
 
 The input data $X \in R^{K \times G^2}$ where $G$ represents some feature map dimensionality and each input vector is assumed to be of size $1 \times D$ where $D = K \times G^2$.
 
@@ -34,12 +32,13 @@ imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
 
 ```
 
-### learnSPN (Discrete and Continuous Data)
-TBD
+## Random Structure
+This approach is allow to generate a random structure in node or layer form.
 
-### Developing the source code
-To ensure correctness of the implementation, the source code can be developed with while automatically rerunning all test using:
+#### Example
+This example shows how to generate a random structure.
 
-```
-find . -name '*.jl' | entr julia test/runtests.jl
-```
+tbd
+
+## learnSPN (Discrete and Continuous Data)
+tbd
