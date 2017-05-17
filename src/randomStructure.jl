@@ -1,6 +1,6 @@
 export randomSPN
 
-function randomSPN(X::AbstractArray; minSamples = 10, maxDepth = Inf, minChildren = 1, maxChildren = 10, allowScopeOverlap = false)
+function randomSPN(X::AbstractArray; maxDepth = Inf, minChildren = 1, maxChildren = 10, allowScopeOverlap = false)
 
   (N, D) = size(X)
 
@@ -109,8 +109,7 @@ function randomSPN(X::AbstractArray; minSamples = 10, maxDepth = Inf, minChildre
 			else
 
         if !allowScopeOverlap
-				  assignments = learnProductNode(X[obs, dims], minN = minSamples)
-
+          assignments = rand(Bool, length(dims))
           p0 = dims[assignments]
           p1 = setdiff(dims, p0)
           p2 = []
