@@ -123,6 +123,4 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   push!(mixturesLayer.children, filterLayer)
   mixturesLayer.childIds = reshape(filterLayer.ids, locations, M)
 
-  println(size(filterLayer.scopes))
-  
 end
