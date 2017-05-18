@@ -1,4 +1,4 @@
-export randomSPN
+export randomSPN, randomStructure!
 
 function randomSPN(X::AbstractArray; maxDepth = Inf, minChildren = 1, maxChildren = 10, allowScopeOverlap = false)
 
@@ -210,6 +210,71 @@ function randomSPN(X::AbstractArray; maxDepth = Inf, minChildren = 1, maxChildre
 
 	ncids = Int[n.id for n in nodes]
 	return nodes[findfirst(ncids .== 1)]
+end
 
+function randomStructure!(spn::SumLayer, values::Vector{Int}, D::Int; mixtureSizes = 6, maxDepth = -1, randomSeed = 0)
+
+    productSizes = 2
+
+    # set scope for root sum node
+    nodeScopes = Dict{Int, Any}(spn.ids[1] => collect(1:D))
+
+    spn.childIds = zeros(Int, mixtureSizes, 1)
+
+    # construct internal layers
+    layerType = :product
+    lastLayer = spn
+    for depth in 1:maxDepth
+
+        (C, Ch) = size(lastLayer)
+
+        lastID = maximum(lastLayer.ids)
+        if layerType == :product
+
+            # construct layer
+            ids = Vector{Int}(0)
+
+            for id in lastLayer.ids
+                scope = nodeScopes[id]
+
+                # construct children
+                for child in 1:mixtureSizes
+                    partition = rand(1:productSizes, length(scope))
+                    push!(ids, lastID+1)
+                    nodeScopes[lastID+1] = [scope[partition .== c] for c in 1:productSizes]
+                    lastID += 1
+                end
+            end
+
+            layer = ProductLayer(ids, zeros(Int, productSizes, length(ids)), SPNLayer[], lastLayer)
+            push!(lastLayer.children, layer)
+            lastLayer.childIds = reshape(layer.ids, Ch, C)
+            lastLayer = layer
+
+        elseif layerType == :sum
+
+            # construct layer
+            ids = Vector{Int}(0)
+
+            for id in lastLayer.ids
+                subscopes = nodeScopes[id] # assuming product layer
+
+                for subscope in subscopes
+                    push!(ids, lastID+1)
+                    nodeScopes[lastID+1] = subscope
+                    lastID += 1
+                end
+            end
+
+            weights = rand(Dirichlet([1./mixtureSizes for j in 1:mixtureSizes]), length(ids))
+            layer = SumLayer(ids, zeros(Int, mixtureSizes, length(ids)), weights, SPNLayer[], lastLayer)
+            push!(lastLayer.children, layer)
+            lastLayer.childIds = reshape(layer.ids, Ch, C)
+            lastLayer = layer
+        end
+
+        # switch types
+        layerType = layerType == :sum ? :product : :sum
+    end
 
 end

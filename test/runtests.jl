@@ -134,7 +134,9 @@ facts("Layers Test") do
       N = 100 # number of samples
 
       ids = collect(1:D*C) # reshape ids to D * C
-      layer = IndicatorLayer(ids, collect(1:D), collect(1:C), nothing)
+      scopes = randperm(D)
+      values = collect(1:C)
+      layer = IndicatorLayer(ids, scopes, values, nothing)
 
       @fact size(layer) --> (D, C)
 
@@ -142,8 +144,13 @@ facts("Layers Test") do
       llhvals = zeros(N, D * C)
 
       eval!(layer, X, llhvals)
-      @fact llhvals[1, :] --> reduce(vcat, [log(X[:,1] .== c) for c in 1:C])
+      @fact llhvals[1, :] --> reduce(vcat, [log(X[scopes,1] .== c) for c in 1:C])
 
+    end
+
+    context("Gaussian Layer") do
+        #TODO
+        @pending 1 --> :something
     end
 end
 
@@ -250,6 +257,15 @@ facts("Structure Generation") do
             @fact size(computationOrder[4]) --> (C, P)
             @fact size(computationOrder[5]) --> (1, C)
         end
+    end
 
+    context("Random Structure") do
+        # TODO
+        @pending 1 --> :something
+
+        spn = SumLayer([1], Array{Int,2}(0, 0), Array{Float32, 2}(0, 0), SPNLayer[], nothing)
+        X = rand(Bool, D, N)
+
+        randomStructure!(spn, collect(0:1), D, maxDepth = 2)
     end
 end
