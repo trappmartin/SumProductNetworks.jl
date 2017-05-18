@@ -36,6 +36,14 @@ imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
 This approach is allow to generate a random structure in node or layer form.
 
 #### Example
+This example shows how to generate an image convolution structure.
+
+```jl
+spn = SumLayer(...)
+randomStructure!(spn, X; randomSeed = seed, productSizes = 2, mixtureSizes = 6)
+```
+
+#### Example
 This example shows how to generate a random structure.
 
 tbd
