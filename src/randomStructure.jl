@@ -237,13 +237,23 @@ function randomStructure!(spn::SumLayer, values::Vector{Int}, D::Int; mixtureSiz
             for id in lastLayer.ids
                 scope = nodeScopes[id]
 
+                @assert length(scope) > 1
+
                 # construct children
                 for child in 1:mixtureSizes
+
+                    # draw partition: s.t. sum_i v_{j,i} > 0
                     partition = rand(1:productSizes, length(scope))
+                    while(!all([sum(partition .== c) for c in 1:productSizes] .> 0))
+                        partition = rand(1:productSizes, length(scope))
+                    end
+                    
                     push!(ids, lastID+1)
                     nodeScopes[lastID+1] = [scope[partition .== c] for c in 1:productSizes]
                     lastID += 1
                 end
+
+                delete!(nodeScopes, id)
             end
 
             layer = ProductLayer(ids, zeros(Int, productSizes, length(ids)), SPNLayer[], lastLayer)
@@ -264,6 +274,7 @@ function randomStructure!(spn::SumLayer, values::Vector{Int}, D::Int; mixtureSiz
                     nodeScopes[lastID+1] = subscope
                     lastID += 1
                 end
+                delete!(nodeScopes, id)
             end
 
             weights = rand(Dirichlet([1./mixtureSizes for j in 1:mixtureSizes]), length(ids))
@@ -275,6 +286,20 @@ function randomStructure!(spn::SumLayer, values::Vector{Int}, D::Int; mixtureSiz
 
         # switch types
         layerType = layerType == :sum ? :product : :sum
+    end
+
+    # construct multinomial distributions
+    println(typeof(nodeScopes))
+    println(keys(nodeScopes))
+    if (layerType == :product) & any(map(x -> length(nodeScopes[x]) > 1, keys(nodeScopes)))
+        
+        mvIDs = collect(filter(x -> length(nodeScopes[x]) > 1, keys(nodeScopes)))
+        println("Need to construct product layer for: ", mvIDs)
+
+        uvIDs = setdiff(lastLayer.ids, mvIDs)
+        println("Dont need to construct product layer for: ", uvIDs)
+
+        
     end
 
 end

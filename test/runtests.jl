@@ -267,5 +267,14 @@ facts("Structure Generation") do
         X = rand(Bool, D, N)
 
         randomStructure!(spn, collect(0:1), D, maxDepth = 2)
+
+        computationOrder = order(spn)
+        
+        for layer in computationOrder
+            println(typeof(layer))
+            println("IDs: ", layer.ids)
+            println("CIDs: ", layer.childIds)
+            println("--")
+        end
     end
 end
