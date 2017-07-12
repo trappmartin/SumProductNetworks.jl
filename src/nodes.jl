@@ -1,26 +1,27 @@
 export SPNNode, Node, Leaf, SumNode, ProductNode, IndicatorNode, UnivariateFeatureNode, MultivariateFeatureNode, UnivariateNode, NormalDistributionNode, MultivariateNode
 
 # abstract definition of an SumProductNetwork node
-abstract SPNNode
-abstract Node <: SPNNode
-abstract Leaf{T} <: SPNNode
+abstract type SPNNode end
+abstract type Node <: SPNNode end
+abstract type Leaf{T} <: SPNNode end
 
 #
 # A sum node computes a weighted sum of its children.
 #
 immutable SumNode <: Node
 
-  # * immutable fields * #
-  id::Int
+    # * immutable fields * #
+    id::Int
 
-  # * mutable fields * #
-	parents::Vector{SPNNode}
-  children::Vector{SPNNode}
-  weights::Vector{Float64}
-  scope::Vector{Int}
+    # * mutable fields * #
+    parents::Vector{SPNNode}
+    children::Vector{SPNNode}
+    weights::Vector{Float64}
+    scope::Vector{Int}
 
-  SumNode(id; parents = SPNNode[], scope = Int[]) = new(id, parents, SPNNode[], Float64[], scope)
-  SumNode(id, children::Vector{SPNNode}, weights::Vector{Float64}; parents = SPNNode[], scope = Int[]) = new(id, parents, children, weights, scope)
+    SumNode(id; parents = SPNNode[], scope = Int[]) = new(id, parents, SPNNode[], Float64[], scope)
+    
+    SumNode(id, children::Vector{SPNNode}, weights::Vector{Float64}; parents = SPNNode[], scope = Int[]) = new(id, parents, children, weights, scope)
 
 end
 
@@ -41,7 +42,7 @@ immutable ProductNode <: Node
 end
 
 # definition of indicater Node
-immutable IndicatorNode <: Leaf
+immutable IndicatorNode <: Leaf{Any}
 
   # * immutable fields * #
   id::Int
@@ -57,7 +58,7 @@ end
 #
 # A univariate node computes the likelihood of x under a univariate distribution.
 #
-immutable UnivariateFeatureNode <: Leaf
+immutable UnivariateFeatureNode <: Leaf{Any}
 
   # * immutable fields * #
   id::Int
@@ -70,7 +71,7 @@ immutable UnivariateFeatureNode <: Leaf
   UnivariateFeatureNode(id, scope::Int; parents = SPNNode[], weight = 0.) = new(id, weight, scope, parents)
 end
 
-immutable MultivariateFeatureNode <: Leaf
+immutable MultivariateFeatureNode <: Leaf{Any}
 
   # * immutable fields * #
   id::Int
@@ -86,7 +87,7 @@ end
 #
 # A univariate node computes the likelihood of x under a univariate distribution.
 #
-type UnivariateNode{T} <: Leaf
+type UnivariateNode{T} <: Leaf{Any}
 
   # unique node identifier
   id::Int
@@ -99,7 +100,7 @@ type UnivariateNode{T} <: Leaf
   UnivariateNode{T}(id, distribution::T, scope::Int; parents = SPNNode[]) = new(id, parents, distribution, scope)
 end
 
-type NormalDistributionNode <: Leaf
+type NormalDistributionNode <: Leaf{Any}
 
   # unique node identifier
   id::Int
@@ -116,7 +117,7 @@ end
 #
 # A multivariate node computes the likelihood of x under a multivariate distribution.
 #
-type MultivariateNode{T} <: Leaf
+type MultivariateNode{T} <: Leaf{Any}
 
   # unique node identifier
   id::Int

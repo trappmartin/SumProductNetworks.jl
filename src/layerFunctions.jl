@@ -123,8 +123,6 @@ function eval!(layer::SumLayer, data::AbstractArray, llhvals::Matrix, llhval::Ab
   llhval[:] = -Inf
   logw = log(layer.weights)
 
-  # r = SharedArray(typeof(llhval[1]), size(llhval))
-
   @simd for c in 1:C
     @inbounds cids = layer.childIds[:,c]
     @inbounds w = logw[:,c]
@@ -133,15 +131,6 @@ function eval!(layer::SumLayer, data::AbstractArray, llhvals::Matrix, llhval::Ab
     end
   end
 
-  # @parallel for c in 1:C
-  #   cids = layer.childIds[:,c]
-  #   w = logw[:,c]
-  #   for n in 1:N
-  #     r[n, c] = logsumexp(llhvals[n, cids] + w)
-  #   end
-  # end
-
-  # @inbounds llhval[:] = fetch(r)[:]
 end
 
 """
@@ -243,18 +232,13 @@ function eval!(layer::IndicatorLayer, data::AbstractArray, llhvals::Matrix, llhv
   # clear data
   llhval[:] = -Inf
 
-  # r = SharedArray(typeof(llhval[1]), size(llhval))
-
-  # @parallel for c in 1:C
   for c in 1:C
     for n in 1:N
       idx = Int[sub2ind((Dl, C), i, c) for i in 1:Dl]
-      # @inbounds r[n, idx] = log(data[layer.scopes,n] .== layer.values[c])
       @inbounds llhval[n, idx] = log(data[layer.scopes,n] .== layer.values[c])
     end
   end
 
-  # @inbounds llhval[:] = fetch(r)[:]
 end
 
 """
@@ -273,13 +257,8 @@ function eval!(layer::GaussianLayer, data::AbstractArray, llhvals::Matrix, llhva
   # clear data
   llhval[:] = -Inf
 
-  # r = SharedArray(typeof(llhval[1]), size(llhval))
-
-  # @parallel for c in 1:C
   for c in 1:C
-    # @inbounds d = layer.
     @inbounds llhval[n, c] = normlogpdf.(node.μ, node.σ, data[i, node.scope])
   end
 
-  # @inbounds llhval[:] = fetch(r)[:]
 end

@@ -5,6 +5,17 @@ import RDatasets.dataset
 
 println("Running test: ", now())
 
+facts("Utility Functions") do
+    context("BMI Test") do
+        X = vec([1,2,1,2,3,1,2,3,2,1])
+        Y = vec([3,2,1,2,1,3,2,1,2,3])
+
+        (p, logP) = SumProductNetworks.test(X, Y)
+        @test abs(p - 0.0095) < 1e-4
+    end
+end
+
+
 facts("Layers Test") do
     context("Multivariate Feature Layer") do
 

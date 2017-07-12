@@ -1,6 +1,6 @@
 export SPNLayer, MultivariateFeatureLayer, SumLayer, ProductLayer, ProductCLayer, AbstractProductLayer, IndicatorLayer, GaussianLayer
 
-abstract SPNLayer
+abstract type SPNLayer end
 
 # Layer with Sum Nodes
 type SumLayer <: SPNLayer
@@ -14,7 +14,8 @@ type SumLayer <: SPNLayer
 
 end
 
-abstract AbstractProductLayer <: SPNLayer
+abstract type AbstractProductLayer <: SPNLayer end
+
 # Layer with Product Nodes
 type ProductLayer <: AbstractProductLayer
 

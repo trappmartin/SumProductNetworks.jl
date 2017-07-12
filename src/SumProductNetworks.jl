@@ -7,10 +7,9 @@ module SumProductNetworks
         Distances,
         Distributions,
         StatsFuns,
-				Base,
-        HSIC,
-        BayesianNonparametrics,
-				BMITest
+		Base,
+        HilbertSchmidtIndependenceCriterion,
+        BayesianNonparametrics
 
     import Base.getindex
     import Base.map
