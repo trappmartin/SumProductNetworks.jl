@@ -1,44 +1,23 @@
 # Sum-Product Networks in Julia
+This software package implements node and layer wise Sum-Product Networks (SPNs). Further, this code provides high level routines to work with SPNs.
 
-## Structure Generation
-The SumProductNetworks package provides implementations of the following heuristic structure learning approaches.
 
-### Image Convolution Structure
-This approach is suitable if the features represent responses from convolutions neural network (or similar kind) and spatial relationships can be assumes.
+## Requireements
+* julia 0.6
+* packages listed in REQUIRE
 
-The input data $X \in R^{K \times G^2}$ where $G$ represents some feature map dimensionality and each input vector is assumed to be of size $1 \times D$ where $D = K \times G^2$.
-
-#### Example
-This example shows how to generate an image convolution structure.
-
-```jl
-C = 10 		# number of classes in the data set
-G = 8 		# feature map size
-K = 100 		# feature vector size, e.g. number of nodes in CNN
-D = G^2 * K
-
-P = 10 		# number of part sum nodes that should be generated
-M = 2 		# number of mixture sum nodes that should be generated
-W = 4 		# window size used for the sliding window approach
-
-spn = SumLayer(1) # the root node
-imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
+## Installation
+Make sure you have julia 0.6 running.
+Inside of julia run:
+```
+Pkg.add("https://github.com/trappmartin/SumProductNetworks.jl")
 ```
 
-Alternatively to the generated nodes based representation, the structure can also be generated using a sum layers as root, see:
-
-```jl
-...
-spn = SumLayer(...)
-imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
-
-```
-
-### learnSPN (Discrete and Continuous Data)
-TBD
+## Documentation
+Please check the doc folder for a documentation on this software package. Note that this package is under constant development and the documentation might be behind things.
 
 ### Developing the source code
-To ensure correctness of the implementation, the source code can be developed with while automatically rerunning all test using:
+To ensure correctness of the implementation, the source code is developed using a test-driven approachby automatically rerunning all test using:
 
 ```
 find . -name '*.jl' | entr julia test/runtests.jl
