@@ -2,8 +2,8 @@
 This is the home of the software package SumProductNetworks.jl implementing Sum-Product Networks in julia.
 
 ## Manual
-* [Nodes](Nodes.jl)
-* [Node Functions](NodeFunctions.jl)
-* [Layers](Layers.jl)
-* [Layer Functions](LayerFunctions.jl)
-* [Structure Learning](Structure.jl)
+* [Nodes](Nodes.md)
+* [Node Functions](NodeFunctions.md)
+* [Layers](Layers.md)
+* [Layer Functions](LayerFunctions.md)
+* [Structure Learning](Structure.md)
