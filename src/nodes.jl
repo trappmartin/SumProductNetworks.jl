@@ -8,7 +8,7 @@ abstract type Leaf{T} <: SPNNode end
 #
 # A sum node computes a weighted sum of its children.
 #
-immutable SumNode <: Node
+type SumNode <: Node
 
     # * immutable fields * #
     id::Int
@@ -28,7 +28,7 @@ end
 #
 # A product node computes a the product of its children.
 #
-immutable ProductNode <: Node
+type ProductNode <: Node
 
   # * immutable fields * #
   id::Int
@@ -42,7 +42,7 @@ immutable ProductNode <: Node
 end
 
 # definition of indicater Node
-immutable IndicatorNode <: Leaf{Any}
+type IndicatorNode <: Leaf{Any}
 
   # * immutable fields * #
   id::Int
@@ -58,7 +58,7 @@ end
 #
 # A univariate node computes the likelihood of x under a univariate distribution.
 #
-immutable UnivariateFeatureNode <: Leaf{Any}
+type UnivariateFeatureNode <: Leaf{Any}
 
   # * immutable fields * #
   id::Int
@@ -71,7 +71,7 @@ immutable UnivariateFeatureNode <: Leaf{Any}
   UnivariateFeatureNode(id, scope::Int; parents = SPNNode[], weight = 0.) = new(id, weight, scope, parents)
 end
 
-immutable MultivariateFeatureNode <: Leaf{Any}
+type MultivariateFeatureNode <: Leaf{Any}
 
   # * immutable fields * #
   id::Int
