@@ -302,7 +302,7 @@ Evaluate UnivariateFeatureNode on data.
 function eval!{T<:Real}(node::UnivariateFeatureNode, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	N = size(data, 1)
 	@inbounds llhvals[1:N, id2index(node.id)] = node.weight * data[:, node.scope]
-  @assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
+  @assert !any(isnan.(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
 end
 
 """
@@ -316,7 +316,7 @@ function eval!{T<:Real}(node::MultivariateFeatureNode, data::AbstractArray{T}, l
 		@inbounds llhvals[ii, nid] = dot(node.weights, @view data[ii, node.scope]) # formulation by Gens et al.
 		# @inbounds llhvals[ii, nid] = -log(1+exp(-dot(node.weights, @view data[ii, node.scope]))) # standard logistic function 1/(1+exp(-x))
 	end
-  @assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
+  @assert !any(isnan.(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate feature node: $(node.id) contains NaN's!"
 end
 
 """
@@ -329,7 +329,7 @@ function eval!(node::NormalDistributionNode, data::AbstractMatrix{Float64}, llhv
 		@inbounds llhvals[i, nid] = isnan(data[i,node.scope]) ? 0.0 : normlogpdf(node.μ, node.σ, data[i, node.scope])
 	end
 
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by normal distribution node: $(node.id) with μ: $(node.μ) and σ: $(node.σ) contains NaN's!"
+	@assert !any(isnan.(view(llhvals, 1:size(data, 1), nid))) "result computed by normal distribution node: $(node.id) with μ: $(node.μ) and σ: $(node.σ) contains NaN's!"
 end
 
 """
@@ -338,7 +338,7 @@ This function updates the llh of the data under the model.
 """
 function eval!{T<:Real, U}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
 	@inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope])
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate distribution node: $(node.id) with distribution: $(node.dist) contains NaN's!"
+	@assert !any(isnan.(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by univariate distribution node: $(node.id) with distribution: $(node.dist) contains NaN's!"
 end
 
 """
@@ -347,5 +347,13 @@ This function updates the llh of the data under the model.
 """
 function eval!{T<:Real, U}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
   @inbounds llhvals[:, id2index(node.id)] = logpdf(node.dist, data[:, node.scope]')
-	@assert !any(isnan(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by multivariate distribution node: $(node.id) with distribution: $(node.dist) contains NaN's!"
+	@assert !any(isnan.(view(llhvals, 1:size(data, 1), id2index(node.id)))) "result computed by multivariate distribution node: $(node.id) with distribution: $(node.dist) contains NaN's!"
+end
+
+function eval!{T<:Real, U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+	@inbounds llhvals[:, id2index(node.id)] = logpostpred(node.dist, data[:, node.scope])
+end
+
+function eval!{T<:Real, U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data::AbstractArray{T}, llhvals::AbstractArray{Float64}; id2index::Function = (id) -> id)
+  @inbounds llhvals[:, id2index(node.id)] = logpostpred(node.dist, data[:, node.scope])
 end

@@ -19,6 +19,14 @@ The log likelihood of some data can be computed using:
 llhValues::Vector{Float64} = llh(SPN::Node, X)
 ```
 
+#### Depth of an SPN
+We can compute the depth of an SPN using:
+
+```julia
+d::Int = depth(SPN::Node)
+```
+
+
 ## Node Specific Functions
 
 #### Add Children to Internal Nodes
