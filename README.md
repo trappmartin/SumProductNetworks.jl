@@ -9,8 +9,9 @@ This software package implements node and layer wise Sum-Product Networks (SPNs)
 ## Installation
 Make sure you have julia 0.6 running.
 Inside of julia run:
-```
-Pkg.add("https://github.com/trappmartin/SumProductNetworks.jl")
+
+```julia
+Pkg.clone("https://github.com/trappmartin/SumProductNetworks.jl.git")
 ```
 
 ## Documentation
@@ -19,6 +20,6 @@ Please check the doc folder for a documentation on this software package. Note t
 ### Developing the source code
 To ensure correctness of the implementation, the source code is developed using a test-driven approachby automatically rerunning all test using:
 
-```
+```bash
 find . -name '*.jl' | entr julia test/runtests.jl
 ```
