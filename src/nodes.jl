@@ -1,14 +1,20 @@
-export SPNNode, Node, Leaf, SumNode, ProductNode, IndicatorNode, UnivariateFeatureNode, MultivariateFeatureNode, UnivariateNode, NormalDistributionNode, MultivariateNode
+export SPNNode, Node, Leaf, SumNode, ProductNode
+export FiniteSumNode, FiniteProductNode
+export InfiniteSumNode, InfiniteProductNode
+export IndicatorNode, UnivariateNode, NormalDistributionNode
+export MultivariateNode
 
 # abstract definition of an SumProductNetwork node
 abstract type SPNNode end
 abstract type Node <: SPNNode end
+abstract type SumNode{T} <: Node end
+abstract type ProductNode <: Node end
 abstract type Leaf{T} <: SPNNode end
 
 #
-# A sum node computes a weighted sum of its children.
+# A finite sum node.
 #
-type SumNode <: Node
+struct FiniteSumNode{T <: Real} <: SumNode{T}
 
     # * immutable fields * #
     id::Int
@@ -16,72 +22,135 @@ type SumNode <: Node
     # * mutable fields * #
     parents::Vector{SPNNode}
     children::Vector{SPNNode}
-    weights::Vector{Float64}
+    weights::Vector{T}
     scope::Vector{Int}
 
-    SumNode(id; parents = SPNNode[], scope = Int[]) = new(id, parents, SPNNode[], Float64[], scope)
-    
-    SumNode(id, children::Vector{SPNNode}, weights::Vector{Float64}; parents = SPNNode[], scope = Int[]) = new(id, parents, children, weights, scope)
+    function FiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[]) where T <: Real
 
+        if id < 1
+            error("invalid id, expecting id >= 1")
+        end
+
+        if isempty(scope)
+            error("invalid value for node scope")
+        end
+        new(id, parents, SPNNode[], T[], scope)
+    end
 end
 
 #
-# A product node computes a the product of its children.
+# An infinite sum node.
 #
-type ProductNode <: Node
+struct InfiniteSumNode{T <: Real} <: SumNode{T}
 
-  # * immutable fields * #
-  id::Int
+    # * immutable fields * #
+    id::Int
 
-  # * mutable fields * #
+    # * mutable fields * #
+    parents::Vector{SPNNode}
+    children::Vector{SPNNode}
+    α::T
+    πremain::T
+    π::Vector{T}
+    scope::Vector{Int}
+
+    function InfiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = one(T)) where T <: Real
+        if id < 1
+            error("invalid id, expecting id >= 1")
+        end
+
+        if isempty(scope)
+            error("invalid value for node scope")
+        end
+        
+        if α == 0
+            error("invalid value for alpha")
+        end
+
+        new(id, parents, SPNNode[], α, one(T), Vector{T}(0), scope)
+    end
+end
+
+#
+# A finite product node.
+#
+struct FiniteProductNode <: ProductNode
+
+    # * immutable fields * #
+    id::Int
+
+    # * mutable fields * #
 	parents::Vector{SPNNode}
-  children::Vector{SPNNode}
-  scope::Vector{Int}
+    children::Vector{SPNNode}
+    scope::Vector{Int}
 
-  ProductNode(id; parents = SPNNode[], children = SPNNode[], scope = Int[]) = new(id, parents, children, scope)
+    function FiniteProductNode(id::Int, scope::Vector{Int}; parents = SPNNode[])
+        if id < 1
+            error("invalid id, expecting id >= 1")
+        end
+
+        if isempty(scope)
+            error("invalid value for node scope")
+        end
+        new(id, parents, SPNNode[], scope)
+    end
+end
+
+#
+# An infinite product node.
+#
+struct InfiniteProductNode{T <: Real} <: ProductNode
+
+    # * immutable fields * #
+    id::Int
+
+    # * mutable fields * #
+	parents::Vector{SPNNode}
+    children::Vector{SPNNode}
+    α::T
+    ωremain::T
+    ω::Vector{T}
+    scope::Vector{Int}
+
+    function InfiniteProductNode{T}(id; parents = SPNNode[], scope = Int[]) where T <: Real
+        if id < 1
+            error("invalid id, expecting id >= 1")
+        end
+
+        if isempty(scope)
+            error("invalid value for node scope")
+        end
+        
+        if α == 0
+            error("invalid value for alpha")
+        end
+
+        new(id, parents, SPNNode[], α, one(T), Vector{T}(0), scope)
+    end
 end
 
 # definition of indicater Node
-type IndicatorNode <: Leaf{Any}
+type IndicatorNode{T <: Integer} <: Leaf{T}
 
-  # * immutable fields * #
-  id::Int
-  value::Int
-  scope::Int
+    # * immutable fields * #
+    id::Int
+    value::T
+    scope::Int
 
-  # * mutable fields * #
+    # * mutable fields * #
 	parents::Vector{SPNNode}
 
-  IndicatorNode(id, value, scope::Int; parents = SPNNode[]) = new(id, value, scope, parents)
-end
+    function IndicatorNode{T}(id::Int, value::T, scope::Int; parents = SPNNode[]) where T <: Integer
+        if id < 1
+            error("invalid id, expecting id >= 1")
+        end
 
-#
-# A univariate node computes the likelihood of x under a univariate distribution.
-#
-type UnivariateFeatureNode <: Leaf{Any}
-
-  # * immutable fields * #
-  id::Int
-  weight::Float64
-  scope::Int
-
-  # * mutable fields * #
-	parents::Vector{SPNNode}
-
-  UnivariateFeatureNode(id, scope::Int; parents = SPNNode[], weight = 0.) = new(id, weight, scope, parents)
-end
-
-type MultivariateFeatureNode <: Leaf{Any}
-
-  # * immutable fields * #
-  id::Int
-  weights::Vector{Float64}
-  scope::Vector{Int}
-
-  # * mutable fields * #
-	parents::Vector{SPNNode}
-
-  MultivariateFeatureNode(id, scope::Vector{Int}; parents = SPNNode[]) = new(id, zeros(length(scope)), scope, parents)
+        if isempty(scope)
+            error("invalid value for node scope")
+        end
+        
+        new(id, value, scope, parents)
+    end
 end
 
 #
@@ -89,29 +158,47 @@ end
 #
 type UnivariateNode{T} <: Leaf{Any}
 
-  # unique node identifier
-  id::Int
+    # unique node identifier
+    id::Int
 
-  # Fields
+    # Fields
 	parents::Vector{SPNNode}
-  dist::T
-  scope::Int
+    dist::T
+    scope::Int
 
-  UnivariateNode{T}(id, distribution::T, scope::Int; parents = SPNNode[]) = new(id, parents, distribution, scope)
+    function UnivariateNode{T}(id::Int, distribution::T, scope::Int; parents = SPNNode[]) where T <: Any 
+        if id < 1
+            error("invalid id, expecting id >= 1")
+        end
+
+        if scope < 1
+            error("invalid value for node scope")
+        end
+        new(id, parents, distribution, scope)
+    end
 end
 
 type NormalDistributionNode <: Leaf{Any}
 
-  # unique node identifier
-  id::Int
+    # unique node identifier
+    id::Int
 
-  # Fields
+    # Fields
 	parents::Vector{SPNNode}
-  μ::Float64
-  σ::Float64
-  scope::Int
+    μ::Float64
+    σ::Float64
+    scope::Int
 
-  NormalDistributionNode(id, scope::Int; parents = SPNNode[], μ = 0.0, σ = 1.0) = new(id, parents, μ, σ, scope)
+    function NormalDistributionNode(id::Int, scope::Int; parents = SPNNode[], μ = 0.0, σ = 1.0)
+        if id < 1
+            error("invalid id, expecting id >= 1")
+        end
+
+        if scope < 1
+            error("invalid value for node scope")
+        end
+        new(id, parents, μ, σ, scope)
+    end
 end
 
 #
@@ -119,14 +206,23 @@ end
 #
 type MultivariateNode{T} <: Leaf{Any}
 
-  # unique node identifier
-  id::Int
+    # unique node identifier
+    id::Int
 
-  # Fields
+    # Fields
 	parents::Vector{SPNNode}
-  dist::T
-  scope::Vector{Int}
+    dist::T
+    scope::Vector{Int}
 
-  MultivariateNode{T}(id, distribution::T, scope::Vector{Int}; parents = SPNNode[]) = new(id, parents, distribution, scope)
+    function MultivariateNode{T}(id::Int, distribution::T, scope::Vector{Int}; parents = SPNNode[]) where T <: Any
+        if id < 1
+            error("invalid id, expecting id >= 1")
+        end
+
+        if isempty(scope)
+            error("invalid value for node scope")
+        end
+        new(id, parents, distribution, scope)
+    end
 
 end
