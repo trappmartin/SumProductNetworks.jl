@@ -14,7 +14,7 @@ abstract type Leaf{T} <: SPNNode end
 #
 # A finite sum node.
 #
-struct FiniteSumNode{T <: Real} <: SumNode{T}
+mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
 
     # * immutable fields * #
     id::Int
@@ -41,7 +41,7 @@ end
 #
 # An infinite sum node.
 #
-struct InfiniteSumNode{T <: Real} <: SumNode{T}
+mutable struct InfiniteSumNode{T <: Real} <: SumNode{T}
 
     # * immutable fields * #
     id::Int
@@ -49,12 +49,12 @@ struct InfiniteSumNode{T <: Real} <: SumNode{T}
     # * mutable fields * #
     parents::Vector{SPNNode}
     children::Vector{SPNNode}
-    α::T
+    α::Float64
     πremain::T
     π::Vector{T}
     scope::Vector{Int}
 
-    function InfiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = one(T)) where T <: Real
+    function InfiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
         if id < 1
             error("invalid id, expecting id >= 1")
         end
@@ -74,7 +74,7 @@ end
 #
 # A finite product node.
 #
-struct FiniteProductNode <: ProductNode
+mutable struct FiniteProductNode <: ProductNode
 
     # * immutable fields * #
     id::Int
@@ -99,7 +99,7 @@ end
 #
 # An infinite product node.
 #
-struct InfiniteProductNode{T <: Real} <: ProductNode
+mutable struct InfiniteProductNode{T <: Real} <: ProductNode
 
     # * immutable fields * #
     id::Int
@@ -107,12 +107,12 @@ struct InfiniteProductNode{T <: Real} <: ProductNode
     # * mutable fields * #
 	parents::Vector{SPNNode}
     children::Vector{SPNNode}
-    α::T
+    α::Float64
     ωremain::T
     ω::Vector{T}
     scope::Vector{Int}
 
-    function InfiniteProductNode{T}(id; parents = SPNNode[], scope = Int[]) where T <: Real
+    function InfiniteProductNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
         if id < 1
             error("invalid id, expecting id >= 1")
         end

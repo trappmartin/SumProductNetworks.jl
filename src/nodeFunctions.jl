@@ -146,12 +146,25 @@ end
 
 """
 Add a node to a finite sum node with given weight in place.
-add!(node::FiniteSumNode, child::SPNNode, weight<:Real) -> SumNode
+add!(node::FiniteSumNode, child::SPNNode, weight<:Real)
 """
 function add!(parent::FiniteSumNode, child::SPNNode, weight::T) where T <: Real
     if !(child in parent.children)
         push!(parent.children, child)
         push!(parent.weights, weight)
+        push!(child.parents, parent)
+    end
+end
+
+"""
+Add a node to an infinite sum node with given weight in place.
+add!(node::InfiniteSumNode, child::SPNNode, sticklength<:Real)
+"""
+function add!(parent::InfiniteSumNode, child::SPNNode, stick::T) where T <: Real
+    if !(child in parent.children)
+        push!(parent.children, child)
+        push!(parent.π, stick)
+        parent.πremain -= stick
         push!(child.parents, parent)
     end
 end
@@ -163,6 +176,19 @@ add!(node::FiniteProductNode, child::SPNNode) -> ProductNode
 function add!(parent::FiniteProductNode, child::SPNNode)
     if !(child in parent.children)
         push!(parent.children, child)
+        push!(child.parents, parent)
+    end
+end
+
+"""
+Add a node to an infinite product node in place.
+add!(node::InfiniteProductNode, child::SPNNode, sticklength<:Real)
+"""
+function add!(parent::InfiniteProductNode, child::SPNNode, stick::T) where T <: Real
+    if !(child in parent.children)
+        push!(parent.children, child)
+        push!(parent.ω, stick)
+        parent.ωremain -= stick
         push!(child.parents, parent)
     end
 end
