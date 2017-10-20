@@ -53,21 +53,22 @@ mutable struct InfiniteSumNode{T <: Real} <: SumNode{T}
     πremain::T
     π::Vector{T}
     scope::Vector{Int}
+    obs::Vector{Int}
 
-    function InfiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
+    function InfiniteSumNode{T}(id::Int, scope::Vector{Int}, obs::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
         if id < 1
             error("invalid id, expecting id >= 1")
         end
 
-        if isempty(scope)
-            error("invalid value for node scope")
+        if isempty(scope) | isempty(obs)
+            error("invalid value for node scope, or node obs")
         end
         
         if α == 0
             error("invalid value for alpha")
         end
 
-        new(id, parents, SPNNode[], α, one(T), Vector{T}(0), scope)
+        new(id, parents, SPNNode[], α, one(T), Vector{T}(0), scope, obs)
     end
 end
 
@@ -111,21 +112,22 @@ mutable struct InfiniteProductNode{T <: Real} <: ProductNode
     ωremain::T
     ω::Vector{T}
     scope::Vector{Int}
+    obs::Vector{Int}
 
-    function InfiniteProductNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
+    function InfiniteProductNode{T}(id::Int, scope::Vector{Int}, obs::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
         if id < 1
             error("invalid id, expecting id >= 1")
         end
 
-        if isempty(scope)
-            error("invalid value for node scope")
+        if isempty(scope) | isempty(obs)
+            error("invalid value for node scope or node obs")
         end
         
         if α == 0
             error("invalid value for alpha")
         end
 
-        new(id, parents, SPNNode[], α, one(T), Vector{T}(0), scope)
+        new(id, parents, SPNNode[], α, one(T), Vector{T}(0), scope, obs)
     end
 end
 
