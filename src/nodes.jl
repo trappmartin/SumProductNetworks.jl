@@ -24,6 +24,7 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
     children::Vector{SPNNode}
     weights::Vector{T}
     scope::Vector{Int}
+    obs::Vector{Int}
 
     function FiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[]) where T <: Real
 
@@ -34,7 +35,7 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
         if isempty(scope)
             error("invalid value for node scope")
         end
-        new(id, parents, SPNNode[], T[], scope)
+        new(id, parents, SPNNode[], T[], scope, Int[])
     end
 end
 
@@ -84,6 +85,7 @@ mutable struct FiniteProductNode <: ProductNode
 	parents::Vector{SPNNode}
     children::Vector{SPNNode}
     scope::Vector{Int}
+    obs::Vector{Int}
 
     function FiniteProductNode(id::Int, scope::Vector{Int}; parents = SPNNode[])
         if id < 1
@@ -93,7 +95,7 @@ mutable struct FiniteProductNode <: ProductNode
         if isempty(scope)
             error("invalid value for node scope")
         end
-        new(id, parents, SPNNode[], scope)
+        new(id, parents, SPNNode[], scope, Int[])
     end
 end
 

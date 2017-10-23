@@ -254,7 +254,7 @@ function llh{T<:Real}(S::Node, data::AbstractArray{T})
     maxId = maximum(Int[node.id for node in nodes])
     llhval = SharedArray(Matrix{Float32}(size(data, 1), maxId))
 
-    fill!(llhval, -Inf)
+    fill!(llhval, -Inf32)
 
     for node in nodes
         eval!(node, data, llhval)
