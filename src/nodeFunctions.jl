@@ -148,10 +148,10 @@ end
 Add a node to a finite sum node with given weight in place.
 add!(node::FiniteSumNode, child::SPNNode, weight<:Real)
 """
-function add!(parent::FiniteSumNode, child::SPNNode, weight::T) where T <: Real
+function add!(parent::FiniteSumNode, child::SPNNode, logweight::T) where T <: Real
     if !(child in parent.children)
         push!(parent.children, child)
-        push!(parent.weights, weight)
+        push!(parent.logweights, logweight)
         push!(child.parents, parent)
     end
 end
@@ -160,11 +160,11 @@ end
 Add a node to an infinite sum node with given weight in place.
 add!(node::InfiniteSumNode, child::SPNNode, sticklength<:Real)
 """
-function add!(parent::InfiniteSumNode, child::SPNNode, stick::T) where T <: Real
+function add!(parent::InfiniteSumNode, child::SPNNode, logstick::T) where T <: Real
     if !(child in parent.children)
         push!(parent.children, child)
-        push!(parent.π, stick)
-        parent.πremain -= stick
+        push!(parent.logπ, logstick)
+        parent.πremain -= exp(logstick)
         push!(child.parents, parent)
     end
 end
@@ -184,30 +184,42 @@ end
 Add a node to an infinite product node in place.
 add!(node::InfiniteProductNode, child::SPNNode, sticklength<:Real)
 """
-function add!(parent::InfiniteProductNode, child::SPNNode, stick::T) where T <: Real
+function add!(parent::InfiniteProductNode, child::SPNNode, logstick::T) where T <: Real
     if !(child in parent.children)
         push!(parent.children, child)
-        push!(parent.ω, stick)
-        parent.ωremain -= stick
+        push!(parent.logω, logstick)
+        parent.ωremain -= exp(logstick)
         push!(child.parents, parent)
     end
 end
 
 """
 Remove a node from the children list of a sum node in place.
-remove!(node::FiniteSumNode, index::Int) -> SumNode
+remove!(node::FiniteSumNode, index::Int)
 """
 function remove!(parent::FiniteSumNode, index::Int)
     pid = findfirst(parent .== parent.children[index].parents)
 
     deleteat!(parent.children[index].parents, pid)
     deleteat!(parent.children, index)
-    deleteat!(parent.weights, index)
+    deleteat!(parent.logweights, index)
+end
+
+"""
+Remove a node from the children list of an infinite sum node in place.
+remove!(node::InfiniteSumNode, index::Int)
+"""
+function remove!(parent::InfiniteSumNode, index::Int)
+    pid = findfirst(parent .== parent.children[index].parents)
+
+    deleteat!(parent.children[index].parents, pid)
+    deleteat!(parent.children, index)
+    deleteat!(parent.logπ, index)
 end
 
 """
 Remove a node from the children list of a product node in place.
-remove!(node::FiniteProductNode, index::Int) -> ProductNode
+remove!(node::FiniteProductNode, index::Int)
 """
 function remove!(parent::FiniteProductNode, index::Int)
     pid = findfirst(parent .== parent.children[index].parents)
@@ -269,7 +281,7 @@ This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::FiniteSumNode, data::AbstractMatrix{T}, llhvals::SharedArray{AbstractFloat}; id2index::Function = (id) -> id)
     cids = SharedArray(Int[child.id for child in children(node)])
-    logw = SharedArray(log.(node.weights))
+    logw = SharedArray(node.logweights)
     @everywhere nid = id2index(node.id)
     
     @parallel for ii in 1:size(data, 1)

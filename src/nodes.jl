@@ -22,11 +22,12 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
     # * mutable fields * #
     parents::Vector{SPNNode}
     children::Vector{SPNNode}
-    weights::Vector{T}
+    logweights::Vector{T}
+    α::Float64
     scope::Vector{Int}
     obs::Vector{Int}
 
-    function FiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[]) where T <: Real
+    function FiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
 
         if id < 1
             error("invalid id, expecting id >= 1")
@@ -35,7 +36,7 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
         if isempty(scope)
             error("invalid value for node scope")
         end
-        new(id, parents, SPNNode[], T[], scope, Int[])
+        new(id, parents, SPNNode[], T[], α, scope, Int[])
     end
 end
 
@@ -52,7 +53,7 @@ mutable struct InfiniteSumNode{T <: Real} <: SumNode{T}
     children::Vector{SPNNode}
     α::Float64
     πremain::T
-    π::Vector{T}
+    logπ::Vector{T}
     scope::Vector{Int}
     obs::Vector{Int}
 
@@ -112,7 +113,7 @@ mutable struct InfiniteProductNode{T <: Real} <: ProductNode
     children::Vector{SPNNode}
     α::Float64
     ωremain::T
-    ω::Vector{T}
+    logω::Vector{T}
     scope::Vector{Int}
     obs::Vector{Int}
 
