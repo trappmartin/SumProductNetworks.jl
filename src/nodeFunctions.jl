@@ -228,6 +228,19 @@ function remove!(parent::FiniteProductNode, index::Int)
     deleteat!(parent.children, index)
 end
 
+"""
+Remove a node from the children list of an infinite product node in place.
+remove!(node::InfiniteProductNode, index::Int)
+"""
+function remove!(parent::InfiniteProductNode, index::Int)
+    pid = findfirst(parent .== parent.children[index].parents)
+
+    deleteat!(parent.children[index].parents, pid)
+    deleteat!(parent.children, index)
+    deleteat!(parent.logω, index)
+end
+
+
 
 "Recursively get number of children including children of children..."
 function deeplength(node::SPNNode)
