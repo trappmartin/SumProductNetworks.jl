@@ -82,7 +82,7 @@ Localy normalize the weights of a SPN using Algorithm 1 from Peharz et al.
 ##### Optional Parameters:
 * `ϵ::Float64`: Lower bound to ensure we don't devide by zero. (default 1e-10)
 """
-function normalize!(S::FiniteSumNode; ϵ = 1e-10)
+function normalize!(S::Node; ϵ = 1e-10)
 
     nodes = order(S)
     αp = ones(length(nodes))
@@ -96,13 +96,13 @@ function normalize!(S::FiniteSumNode; ϵ = 1e-10)
         α = 0.0
 
         if isa(node, FiniteSumNode)
-            α = sum(node.weights)
+            α = sum(exp.(node.logweights))
 
             if α < ϵ
                 α = ϵ
             end
-            node.weights[:] ./= α
-            node.weights[node.weights .< ϵ] = ϵ
+            node.logweights[:] .-= log(α)
+            node.logweights[exp.(node.logweights) .< ϵ] = ϵ
 
         elseif isa(node, FiniteProductNode)
             α = αp[nid]
@@ -114,7 +114,7 @@ function normalize!(S::FiniteSumNode; ϵ = 1e-10)
             if isa(fnode, FiniteSumNode)
                 id = findfirst(children(fnode) .== node)
                 @assert id > 0
-                fnode.weights[id] = fnode.weights[id] * α
+                fnode.logweights[id] = fnode.logweights[id] + log(α)
             elseif isa(fnode, FiniteProductNode)
                 id = findfirst(nodes .== fnode)
                 if id == 0
@@ -292,13 +292,24 @@ end
 Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::FiniteSumNode, data::AbstractMatrix{T}, llhvals::SharedArray{AbstractFloat}; id2index::Function = (id) -> id)
-    cids = SharedArray(Int[child.id for child in children(node)])
-    logw = SharedArray(node.logweights)
-    @everywhere nid = id2index(node.id)
-    
-    @parallel for ii in 1:size(data, 1)
-        @inbounds llhvals[nid,:] = logsumexp(view(llhvals, ii, cids) + logw)
+function eval!{T<:Real}(node::FiniteSumNode, data::AbstractMatrix{T}, llhvals::SharedArray{B} where B <: AbstractFloat)
+    cids = Int[child.id for child in children(node)]
+    logw = node.logweights
+    @simd for ii in 1:size(llhvals, 1)
+        @inbounds llhvals[:,node.id] = logsumexp(view(llhvals, ii, cids) + logw)
+    end
+end
+
+"""
+Evaluate infinite Sum-Node on data.
+This function updates the llh of the data under the model.
+"""
+function eval!{T<:Real}(node::InfiniteSumNode, data::AbstractMatrix{T}, llhvals::SharedArray{B} where B <: AbstractFloat)
+    cids = Int[child.id for child in children(node)]
+    logw = node.logπ
+    z = logsumexp(node.logπ)
+    @simd for ii in 1:size(llhvals, 1)
+        @inbounds llhvals[:,node.id] = logsumexp(view(llhvals, ii, cids) + logw) - z
     end
 end
 
@@ -306,20 +317,18 @@ end
 Evaluate Product-Node on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::FiniteProductNode, data::AbstractMatrix{T}, llhvals::SharedArray{AbstractFloat})
+function eval!{T<:Real}(node::ProductNode, data::AbstractMatrix{T}, llhvals::SharedArray{B} where B <: AbstractFloat)
     cids = Int[child.id for child in children(node)]
-    nid = id2index(node.id)
-    @inbounds llhvals[:, nid] = sum(llhvals[:, cids], 2)
+    @inbounds llhvals[:, node.id] = sum(llhvals[:, cids], 2)
 end
 
 """
 Evaluate IndicatorNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::IndicatorNode, data::AbstractArray{T}, llhvals::SharedArray{AbstractFloat})
-    nid = id2index(node.id)
+function eval!{T<:Real}(node::IndicatorNode, data::AbstractArray{T}, llhvals::SharedArray{A} where A <: AbstractFloat)
     @simd for ii in 1:size(data, 1)
-        @inbounds llhvals[ii, nid] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.value)
+        @inbounds llhvals[ii, node.id] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.value)
     end
     # @assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by indicator node: $(node.id) contains NaN's!"
 end
@@ -328,7 +337,7 @@ end
 Evaluate NormalDistributionNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!(node::NormalDistributionNode, data::AbstractMatrix{Float64}, llhvals::SharedArray{AbstractFloat})
+function eval!(node::NormalDistributionNode, data::AbstractMatrix{Float64}, llhvals::SharedArray{A} where A <: AbstractFloat)
     nid = id2index(node.id)
     @simd for i in 1:size(data, 1)
         @inbounds llhvals[i, nid] = isnan(data[i,node.scope]) ? 0.0 : normlogpdf(node.μ, node.σ, data[i, node.scope])
