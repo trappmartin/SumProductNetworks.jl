@@ -33,9 +33,6 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
             error("invalid id, expecting id >= 1")
         end
 
-        if isempty(scope)
-            error("invalid value for node scope")
-        end
         new(id, parents, SPNNode[], T[], α, scope, Int[])
     end
 end
@@ -62,10 +59,6 @@ mutable struct InfiniteSumNode{T <: Real} <: SumNode{T}
             error("invalid id, expecting id >= 1")
         end
 
-        if isempty(scope) | isempty(obs)
-            error("invalid value for node scope, or node obs")
-        end
-        
         if α == 0
             error("invalid value for alpha")
         end
@@ -93,9 +86,6 @@ mutable struct FiniteProductNode <: ProductNode
             error("invalid id, expecting id >= 1")
         end
 
-        if isempty(scope)
-            error("invalid value for node scope")
-        end
         new(id, parents, SPNNode[], scope, Int[])
     end
 end
@@ -122,9 +112,6 @@ mutable struct InfiniteProductNode{T <: Real} <: ProductNode
             error("invalid id, expecting id >= 1")
         end
 
-        if isempty(scope) | isempty(obs)
-            error("invalid value for node scope or node obs")
-        end
         
         if α == 0
             error("invalid value for alpha")
@@ -150,10 +137,6 @@ type IndicatorNode{T <: Integer} <: Leaf{T}
             error("invalid id, expecting id >= 1")
         end
 
-        if isempty(scope)
-            error("invalid value for node scope")
-        end
-        
         new(id, value, scope, parents)
     end
 end
