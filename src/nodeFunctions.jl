@@ -140,7 +140,7 @@ Normalize the weights of a sum node in place.
 * `ϵ::Float64`: Additional noise to ensure we don't devide by zero. (default 1e-8)
 """
 function normalizeNode!(node::FiniteSumNode; ϵ = 1e-8)
-    node.weights /= sum(node.weights) + ϵ
+    node.logweights -= logsumexp(node.logweights)
     node
 end
 
@@ -164,7 +164,7 @@ function add!(parent::InfiniteSumNode, child::SPNNode, logstick::T) where T <: R
     if !(child in parent.children)
         push!(parent.children, child)
         push!(parent.logπ, logstick)
-        parent.πremain -= exp(logstick)
+	parent.πremain = max(0.f0, parent.πremain - exp(logstick))
         push!(child.parents, parent)
     end
 end
@@ -188,7 +188,7 @@ function add!(parent::InfiniteProductNode, child::SPNNode, logstick::T) where T 
     if !(child in parent.children)
         push!(parent.children, child)
         push!(parent.logω, logstick)
-        parent.ωremain -= exp(logstick)
+	parent.ωremain = max(0.f0, parent.ωremain - exp(logstick))
         push!(child.parents, parent)
     end
 end
@@ -199,7 +199,7 @@ remove!(node::FiniteSumNode, index::Int)
 """
 function remove!(parent::FiniteSumNode, index::Int)
     pid = findfirst(parent .== parent.children[index].parents)
-
+    @assert pid > 0 "Could not find parent ($(node.id)) in list of parents ($(parent.children[index].parents))!"
     deleteat!(parent.children[index].parents, pid)
     deleteat!(parent.children, index)
     deleteat!(parent.logweights, index)
@@ -211,9 +211,10 @@ remove!(node::InfiniteSumNode, index::Int)
 """
 function remove!(parent::InfiniteSumNode, index::Int)
     pid = findfirst(parent .== parent.children[index].parents)
-
+    @assert pid > 0 "Could not find parent ($(node.id)) in list of parents ($(parent.children[index].parents))!"
     deleteat!(parent.children[index].parents, pid)
     deleteat!(parent.children, index)
+    parent.πremain = min(1.f0, parent.πremain + exp(parent.logπ[index]))
     deleteat!(parent.logπ, index)
 end
 
@@ -223,7 +224,7 @@ remove!(node::FiniteProductNode, index::Int)
 """
 function remove!(parent::FiniteProductNode, index::Int)
     pid = findfirst(parent .== parent.children[index].parents)
-
+    @assert pid > 0 "Could not find parent ($(node.id)) in list of parents ($(parent.children[index].parents))!"
     deleteat!(parent.children[index].parents, pid)
     deleteat!(parent.children, index)
 end
@@ -234,9 +235,10 @@ remove!(node::InfiniteProductNode, index::Int)
 """
 function remove!(parent::InfiniteProductNode, index::Int)
     pid = findfirst(parent .== parent.children[index].parents)
-
+    @assert pid > 0 "Could not find parent ($(node.id)) in list of parents ($(parent.children[index].parents))!"
     deleteat!(parent.children[index].parents, pid)
     deleteat!(parent.children, index)
+    parent.ωremain = min(1.f0, parent.ωremain + exp(parent.logω[index]))
     deleteat!(parent.logω, index)
 end
 
