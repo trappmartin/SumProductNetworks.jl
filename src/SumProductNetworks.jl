@@ -25,6 +25,7 @@ module SumProductNetworks
     include("layerFunctions.jl")
 
     # include approach specific implementations
+    include("indepTests.jl")
     include("naiveBayesClustering.jl")
     include("gens.jl")
     include("randomStructure.jl")

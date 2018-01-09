@@ -8,7 +8,7 @@
 	log(p) is the logarithm of p.
 
 """
-function test(X::Vector{Int}, Y::Vector{Int}; α = 1.0)
+function bmiTest(X::Vector{Int}, Y::Vector{Int}; α = 1.0)
 
 	uniqueX = unique(X)
 	uniqueY = unique(Y)

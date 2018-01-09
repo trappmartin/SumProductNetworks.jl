@@ -69,6 +69,28 @@ mutable struct InfiniteSumNode{T <: Real} <: SumNode{T}
 end
 
 #
+# A finite split node.
+#
+mutable struct FiniteSplitNode <: ProductNode
+
+	# * immutable fields * #
+	id::Int
+
+	# * mutable fields * #
+	parents::Vector{SPNNode}
+	children::Vector{SPNNode}
+	split::Vector{Float64}
+
+	function FiniteProductNode(id::Int, split::Vector{Float64}; parents = SPNNode[])
+		if id < 1
+			error("invalid id, expecting id >= 1")
+		end
+
+		new(id, parents, SPNNode[], split, Int[])
+	end
+end
+
+#
 # A finite product node.
 #
 mutable struct FiniteProductNode <: ProductNode

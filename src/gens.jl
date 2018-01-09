@@ -1,34 +1,6 @@
 export learnSPN
 
-function learnSumNode{T <: AbstractFloat}(X::AbstractArray{T}; iterations = 1000, minN = 10)
-
-	(N, D) = size(X)
-
-	if N < minN
-		return ([1.0], ones(Int, N))
-	end
-
-	μ0 = vec(mean(X, 1))
-	κ0 = 5.0
-	ν0 = 9.0
-	Σ0 = cov(X) + (10 * eye(D))
-
-	models = train(init(X, DPM(GaussianDiagonal{NormalNormal}(NormalNormal[NormalNormal(μ0 = mean(X[:,d])) for d in 1:D])), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
-
-	ass = models[end].assignments
-
-	# number of child nodes
-	uidx = unique(ass)
-
-	idx = Int[findfirst(uidx .== i) for i in ass]
-
-	# compute cluster weights
-	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
-
-	return (w, idx)
-end
-
-function learnSumNode{T <: AbstractFloat}(X::AbstractVector{T}; iterations = 1000, minN = 10)
+function learnSumNode(X::Vector; iterations = 100, minN = 10, k = 2, method = :GMM, α = 1.0)
 
 	N = length(X)
 
@@ -36,13 +8,13 @@ function learnSumNode{T <: AbstractFloat}(X::AbstractVector{T}; iterations = 100
 		return ([1.0], ones(Int, N))
 	end
 
-	μ0 = mean(X)
-
-	# this is a quick hack!
-	XX = reshape(X, N, 1)
-	models = train(init(XX, DPM(NormalNormal(μ0 = μ0)), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
-
-	ass = models[end].assignments
+	ass = if method == :GMM
+		R = kmeans(Float64.(reshape(X, 1, N)), k; maxiter=iterations)
+		assignments(R)
+	else
+		warn("Unknown method for clustering, returning one group!")
+		ones(N)
+	end
 
 	# number of child nodes
 	uidx = unique(ass)
@@ -50,12 +22,13 @@ function learnSumNode{T <: AbstractFloat}(X::AbstractVector{T}; iterations = 100
 	idx = Int[findfirst(uidx .== i) for i in ass]
 
 	# compute cluster weights
-	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
+	w = Float64[sum(idx .== i) + α for i in sort(uidx)]
 
-	return (w, idx)
+	return (w / sum(w), idx)
 end
 
-function learnSumNode(X::AbstractArray{Int}; iterations = 1000, minN = 10)
+
+function learnSumNode(X::Matrix; iterations = 100, minN = 10, k = 2, method = :GMM, α = 1.0)
 
 	(N, D) = size(X)
 
@@ -63,89 +36,59 @@ function learnSumNode(X::AbstractArray{Int}; iterations = 1000, minN = 10)
 		return ([1.0], ones(Int, N))
 	end
 
-	idClusterId = runNaiveBayes(X')
-	ass = [idClusterId[i] for i in 1:N]
+	ass = if method == :GMM
+		R = kmeans(Float64.(X)', k; maxiter=iterations)
+		assignments(R)
+	elseif method == :DPM
+
+		μ0 = vec(mean(X, 1))
+		κ0 = 5.0
+		ν0 = 9.0
+		Σ0 = cov(X) + (10 * eye(D))
+
+		models = train(init(X, DPM(GaussianDiagonal{NormalNormal}(NormalNormal[NormalNormal(μ0 = mean(X[:,d])) for d in 1:D])), KMeansInitialisation(k = round(Int, log(N)))), DPMHyperparam(), SliceSampler(maxiter = iterations))
+
+		models[end].assignments
+	elseif method == :NaiveBayes
+		idClusterId = runNaiveBayes(X')
+		[idClusterId[i] for i in 1:N]
+	else
+		warn("Unknown method for clustering, returning one group!")
+		ones(N)
+	end
 
 	# number of child nodes
 	uidx = unique(ass)
+
 	idx = Int[findfirst(uidx .== i) for i in ass]
 
 	# compute cluster weights
-	w = Float64[sum(idx .== i) / convert(Float64, N) for i in sort(uidx)]
+	w = Float64[sum(idx .== i) + α for i in sort(uidx)]
 
-	return (w, idx)
+	return (w / sum(w), idx)
 end
 
-function isNotIndependent(x::Vector{Int}, y::Vector{Int}; pvalue = 0.05)
-	(p, logP) = BMITest.test(vec(x), vec(y), α = 1)
-	value = 1-p
-	return value > 0.5
-end
-
-function isNotIndependent{T <: AbstractFloat}(x::Vector{T}, y::Vector{T}; pvalue = 0.05)
-	(value, threshold) = gammaHSIC(x', y', α = pvalue, kernelSize = 0.5)
-	return value > threshold
-end
-
-function learnProductNode(X::AbstractArray; pvalue = 0.05, minN = 10)
-
+function learnProductNode(X::AbstractArray; pvalue = 0.05, minN = 10, method = :GTest, η = 0.5, gfactor = 5.0)
 	(N, D) = size(X)
 
 	if N < minN
-		return collect(1:D)
+		return (collect(1:D), Int[])
 	end
 
-	# create set of variables
-	varset = collect(1:D)
-
-	indset = Vector{Int}(0)
-	toprocess = Vector{Int}(0)
-	toremove = Vector{Int}(0)
-
-	d = rand(1:D)
-
-	push!(indset, d)
-	push!(toprocess, d)
-	deleteat!(varset, findfirst(varset .== d))
-
-	x = zeros(D)
-	y = zeros(D)
-
-	while length(toprocess) > 0
-
-		d = pop!(toprocess)
-
-		for d2 in varset
-
-			value = 0
-			threshold = 1
-
-			if issparse(X)
-				x = full(X[:,d])
-				y = full(X[:,d2])
-			else
-				x = X[:,d]
-				y = X[:,d2]
-			end
-
-			if isNotIndependent(vec(x), vec(y), pvalue = pvalue)
-				# values are not independent
-				push!(indset, d2)
-				push!(toprocess, d2)
-				push!(toremove, d2)
-			end
-
-		end
-
-		while length(toremove) > 0
-			deleteat!(varset, findfirst(varset .== pop!(toremove)))
-		end
+	(scope1, scope2) = if method == :EBVS
+		ebvs(X, 1:D, η = η)
+	elseif method == :GTest
+		greedySplit(X, 1:D, factor = gfactor)
+	else
+		warn("Unknown method for variable selection")
+		(collect(1:D), Int[])
 	end
 
-	return indset
+	return (scope1, scope2)
 end
 
 function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, scope::Int, obs::Vector{Int})
+	println("fitDistCont")
 	sigma = std(X[obs, scope])
 	sigma = isnan(sigma) ? 1e-6 : sigma + 1e-6
 	mu = mean(X[obs, scope])
@@ -156,26 +99,35 @@ function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, s
 end
 
 function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Vector{Int})
-
-	K = maximum(X[:, scope])
-	p = Float64[sum(X[obs, scope] .== k) / length(obs) for k in 0:K]
-
-	@assert all(!isnan(p)) "Estimated probablitiy distribution is NaN, check if your data contains NaNs!"
+	println("fitDist")
+	K = unique(X[:,scope])
+	p = Dict(k => Float32(sum(X[obs, scope] .== k) + 0.1 / length(obs)) for k in K)
 
 	iid = id
 
-	S = SumNode(iid, scope = Int[scope])
+	S = FiniteSumNode{Float32}(iid, Int[scope])
 	L = SPNNode[]
-	for k in 0:K
+	for k in K
 		iid += 1
-		push!(L, IndicatorNode(iid, k, scope))
-		add!(S, L[k+1], p[k+1])
+		push!(L, IndicatorNode{Int}(iid, k, scope))
+		add!(S, L[end], log(p[k]))
 	end
 
-	return cat(1, L, [S])
+	S.logweights -= logsumexp(S.logweights)
+
+	return vcat(L, [S])
 end
 
-function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = Inf)
+function learnSPN(X::AbstractArray; minSamples = 10, 
+				  maxiter = 100, 
+				  k = 2,
+				  clusteringMethod = :GMM,
+				  varsplitMethod = :GTest,
+				  gfactor = 5.0,
+				  maxDepth = Inf)
+
+
+
 
 	(N, D) = size(X)
 
@@ -184,7 +136,6 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 
 	# temp SPN structure
 	nodeDepths = [0]
-	modes = [:sum]
 	ids = [1]
 	usedids = []
 	cids = Dict{Int, Vector}()
@@ -200,7 +151,6 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 	while !isempty(observations)
 
 		nodeDepth = pop!(nodeDepths)
-		mode = pop!(modes)
 		id = pop!(ids)
 		obs = sort(pop!(observations))
 		dims = sort(pop!(dimensions))
@@ -208,64 +158,49 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 		push!(usedids, id)
 
 		isuniv = length(dims) == 1
+		nodeConstructed = false
 
-		if mode == :sum
+		# if univariate, then push back as Leaf
+		if !isuniv
+			(p0, p1) = learnProductNode(X[obs, dims], minN = minSamples, method = varsplitMethod, gfactor = gfactor)
 
-			# if depth has been reached, push back
-			if nodeDepth >= maxDepth
+			if (!isempty(p0) & !isempty(p1))
+				scope1 = dims[p0]
+				scope2 = dims[p1]
 
 				cid = Int[]
-				w = [1.0]
+				ccid = maximum(union(usedids, ids))
 
-				ccid = maximum(union(ids, usedids))
 				push!(cid, ccid + 1)
 				push!(ids, ccid + 1)
 				push!(observations, obs)
-				push!(dimensions, dims)
-				push!(modes, :product)
+				push!(dimensions, scope1)
 				push!(nodeDepths, nodeDepth + 1)
-			else
+				push!(cid, ccid + 2)
+				push!(ids, ccid + 2)
+				push!(observations, obs)
+				push!(dimensions, scope2)
+				push!(nodeDepths, nodeDepth + 1)
 
-				if isuniv
-					(w, assignments) = learnSumNode(X[obs, dims[1]], minN = minSamples, iterations = maxiter)
-				else
-					(w, assignments) = learnSumNode(X[obs, dims], minN = minSamples, iterations = maxiter)
-				end
-				numchildren = length(w)
+				cids[id] = cid
 
-				cid = Int[]
-				for c in 1:numchildren
-					ccid = maximum(union(ids, usedids)) + 1
-					push!(cid, ccid)
-					push!(ids, ccid)
-					push!(observations, obs[find(assignments .== c)])
-					push!(dimensions, dims)
-					push!(modes, :product)
-					push!(nodeDepths, nodeDepth + 1)
-				end
-
+				scopes[id] = dims
+				nodeConstructed = true
 			end
+		end
 
-			weights[id] = w
-			cids[id] = cid
-			scopes[id] = dims
+		if !nodeConstructed
 
-		elseif mode == :product
-
-			# if univariate, then push back as Leaf
 			if isuniv
-
-				leafnodes = fitLeafDistribution(X, id, dims[1], obs)
-
-				for node in leafnodes
-					push!(nodes, node)
-					push!(usedids, node.id)
-				end
-				continue
+				(w, assignments) = learnSumNode(X[obs, dims[1]], minN = minSamples, iterations = maxiter, method = clusteringMethod, k = k)
+			else
+				(w, assignments) = learnSumNode(X[obs, dims], minN = minSamples, iterations = maxiter, method = clusteringMethod, k = k)
 			end
 
-			# if depth has been reached, push back
-			if nodeDepth >= maxDepth
+			numchildren = length(w)
+
+			if (numchildren == 1) | (nodeDepth > maxDepth)
+				println("construct leaves")
 				cid = Int[]
 				for (c, d) in enumerate(dims)
 					ccid = maximum(union(usedids, ids)) + 1
@@ -283,52 +218,21 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 
 			else
 
-				assignments = learnProductNode(X[obs, dims], minN = minSamples)
-
-				p0 = dims[assignments]
-				p1 = setdiff(dims, p0)
-
-				if isempty(p1)
-
-					cid = Int[]
-					for (c, d) in enumerate(p0)
-						ccid = maximum(union(usedids, ids)) + 1
-						leafnodes = fitLeafDistribution(X, ccid, d, obs)
-
-						push!(cid, ccid)
-
-						for node in leafnodes
-							push!(nodes, node)
-							push!(usedids, node.id)
-						end
-					end
-
-					cids[id] = cid
-				else
-
-					cid = Int[]
-					ccid = maximum(union(usedids, ids))
-					push!(cid, ccid + 1)
-					push!(ids, ccid + 1)
-					push!(observations, obs)
-					push!(dimensions, p0)
-					push!(modes, :sum)
+				cid = Int[]
+				for c in 1:numchildren
+					ccid = maximum(union(ids, usedids)) + 1
+					push!(cid, ccid)
+					push!(ids, ccid)
+					push!(observations, obs[find(assignments .== c)])
+					push!(dimensions, dims)
 					push!(nodeDepths, nodeDepth + 1)
-
-					push!(cid, ccid + 2)
-					push!(ids, ccid + 2)
-					push!(observations, obs)
-					push!(dimensions, p1)
-					push!(modes, :sum)
-					push!(nodeDepths, nodeDepth + 1)
-
-					cids[id] = cid
 				end
-			end
 
+				cids[id] = cid
+				weights[id] = log.(w)
+			end
 			scopes[id] = dims
-		else
-			throw(ErrorException("Unknown mode: $mode"))
+
 		end
 	end
 
@@ -341,7 +245,7 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 			if all(Bool[ccid in ncids for ccid in cids[id]])
 
 				if haskey(weights, id) # sum
-					S = SumNode(id, scope = scopes[id])
+					S = FiniteSumNode{Float32}(id, scopes[id])
 					w = weights[id]
 					for (i, ccid) in enumerate(cids[id])
 						add!(S, nodes[findfirst(ncids .== ccid)], w[i])
@@ -351,7 +255,7 @@ function learnSPN(X::AbstractArray; minSamples = 10, maxiter = 500, maxDepth = I
 					delete!(weights, id)
 
 				else # product
-					P = ProductNode(id, scope = scopes[id])
+					P = FiniteProductNode(id, scopes[id])
 
 					for (i, ccid) in enumerate(cids[id])
 						add!(P, nodes[findfirst(ncids .== ccid)])
