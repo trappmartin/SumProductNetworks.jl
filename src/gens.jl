@@ -35,13 +35,20 @@ function learnSumNode(X::Matrix; iterations = 100, minN = 10, k = 2, method = :M
 		R = kmeans(Float64.(X)', k; maxiter=iterations)
 		assignments(R)
     elseif method == :MAPDP
-        N0 = 0.1
-        m0 = mean(X, 1)
-        a0 = 5.
-        c0 = 9. / N
-        B0 = eye(D) .* (1./0.05*var(X, 1))
 
-        mapDP(X, N0, m0, a0, c0, B0, maxIter = iterations)
+        if isa(X, Matrix{Int})
+            N0 = α
+            alpha = ones(D) / 2.
+            mapDP_Cat(X, N0, alpha, maxIter = iterations)
+        else
+            N0 = 0.1
+            m0 = mean(X, 1)
+            a0 = 5.
+            c0 = 9. / N
+            B0 = eye(D) .* (1./0.05*var(X, 1))
+
+            mapDP_NW(X, N0, m0, a0, c0, B0, maxIter = iterations)
+        end
 	elseif method == :DPM
 
 		μ0 = vec(mean(X, 1))
@@ -127,6 +134,7 @@ function learnSPN(X::AbstractArray; minSamples = 10,
 				  varsplitMethod = :GTest,
 				  gfactor = 5.0,
                   ϵ = 0.1,
+                  α = 1.0,
 				  maxDepth = Inf)
 
 	(N, D) = size(X)
@@ -192,9 +200,9 @@ function learnSPN(X::AbstractArray; minSamples = 10,
 		if !nodeConstructed
 
 			if isuniv
-				(w, assignments) = learnSumNode(X[obs, dims[1]], minN = minSamples, iterations = maxiter, method = clusteringMethod, k = k)
+				(w, assignments) = learnSumNode(X[obs, dims[1]], minN = minSamples, iterations = maxiter, method = clusteringMethod, k = k, α = α)
 			else
-				(w, assignments) = learnSumNode(X[obs, dims], minN = minSamples, iterations = maxiter, method = clusteringMethod, k = k)
+				(w, assignments) = learnSumNode(X[obs, dims], minN = minSamples, iterations = maxiter, method = clusteringMethod, k = k, α = α)
 			end
 
 			numchildren = length(w)
