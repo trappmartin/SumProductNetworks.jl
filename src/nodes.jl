@@ -1,5 +1,5 @@
 export SPNNode, Node, Leaf, SumNode, ProductNode
-export FiniteSumNode, FiniteProductNode
+export FiniteSumNode, FiniteProductNode, FiniteAugmentedProductNode
 export InfiniteSumNode, InfiniteProductNode
 export IndicatorNode, UnivariateNode, NormalDistributionNode
 export MultivariateNode
@@ -101,7 +101,6 @@ mutable struct FiniteProductNode <: ProductNode
 	# * mutable fields * #
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
-    logomega::Vector{Float32}
 	scope::Vector{Int}
 	obs::Vector{Int}
 
@@ -110,7 +109,31 @@ mutable struct FiniteProductNode <: ProductNode
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], Float32[], scope, Int[])
+        new(id, parents, SPNNode[], scope, Int[])
+	end
+end
+
+#
+# A finite product node.
+#
+mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
+
+	# * immutable fields * #
+	id::Int
+
+	# * mutable fields * #
+	parents::Vector{SPNNode}
+	children::Vector{SPNNode}
+    logomega::Vector{T}
+	scope::Vector{Int}
+	obs::Vector{Int}
+
+    function FiniteAugmentedProductNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[]) where T <: Real
+		if id < 1
+			error("invalid id, expecting id >= 1")
+		end
+
+        new(id, parents, SPNNode[], Vector{T}(0), scope, Int[])
 	end
 end
 
