@@ -6,8 +6,8 @@ function stnll(x, m, a, c, B, D)
 	mu = m'
 	nu = a-D+1.
 	Lambda = c * nu / (c+1.) * B
-
-	S = ((x-mu)' * Lambda) * (x-mu)
+    d = (x-mu) + 0.001
+	S = (d' * Lambda) * d
 
 	logdetL = logdet(Lambda)
 	return nu+D/2.*log.(1.+S/nu) - 0.5*logdetL+lgamma(nu/2.) - lgamma((nu+D)/2.)+D/2.*log(nu*pi)
