@@ -308,10 +308,14 @@ Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::FiniteSumNode, data::AbstractMatrix{T}, llhvals::SharedArray{B} where B <: AbstractFloat)
-    cids = Int[child.id for child in children(node)]
-    logw = node.logweights
-    @simd for ii in 1:size(llhvals, 1)
-        @inbounds llhvals[:,node.id] = logsumexp(view(llhvals, ii, cids) + logw)
+    if isempty(node.scope)
+        @inbounds llhvals[:,node.id] = 0.f32
+    else
+        cids = Int[child.id for child in children(node)]
+        logw = node.logweights
+        @simd for ii in 1:size(llhvals, 1)
+            @inbounds llhvals[:,node.id] = logsumexp(view(llhvals, ii, cids) + logw)
+        end
     end
 end
 
@@ -320,11 +324,17 @@ Evaluate infinite Sum-Node on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::InfiniteSumNode, data::AbstractMatrix{T}, llhvals::SharedArray{B} where B <: AbstractFloat)
-    cids = Int[child.id for child in children(node)]
-    logw = node.logπ
-    z = logsumexp(node.logπ)
-    @simd for ii in 1:size(llhvals, 1)
-        @inbounds llhvals[:,node.id] = logsumexp(view(llhvals, ii, cids) + logw) - z
+
+    if isempty(node.scope)
+        @inbounds llhvals[:, node.id] = 0.f32
+    else
+
+        cids = Int[child.id for child in children(node)]
+        logw = node.logπ
+        z = logsumexp(node.logπ)
+        @simd for ii in 1:size(llhvals, 1)
+            @inbounds llhvals[:,node.id] = logsumexp(view(llhvals, ii, cids) + logw) - z
+        end
     end
 end
 
@@ -333,8 +343,12 @@ Evaluate Product-Node on data.
 This function updates the llh of the data under the model.
 """
 function eval!{T<:Real}(node::ProductNode, data::AbstractMatrix{T}, llhvals::SharedArray{B} where B <: AbstractFloat)
-    cids = Int[child.id for child in children(node)]
-    @inbounds llhvals[:, node.id] = sum(llhvals[:, cids], 2)
+    if isempty(node.scope)
+        @inbounds llhvals[:, node.id] = 0.f32
+    else
+        cids = Int[child.id for child in children(node)]
+        @inbounds llhvals[:, node.id] = sum(llhvals[:, cids], 2)
+    end
 end
 
 """
