@@ -98,10 +98,11 @@ function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, s
 	return [NormalDistributionNode(id, scope, μ = mu, σ = sigma)]
 end
 
-function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Vector{Int})
+function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Vector{Int}, ϵ = 0.1)
 	println("fitDist")
 	K = unique(X[:,scope])
-	p = Dict(k => Float32(sum(X[obs, scope] .== k) + 0.1 / length(obs)) for k in K)
+    N = length(obs)
+    p = Dict(k => Float32((sum(X[obs, scope] .== k) + ϵ) / N) for k in K)
 
 	iid = id
 
@@ -124,10 +125,8 @@ function learnSPN(X::AbstractArray; minSamples = 10,
 				  clusteringMethod = :GMM,
 				  varsplitMethod = :GTest,
 				  gfactor = 5.0,
+                  ϵ = 0.1,
 				  maxDepth = Inf)
-
-
-
 
 	(N, D) = size(X)
 
@@ -269,6 +268,11 @@ function learnSPN(X::AbstractArray; minSamples = 10,
 		end
 	end
 
-	ncids = Int[n.id for n in nodes]
-	return nodes[findfirst(ncids .== 1)]
+    ncids = Int[n.id for n in nodes]
+	root = nodes[findfirst(ncids .== 1)]
+
+    # simplify the network
+    simplify!(root)
+
+    return root
 end

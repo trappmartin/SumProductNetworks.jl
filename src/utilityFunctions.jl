@@ -109,7 +109,7 @@ function simplify!(S::FiniteSumNode)
             # collaps child if its a sum
             toremove = Int[]
             for (j, k) in enumerate(children(child))
-                add!(S, k, child.weights[j] * S.weights[i])
+                add!(S, k, child.logweights[j] + S.logweights[i])
                 push!(toremove, j)
             end
 
@@ -120,7 +120,7 @@ function simplify!(S::FiniteSumNode)
             push!(childrentoremove, i)
         elseif isa(child, ProductNode) & (length(parents(child)) == 1) & (length(child) == 1)
             # collaps child if its a product over one child
-            add!(S, child.children[1], S.weights[i])
+            add!(S, child.children[1], S.logweights[i])
             remove!(child, 1)
             push!(childrentoremove, i)
         end

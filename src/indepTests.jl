@@ -53,28 +53,25 @@ function greedySplit(X, rvs; factor = 5.0)
 	#
 	function gStats(x, y, gfactor)
 
-		N = length(x)
-
 		nX = countmap(x)
 		nY = countmap(y)
 
 		gval = 0;
 		for kx in keys(nX)
 			for ky in keys(nY)
-				cXiY = (1. * nX[kx] * nY[ky] ) / N
+				cXiY = (nX[kx] * nY[ky] ) / N
 				cXY = sum((x .== kx) .& (y .== ky))
 
 				if cXY > 0
-					gval += 1. * cXY * log(1.0 * cXY / cXiY)
+					gval += cXY * log(cXY / cXiY)
 				end
 			end
 		end
 
-		gval *= 2.;
 		dof = (length(keys(nX)) - 1) * (length(keys(nX)) - 1)
 
 		# If less than threshold, observed values could've been produced by noise on top of independent vars
-		return gval < 2. * dof * gfactor + 0.001;
+        return (2. * gval) < (2. * dof * gfactor + 0.001);
 	end 
 
 	while length(toprocess) > 0
