@@ -8,13 +8,8 @@ function learnSumNode(X::Vector; iterations = 100, minN = 10, k = 2, method = :G
 		return ([1.0], ones(Int, N))
 	end
 
-	ass = if method == :GMM
-		R = kmeans(Float64.(reshape(X, 1, N)), k; maxiter=iterations)
-		assignments(R)
-	else
-		warn("Unknown method for clustering, returning one group!")
-		ones(N)
-	end
+	R = kmeans(Float64.(reshape(X, 1, N)), k; maxiter=iterations)
+	ass = assignments(R)
 
 	# number of child nodes
 	uidx = unique(ass)
@@ -28,7 +23,7 @@ function learnSumNode(X::Vector; iterations = 100, minN = 10, k = 2, method = :G
 end
 
 
-function learnSumNode(X::Matrix; iterations = 100, minN = 10, k = 2, method = :GMM, α = 1.0)
+function learnSumNode(X::Matrix; iterations = 100, minN = 10, k = 2, method = :MAPDP, α = 1.0)
 
 	(N, D) = size(X)
 
@@ -39,6 +34,14 @@ function learnSumNode(X::Matrix; iterations = 100, minN = 10, k = 2, method = :G
 	ass = if method == :GMM
 		R = kmeans(Float64.(X)', k; maxiter=iterations)
 		assignments(R)
+    elseif method == :MAPDP
+        N0 = 0.1
+        m0 = mean(X, 1)
+        a0 = 10.
+        c0 = 10.
+        B0 = eye(D) .* (1./0.05*var(X, 1))
+
+        mapDP(X, N0, m0, a0, c0, B0, maxIter = iterations)
 	elseif method == :DPM
 
 		μ0 = vec(mean(X, 1))
