@@ -14,8 +14,6 @@ function ebvs(X, rvs; η = 0.5)
 	H = map(d -> get_entropy(vec(X[:,d])), rvs)
 	meanH = mean(H)
 
-	println(meanH)
-
 	for d in rvs
 		if H[d] < η
 			push!(g1, d)
@@ -99,8 +97,6 @@ function greedySplit(X, rvs; factor = 5.0)
 			deleteat!(varset, findfirst(varset .== pop!(toremove)))
 		end
 	end
-
-    println(indset)
 
 	return (indset, setdiff(rvs, indset))
 end

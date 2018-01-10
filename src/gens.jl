@@ -88,7 +88,6 @@ function learnProductNode(X::AbstractArray; pvalue = 0.05, minN = 10, method = :
 end
 
 function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, scope::Int, obs::Vector{Int})
-	println("fitDistCont")
 	sigma = std(X[obs, scope])
 	sigma = isnan(sigma) ? 1e-6 : sigma + 1e-6
 	mu = mean(X[obs, scope])
@@ -99,7 +98,6 @@ function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, s
 end
 
 function fitLeafDistribution(X::AbstractArray{Int}, id::Int, scope::Int, obs::Vector{Int}, ϵ = 0.1)
-	println("fitDist")
 	K = unique(X[:,scope])
     N = length(obs)
     p = Dict(k => Float32((sum(X[obs, scope] .== k) + ϵ) / N) for k in K)
@@ -199,7 +197,6 @@ function learnSPN(X::AbstractArray; minSamples = 10,
 			numchildren = length(w)
 
 			if (numchildren == 1) | (nodeDepth > maxDepth)
-				println("construct leaves")
 				cid = Int[]
 				for (c, d) in enumerate(dims)
 					ccid = maximum(union(usedids, ids)) + 1
