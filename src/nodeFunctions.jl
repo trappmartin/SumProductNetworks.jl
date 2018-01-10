@@ -181,6 +181,19 @@ function add!(parent::FiniteProductNode, child::SPNNode)
 end
 
 """
+Add a node to a finite product node in place.
+add!(node::FiniteProductNode, child::SPNNode) -> ProductNode
+"""
+function add!(parent::FiniteProductNode, child::SPNNode, logomega::Float32)
+    if !(child in parent.children)
+        push!(parent.children, child)
+        push!(child.parents, parent)
+        push!(parent.logomega, logomega)
+    end
+end
+
+
+"""
 Add a node to an infinite product node in place.
 add!(node::InfiniteProductNode, child::SPNNode, sticklength<:Real)
 """

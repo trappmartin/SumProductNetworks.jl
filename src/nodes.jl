@@ -101,6 +101,7 @@ mutable struct FiniteProductNode <: ProductNode
 	# * mutable fields * #
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
+    logomega::Vector{Float32}
 	scope::Vector{Int}
 	obs::Vector{Int}
 
@@ -109,7 +110,7 @@ mutable struct FiniteProductNode <: ProductNode
 			error("invalid id, expecting id >= 1")
 		end
 
-		new(id, parents, SPNNode[], scope, Int[])
+        new(id, parents, SPNNode[], Float32[], scope, Int[])
 	end
 end
 
