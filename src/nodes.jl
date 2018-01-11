@@ -24,16 +24,16 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
 	children::Vector{SPNNode}
 	logweights::Vector{T}
 	α::Float64
-	scope::Vector{Int}
-	obs::Vector{Int}
+	scope::IntSet
+	obs::IntSet
 
-	function FiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
+	function FiniteSumNode{T}(id::Int, scope::IntSet; parents = SPNNode[], α = 1.) where T <: Real
 
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-		new(id, parents, SPNNode[], T[], α, scope, Int[])
+        new(id, parents, SPNNode[], T[], α, scope, IntSet())
 	end
 end
 
@@ -101,15 +101,15 @@ mutable struct FiniteProductNode <: ProductNode
 	# * mutable fields * #
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
-	scope::Vector{Int}
-	obs::Vector{Int}
+	scope::IntSet
+	obs::IntSet
 
-	function FiniteProductNode(id::Int, scope::Vector{Int}; parents = SPNNode[])
+	function FiniteProductNode(id::Int, scope::IntSet; parents = SPNNode[])
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], scope, Int[])
+        new(id, parents, SPNNode[], scope, IntSet())
 	end
 end
 
@@ -125,15 +125,15 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
     logomega::Vector{T}
-	scope::Vector{Int}
-	obs::Vector{Int}
+	scope::IntSet
+	obs::IntSet
 
-    function FiniteAugmentedProductNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[]) where T <: Real
+    function FiniteAugmentedProductNode{T}(id::Int, scope::IntSet; parents = SPNNode[]) where T <: Real
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], Vector{T}(0), scope, Int[])
+        new(id, parents, SPNNode[], Vector{T}(0), scope, IntSet)
 	end
 end
 
