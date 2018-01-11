@@ -133,7 +133,7 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], Vector{T}(0), scope, IntSet)
+        new(id, parents, SPNNode[], Vector{T}(0), scope, IntSet())
 	end
 end
 
