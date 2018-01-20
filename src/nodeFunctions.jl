@@ -1,4 +1,9 @@
-export classes, children, parents, length, add!, remove!, normalize!, llh
+export updateCids!, classes, children, parents, length, add!, remove!, normalize!, llh
+
+function updateCids!(node::Node)
+    node.cids = IntSet([child.id for child in children(node)])
+end
+
 
 """
 
