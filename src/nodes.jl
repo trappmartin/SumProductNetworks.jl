@@ -126,7 +126,7 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
 	# * mutable fields * #
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
-    cids::IntSet()
+    cids::IntSet
     logomega::Vector{T}
 	scope::IntSet
 	obs::IntSet
