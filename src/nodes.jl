@@ -22,19 +22,19 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
 	# * mutable fields * #
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
-    cids::IntSet
+    cids::Vector{Int}
 	logweights::Vector{T}
 	α::Float64
-	scope::IntSet
-	obs::IntSet
+	scope::Vector{Int}
+	obs::Vector{Int}
 
-	function FiniteSumNode{T}(id::Int, scope::IntSet; parents = SPNNode[], α = 1.) where T <: Real
+	function FiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
 
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], IntSet(), T[], α, scope, IntSet())
+        new(id, parents, SPNNode[], Int[], T[], α, scope, Int[])
 	end
 end
 
@@ -65,7 +65,7 @@ mutable struct InfiniteSumNode{T <: Real} <: SumNode{T}
 			error("invalid value for alpha")
 		end
 
-		new(id, parents, SPNNode[], α, one(T), Vector{T}(0), scope, obs, H)
+		new(id, parents, SPNNode[], α, one(T), T[], scope, obs, H)
 	end
 end
 
@@ -102,16 +102,16 @@ mutable struct FiniteProductNode <: ProductNode
 	# * mutable fields * #
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
-    cids::IntSet
-	scope::IntSet
-	obs::IntSet
+    cids::Vector{Int}
+	scope::Vector{Int}
+	obs::Vector{Int}
 
-	function FiniteProductNode(id::Int, scope::IntSet; parents = SPNNode[])
+	function FiniteProductNode(id::Int, scope::Vector{Int}; parents = SPNNode[])
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], IntSet(), scope, IntSet())
+        new(id, parents, SPNNode[], Int[], scope, Int[])
 	end
 end
 
@@ -126,17 +126,17 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
 	# * mutable fields * #
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
-    cids::IntSet
+    cids::Vector{Int}
     logomega::Vector{T}
-	scope::IntSet
-	obs::IntSet
+	scope::Vector{Int}
+	obs::Vector{Int}
 
-    function FiniteAugmentedProductNode{T}(id::Int, scope::IntSet; parents = SPNNode[]) where T <: Real
+    function FiniteAugmentedProductNode{T}(id::Int, scope::Int[]; parents = SPNNode[]) where T <: Real
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], IntSet(), Vector{T}(0), scope, IntSet())
+        new(id, parents, SPNNode[], Int[], T[], scope, Int[])
 	end
 end
 
@@ -204,7 +204,7 @@ type UnivariateNode{T} <: Leaf{Any}
 	dist::T
 	scope::Int
 
-	function UnivariateNode{T}(id::Int, distribution::T, scope::Int; parents = SPNNode[]) where T <: Any 
+	function UnivariateNode{T}(id::Int, distribution::T, scope::Int; parents = SPNNode[]) where T <: Any
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
