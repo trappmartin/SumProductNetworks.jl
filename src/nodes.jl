@@ -131,7 +131,7 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
 	scope::Vector{Int}
 	obs::Vector{Int}
 
-    function FiniteAugmentedProductNode{T}(id::Int, scope::Int[]; parents = SPNNode[]) where T <: Real
+    function FiniteAugmentedProductNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[]) where T <: Real
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
