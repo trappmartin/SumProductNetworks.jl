@@ -25,16 +25,16 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
     cids::Vector{Int}
 	logweights::Vector{T}
 	α::Float64
-	scope::Vector{Int}
-	obs::Vector{Int}
+	scope::IntSet
+	obs::IntSet
 
-	function FiniteSumNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[], α = 1.) where T <: Real
+	function FiniteSumNode{T}(id::Int, scope::IntSet; parents = SPNNode[], α = 1.) where T <: Real
 
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], Int[], T[], α, scope, Int[])
+        new(id, parents, SPNNode[], Int[], T[], α, scope, IntSet())
 	end
 end
 
@@ -52,11 +52,11 @@ mutable struct InfiniteSumNode{T <: Real} <: SumNode{T}
 	α::Float64
 	πremain::T
 	logπ::Vector{T}
-	scope::Vector{Int}
-	obs::Vector{Int}
+	scope::IntSet
+	obs::IntSet
 	H::Vector
 
-	function InfiniteSumNode{T}(id::Int, scope::Vector{Int}, obs::Vector{Int}; parents = SPNNode[], α = 1., H = Vector()) where T <: Real
+	function InfiniteSumNode{T}(id::Int, scope::IntSet, obs::IntSet; parents = SPNNode[], α = 1., H = Vector()) where T <: Real
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
@@ -103,15 +103,15 @@ mutable struct FiniteProductNode <: ProductNode
 	parents::Vector{SPNNode}
 	children::Vector{SPNNode}
     cids::Vector{Int}
-	scope::Vector{Int}
-	obs::Vector{Int}
+	scope::IntSet
+	obs::IntSet
 
-	function FiniteProductNode(id::Int, scope::Vector{Int}; parents = SPNNode[])
+	function FiniteProductNode(id::Int, scope::IntSet; parents = SPNNode[])
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], Int[], scope, Int[])
+        new(id, parents, SPNNode[], Int[], scope, IntSet())
 	end
 end
 
@@ -128,15 +128,15 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
 	children::Vector{SPNNode}
     cids::Vector{Int}
     logomega::Vector{T}
-	scope::Vector{Int}
-	obs::Vector{Int}
+	scope::IntSet
+	obs::IntSet
 
-    function FiniteAugmentedProductNode{T}(id::Int, scope::Vector{Int}; parents = SPNNode[]) where T <: Real
+    function FiniteAugmentedProductNode{T}(id::Int, scope::IntSet; parents = SPNNode[]) where T <: Real
 		if id < 1
 			error("invalid id, expecting id >= 1")
 		end
 
-        new(id, parents, SPNNode[], Int[], T[], scope, Int[])
+        new(id, parents, SPNNode[], Int[], T[], scope, IntSet())
 	end
 end
 
