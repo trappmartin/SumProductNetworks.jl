@@ -292,14 +292,10 @@ end
 llh(S, data) -> logprobvals::Vector{T}
 
 """
-function llh{T<:Real}(S::Node, data::AbstractArray{T})
-    # get topological order
-    nodes = order(S)
+function llh(S::Node, data, nodes, maxID)
+    llhval = Matrix{Float32}(size(data, 1), maxId)
 
-    maxId = maximum(Int[node.id for node in nodes])
-    llhval = SharedArray(Matrix{Float32}(size(data, 1), maxId))
-
-    fill!(llhval, -Inf32)
+    fill!(llhval, 0.f32)
 
     for node in nodes
         eval!(node, data, llhval)
@@ -308,18 +304,27 @@ function llh{T<:Real}(S::Node, data::AbstractArray{T})
     return llhval[:, S.id]
 end
 
+function llh(S::Node, data, nodes)
+    maxID = maximum(node.id for node in nodes)
+    return llh(S, data, nodes, maxID)
+end
+
+function llh(S::Node, data)
+    nodes = order(S)
+    return llh(S, data, nodes)
+end
+
+
 """
 Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::FiniteSumNode, data::AbstractMatrix{T}, llhvals::SharedArray{B} where B <: AbstractFloat)
+function eval!(node::FiniteSumNode, data, llhvals)
     if isempty(node.scope)
         @inbounds llhvals[:,node.id] = 0.f32
     else
-        cids = Int[child.id for child in children(node)]
-        logw = node.logweights
         @simd for ii in 1:size(llhvals, 1)
-            @inbounds llhvals[:,node.id] = logsumexp(view(llhvals, ii, cids) + logw)
+            @inbounds llhvals[ii,node.id] = logsumexp(view(llhvals, ii, node.cids) + node.logweights)
         end
     end
 end
@@ -347,12 +352,23 @@ end
 Evaluate Product-Node on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::ProductNode, data::AbstractMatrix{T}, llhvals::SharedArray{B} where B <: AbstractFloat)
+function eval!(node::ProductNode, data, llhvals)
     if isempty(node.scope)
         @inbounds llhvals[:, node.id] = 0.f32
     else
-        cids = Int[child.id for child in children(node)]
-        @inbounds llhvals[:, node.id] = sum(llhvals[:, cids], 2)
+        for ii in 1:size(llhvals, 1)
+            @inbounds llhvals[ii, node.id] = sum(llhvals[ii, node.cids])
+        end
+    end
+end
+
+function eval!(node::FiniteProductNode, data, llhvals)
+    if isempty(node.scope)
+        @inbounds llhvals[:, node.id] = 0.f32
+    else
+        @inbounds for d in node.scope
+            llhvals[:, node.id] += llhvals[:, node.cids[d]]
+        end
     end
 end
 
@@ -360,9 +376,9 @@ end
 Evaluate IndicatorNode on data.
 This function updates the llh of the data under the model.
 """
-function eval!{T<:Real}(node::IndicatorNode, data::AbstractArray{T}, llhvals::SharedArray{A} where A <: AbstractFloat)
+function eval!(node::IndicatorNode, data, llhvals)
     @simd for ii in 1:size(data, 1)
-        @inbounds llhvals[ii, node.id] = isnan(data[ii,node.scope]) ? 0.0 : log(data[ii,node.scope] == node.value)
+        @inbounds llhvals[ii, node.id] = data[ii,node.scope] == node.value ? 0 : -Inf32
     end
     # @assert !any(isnan(view(llhvals, 1:size(data, 1), nid))) "result computed by indicator node: $(node.id) contains NaN's!"
 end
