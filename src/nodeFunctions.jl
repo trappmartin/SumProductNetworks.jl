@@ -1,7 +1,7 @@
 export updateCids!, classes, children, parents, length, add!, remove!, normalize!, llh
 
 function updateCids!(node::Node)
-    node.cids = IntSet([child.id for child in children(node)])
+    node.cids = Int[child.id for child in children(node)]
 end
 
 
@@ -293,7 +293,7 @@ llh(S, data) -> logprobvals::Vector{T}
 
 """
 function llh(S::Node, data, nodes, maxID)
-    llhval = Matrix{Float32}(size(data, 1), maxId)
+    llhval = Matrix{Float32}(size(data, 1), maxID)
 
     fill!(llhval, 0.f32)
 
