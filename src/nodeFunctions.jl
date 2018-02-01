@@ -356,18 +356,10 @@ function eval!(node::ProductNode, data, llhvals)
     if isempty(node.scope)
         @inbounds llhvals[:, node.id] = 0.f32
     else
-        for ii in 1:size(llhvals, 1)
-            @inbounds llhvals[ii, node.id] = sum(llhvals[ii, node.cids])
-        end
-    end
-end
-
-function eval!(node::FiniteProductNode, data, llhvals)
-    if isempty(node.scope)
-        @inbounds llhvals[:, node.id] = 0.f32
-    else
-        @inbounds for d in node.scope
-            llhvals[:, node.id] += llhvals[:, node.cids[d]]
+        @inbounds for ii in 1:size(llhvals, 1)
+            for child in filter(c -> c.scope ⊆ node.scope, children(node))
+                llhvals[ii, node.id] += llhvals[ii, child.id]
+            end
         end
     end
 end
