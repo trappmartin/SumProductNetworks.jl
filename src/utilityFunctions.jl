@@ -1,61 +1,29 @@
-export simplify!, complexity, depth, prune!, order, copySPN
+export simplify!, complexity, depth, prune!, getOrderedNodes, copySPN
 
 """
-Type definition for topological ordering.
+Get all nodes in topological order using Tarjan's algoritm.
 """
-type SPNMarking
-    ordering::Array
-    unmarked::Array
+function getOrderedNodes(root)
+    visitedNodes = Vector{SPNNode}(0)
+    visitNode!(root, visitedNodes)
+    return visitedNodes
 end
 
-"""
-Compute topological order of an SPN using Tarjan's algoritm.
-"""
-function order(root)
+function visitNode!(node::Node, visitedNodes)
+    # check if we have already visited this node
+    if !(node in visitedNodes)
 
-    function visit!(node, data)
-
-        if node in data.unmarked
-
-            if in(:children, fieldnames(node))
-                for n in node.children
-                    data = visit!(n, data)
-                end
-            end
-
-            idx = findfirst(data.unmarked, node)
-            splice!(data.unmarked, idx)
-            push!(data.ordering, node)
+        # visit node
+        for child in children(node)
+            visitNode!(child, visitedNodes)
         end
 
-        data
+        push!(visitedNodes, node)
     end
-
-    marking = SPNMarking(Any[], Any[])
-    flat!(marking.unmarked, root)
-
-    while(Base.length(marking.unmarked) > 0)
-        n = marking.unmarked[end]
-
-        visit!(n, marking)
-
-    end
-
-    marking.ordering
 end
 
-function flat!(nodes::Array, node)
-    if in(:children, fieldnames(node))
-        for n in node.children
-            flat!(nodes, n)
-        end
-    end
-
-    if !(node in nodes)
-        push!(nodes, node)
-    end
-
-    nodes
+function visitNode!(node::Leaf, visitedNodes)
+    push!(visitedNodes, node)
 end
 
 """
