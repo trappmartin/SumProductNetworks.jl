@@ -170,6 +170,16 @@ function evaluate!(node::SumNode, data, llhvals)
     @simd for ii in 1:size(llhvals, 1)
         @inbounds llhvals[ii,node.id] = logsumexp(view(llhvals, ii, node.cids) + node.logweights)
     end
+
+    if any(isinf.(llhvals[:,node.id]))
+        infids = find(isinf.(llhvals[:,node.id]))
+        for infid in infids
+            println(llhvals[infid,node.cids])
+        end
+    end
+
+    @assert !any(isinf.(llhvals[:,node.id])) "Found INF return value at sum node $(node.id). w: $(node.logweights), children: $([typeof(child) for child in children(node)])"
+
 end
 
 function evaluate!(node::ProductNode, data, llhvals)
@@ -181,9 +191,8 @@ function evaluate!(node::ProductNode, data, llhvals)
 end
 
 function evaluate!(node::IndicatorNode, data, llhvals)
-    @simd for ii in 1:size(data, 1)
-        @inbounds llhvals[ii, node.id] = data[ii, node.scopeVec] == node.value ? 0.f32 : -Inf32
-    end
+    @inbounds idx = find(data[:, node.scopeVec] .!= node.value)
+    @inbounds llhvals[idx, node.id] = -Inf32
 end
 
 function evaluate!(node::NormalDistributionNode, data, llhvals)

@@ -21,6 +21,7 @@ module SumProductNetworks
     # include general implementations
     include("nodes.jl")
     include("nodeFunctions.jl")
+    include("networkFunctions.jl")
     include("layers.jl")
     include("layerFunctions.jl")
 
