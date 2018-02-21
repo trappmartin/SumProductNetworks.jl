@@ -174,7 +174,7 @@ function evaluate!(node::SumNode, data, llhvals)
         if any(isinf.(llhvals[:,node.id]))
             infids = find(isinf.(llhvals[:,node.id]))
             for id in infids
-                println("$id: ", llhvals[id,node.cids])
+                println("$id: ", llhvals[id,:])
             end
         end
 
