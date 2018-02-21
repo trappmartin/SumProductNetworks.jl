@@ -174,7 +174,11 @@ function evaluate!(node::SumNode, data, llhvals)
         if any(isinf.(llhvals[:,node.id]))
             infids = find(isinf.(llhvals[:,node.id]))
             for id in infids
-                println("$id: ", llhvals[id,:])
+                print("$id: ")
+                for sumnode in getOrderedNodes(node)
+                    print(llhvals[id,sumnode.id], " , ")
+                end
+                println()
             end
         end
 
