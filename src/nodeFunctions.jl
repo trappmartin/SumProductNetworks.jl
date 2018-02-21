@@ -170,7 +170,6 @@ function evaluate!(node::SumNode, data, llhvals)
     @simd for ii in 1:size(llhvals, 1)
         @inbounds llhvals[ii,node.id] = logsumexp(view(llhvals, ii, node.cids) + node.logweights)
     end
-
     if isempty(parents(node))
         @assert !any(isinf.(llhvals[:,node.id])) "Found INF return value at sum node $(node.id). w: $(node.logweights), children: $([typeof(child) for child in children(node)])"
     end
