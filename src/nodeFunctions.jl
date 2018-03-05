@@ -171,7 +171,13 @@ function evaluate!(node::SumNode, data, llhvals)
         #softmax!(view(llhvals, ii, node.id), view(llhvals, ii, node.cids) + node.logweights)
         @inbounds llhvals[ii,node.id] = logsumexp(view(llhvals, ii, node.cids) + node.logweights)
     end
-    @assert !any(isnan(llhvals[:,node.id]))
+
+    if any(isnan(llhvals[:,node.id]))
+        ids = find(isnan.(llhvals[:,node.id]))
+        println("weights: ", node.logweights)
+        println("cild llh: ", llhvals[ids, node.cids])
+    end
+    @assert !any(isnan.(llhvals[:,node.id]))
 end
 
 function evaluate!(node::ProductNode, data, llhvals)
@@ -180,13 +186,13 @@ function evaluate!(node::ProductNode, data, llhvals)
             @inbounds llhvals[ii, node.id] += llhvals[ii, node.cids[k]] * hasSubScope(node, node.children[k])
         end
     end
-    @assert !any(isnan(llhvals[:,node.id]))
+    @assert !any(isnan.(llhvals[:,node.id]))
 end
 
 function evaluate!(node::IndicatorNode, data, llhvals)
     @inbounds idx = find(data[:, node.scopeVec] .!= node.value)
     @inbounds llhvals[idx, node.id] = -Inf32
-    @assert !any(isnan(llhvals[:,node.id]))
+    @assert !any(isnan.(llhvals[:,node.id]))
 end
 
 function evaluate!(node::NormalDistributionNode, data, llhvals)
