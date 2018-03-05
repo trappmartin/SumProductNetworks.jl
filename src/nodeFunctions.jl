@@ -168,22 +168,10 @@ This function updates the llh of the data under the model.
 """
 function evaluate!(node::SumNode, data, llhvals)
     @simd for ii in 1:size(llhvals, 1)
+        #softmax!(view(llhvals, ii, node.id), view(llhvals, ii, node.cids) + node.logweights)
         @inbounds llhvals[ii,node.id] = logsumexp(view(llhvals, ii, node.cids) + node.logweights)
     end
-    if isempty(parents(node))
-        if any(isinf.(llhvals[:,node.id]))
-            infids = find(isinf.(llhvals[:,node.id]))
-            for id in infids
-                print("$id: ")
-                for sumnode in getOrderedNodes(node)
-                    print(llhvals[id,sumnode.id], " , ")
-                end
-                println()
-            end
-        end
-
-        @assert !any(isinf.(llhvals[:,node.id])) "Found INF return value at sum node $(node.id). w: $(node.logweights), children: $([typeof(child) for child in children(node)])"
-    end
+    @assert !any(isnan(llhvals[:,node.id]))
 end
 
 function evaluate!(node::ProductNode, data, llhvals)
@@ -192,11 +180,13 @@ function evaluate!(node::ProductNode, data, llhvals)
             @inbounds llhvals[ii, node.id] += llhvals[ii, node.cids[k]] * hasSubScope(node, node.children[k])
         end
     end
+    @assert !any(isnan(llhvals[:,node.id]))
 end
 
 function evaluate!(node::IndicatorNode, data, llhvals)
     @inbounds idx = find(data[:, node.scopeVec] .!= node.value)
     @inbounds llhvals[idx, node.id] = -Inf32
+    @assert !any(isnan(llhvals[:,node.id]))
 end
 
 function evaluate!(node::NormalDistributionNode, data, llhvals)

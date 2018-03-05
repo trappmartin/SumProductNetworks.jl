@@ -6,7 +6,7 @@ llh(S, data) -> logprobvals::Vector{T}
 function llh(S::Node, data, nodes, maxID)
     llhval = Matrix{Float32}(size(data, 1), maxID)
 
-    fill!(llhval, 0.f32)
+    fill!(llhval, Float32(0.))
 
     for node in nodes
         evaluate!(node, data, llhval)
