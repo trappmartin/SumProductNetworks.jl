@@ -36,4 +36,5 @@ module SumProductNetworks
 
     # include utilities
     include("utilityFunctions.jl")
+    include("io.jl")
 end # module

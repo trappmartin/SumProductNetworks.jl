@@ -1,4 +1,24 @@
-export setScope!, setObservations!, scope, obs, update!, classes, children, parents, length, add!, remove!, evaluate!
+export hasWeights, getWeights, setScope!, setObservations!, scope, obs, update!, classes, children, parents, length, add!, remove!, evaluate!
+
+function hasWeights(node::SumNode)
+    return true
+end
+
+function hasWeights(node::FiniteAugmentedProductNode)
+    return true
+end
+
+function hasWeights(node::Node)
+    return false
+end
+
+function getWeights(node::SumNode)
+    return node.logweights
+end
+
+function getWeights(node::FiniteAugmentedProductNode)
+    return node.logomega
+end
 
 function setScope!(node::SPNNode, scope::Vector{Int})
     if length(scope) > 0
