@@ -45,7 +45,7 @@ function isDegenerated(node::Node, nodeObsDegeneration)
 end
 
 function isDegenerated(node::Leaf, nodeObsDegeneration)
-    return nodeObsDegeneration ? isempty(obs(parents(node)[1])) : false
+    return isDegenerated(parents(node)[1], nodeObsDegeneration)
 end
 
 function exportNetwork(root::Node, filename::String; nodeObsDegeneration = false, excludeDegenerated = false)
