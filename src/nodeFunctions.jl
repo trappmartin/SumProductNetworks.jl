@@ -188,16 +188,14 @@ This function updates the llh of the data under the model.
 """
 function evaluate!(node::SumNode, data, llhvals)
     @simd for ii in 1:size(llhvals, 1)
-        #softmax!(view(llhvals, ii, node.id), view(llhvals, ii, node.cids) + node.logweights)
         @inbounds llhvals[ii,node.id] = logsumexp(view(llhvals, ii, node.cids) + node.logweights)
     end
 
-    if any(isnan(llhvals[:,node.id]))
+    if any(isnan.(llhvals[:,node.id]))
         ids = find(isnan.(llhvals[:,node.id]))
-        println("weights: ", node.logweights)
         println("cild llh: ", llhvals[ids, node.cids])
     end
-    @assert !any(isnan.(llhvals[:,node.id]))
+    @assert !any(isnan.(llhvals[:,node.id])) "Found NaN in output, w: $(node.logweights)"
 end
 
 function evaluate!(node::ProductNode, data, llhvals)
