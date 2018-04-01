@@ -67,6 +67,7 @@ function exportNetwork(root::Node, filename::String; nodeObsDegeneration = false
         parameters = getParameters(node)
         nodeType = "\"$(string(typeof(node)))\""
         nodeScope = "\"$(string(scope(node)))\""
+        nodeNumObs = string(sum(node.obsVec))
 
         degeneratedNode = isDegenerated(node, nodeObsDegeneration)
         style = !degeneratedNode ? "" : "style=dotted,"
@@ -75,7 +76,9 @@ function exportNetwork(root::Node, filename::String; nodeObsDegeneration = false
             continue
         end
 
-        nodestring = "$(node.id) [label=$(label), shape=$(shape), $(style) fontsize=$(fontsize), nodeType=$(nodeType), nodeScope=$(nodeScope), nodeParameters=$(parameters)];"
+        nodestring = "$(node.id) [label=$(label), shape=$(shape), $(style) fontsize=$(fontsize), "*
+                        "nodeType=$(nodeType), nodeScope=$(nodeScope), nodeNumObs=$(nodeNumObs), "*
+                        "nodeParameters=$(parameters)];"
 
         push!(gstring, nodestring)
     end
