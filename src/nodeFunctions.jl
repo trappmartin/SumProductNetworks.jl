@@ -26,6 +26,8 @@ function setScope!(node::SPNNode, scope::Vector{Int})
 
         fill!(node.scopeVec, false)
         node.scopeVec[scope] = true
+    else
+        fill!(node.scopeVec, false)
     end
 end
 
@@ -60,6 +62,8 @@ function setObservations!(node::Node, obs::Vector{Int})
 
         fill!(node.obsVec, false)
         node.obsVec[obs] = true
+    else
+        fill!(node.obsVec, false)
     end
 end
 
