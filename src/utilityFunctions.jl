@@ -1,4 +1,42 @@
-export simplify!, complexity, depth, prune!, getOrderedNodes, copySPN
+export simplify!, complexity, depth, prune!, getOrderedNodes, copySPN, logsumexp
+
+"""
+    Fast and numerical stable computation of logsumexp.
+
+    Parameters:
+    * X: Data matrix
+
+    Optional Parameters:
+    * dim: dimension used to sum over in logsumexp
+
+"""
+function logsumexp(X::Matrix; dim = 1)
+
+    T = typeof(first(X))
+    odim = setdiff([1, 2], dim)[1]
+
+    alpha = one(T) * map(T, -Inf)
+    r = zeros(T, size(X, odim))
+
+    @inbounds for i in 1:size(X, odim)
+        Xi = slicedim(X, odim, i)
+        for j in 1:size(Xi, dim)
+            if isinf(Xi[j])
+                continue
+            elseif Xi[j] <= alpha
+                r[i] += exp(Xi[j] - alpha)
+            else
+                r[i] *= exp(alpha - Xi[j])
+                r[i] += one(T)
+                alpha = Xi[j]
+            end
+        end
+        r[i] = log(r[i]) + alpha
+        alpha = one(T) * map(T, -Inf)
+    end
+
+    return r
+end
 
 """
 Get all nodes in topological order using Tarjan's algoritm.
