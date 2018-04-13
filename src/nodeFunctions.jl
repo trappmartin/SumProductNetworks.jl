@@ -191,30 +191,23 @@ Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
 function evaluate!(node::SumNode, data, llhvals)
-    @simd for ii in 1:size(llhvals, 1)
-        @inbounds llhvals[ii,node.id] = logsumexp(view(llhvals, ii, node.cids) + node.logweights)
-    end
-
-    if any(isnan.(llhvals[:,node.id]))
-        ids = find(isnan.(llhvals[:,node.id]))
-        println("cild llh: ", llhvals[ids, node.cids])
-    end
-    @assert !any(isnan.(llhvals[:,node.id])) "Found NaN in output, w: $(node.logweights)"
+    @inbounds llhvals[:, node.id] = logsumexp(llhvals[:, node.cids] .+ node.logweights', dim = 2)
+#    @assert !any(isnan.(llhvals[:,node.id])) "Found NaN in output, w: $(node.logweights)"
 end
 
 function evaluate!(node::ProductNode, data, llhvals)
-    for k in 1:length(node)
-        @simd for ii in 1:size(llhvals, 1)
-            @inbounds llhvals[ii, node.id] += llhvals[ii, node.cids[k]] * hasSubScope(node, node.children[k])
+    @inbounds for k in 1:length(node)
+        if hasSubScope(node, node.children[k])
+            llhvals[:, node.id] += llhvals[:, node.cids[k]]
         end
     end
-    @assert !any(isnan.(llhvals[:,node.id]))
+#    @assert !any(isnan.(llhvals[:,node.id]))
 end
 
 function evaluate!(node::IndicatorNode, data, llhvals)
     @inbounds idx = find(data[:, node.scopeVec] .!= node.value)
     @inbounds llhvals[idx, node.id] = -Inf32
-    @assert !any(isnan.(llhvals[:,node.id]))
+#    @assert !any(isnan.(llhvals[:,node.id]))
 end
 
 function evaluate!(node::NormalDistributionNode, data, llhvals)
