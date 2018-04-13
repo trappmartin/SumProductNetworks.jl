@@ -20,7 +20,7 @@ function logsumexp(X::Matrix; dim = 1)
 
     @inbounds for i in 1:size(X, odim)
         Xi = slicedim(X, odim, i)
-        for j in 1:size(Xi, dim)
+        for j in 1:length(Xi)
             if isinf(Xi[j])
                 continue
             elseif Xi[j] <= alpha
