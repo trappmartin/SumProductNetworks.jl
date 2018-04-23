@@ -1,4 +1,4 @@
-export simplify!, complexity, depth, prune!, getOrderedNodes, copySPN, logsumexp
+export simplify!, complexity, depth, prune!, getOrderedNodes, getOrderedLayers, copySPN, logsumexp
 
 """
     Fast and numerical stable computation of logsumexp.
@@ -47,6 +47,12 @@ function getOrderedNodes(root)
     return visitedNodes
 end
 
+function getOrderedLayers(root)
+    visitedLayers = Vector{SPNLayer}(0)
+    visitLayer!(root, visitedLayers)
+    return visitedLayers
+end
+
 function visitNode!(node::Node, visitedNodes)
     # check if we have already visited this node
     if !(node in visitedNodes)
@@ -59,10 +65,21 @@ function visitNode!(node::Node, visitedNodes)
         push!(visitedNodes, node)
     end
 end
+visitNode!(node::Leaf, visitedNodes) = push!(visitedNodes, node)
 
-function visitNode!(node::Leaf, visitedNodes)
-    push!(visitedNodes, node)
+function visitLayer!(layer::AbstractInternalLayer, visitedLayers)
+    # check if we have already visited this layer
+    if !(layer in visitedLayers)
+
+        # visit layer
+        for child in children(layer)
+            visitLayer!(child, visitedLayers)
+        end
+
+        push!(visitedLayers, layer)
+    end
 end
+visitLayer!(layer::AbstractLeafLayer, visitedLayers) = push!(visitedLayers, layer)
 
 """
 
@@ -70,13 +87,8 @@ depth(S)
 
 Compute the depth of the SPN rooted at S.
 """
-function depth(S::Node)
-    return maximum(ndepth(child, 1) for child in children(S))
-end
-
-function depth(S::Leaf)
-    return 0
-end
+depth(S::Node) = maximum(ndepth(child, 1) for child in children(S))
+depth(S::Leaf) = 0
 
 function ndepth(S::Node, d::Int)
     return maximum(ndepth(child, d+1) for child in children(S))
