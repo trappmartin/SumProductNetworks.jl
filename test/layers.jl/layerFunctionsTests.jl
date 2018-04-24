@@ -57,24 +57,31 @@ end
     Y = Int[findfirst(unique(iris[:,5]) .== yi) for yi in iris[:,5]]
 
     (N, D) = size(X)
-    C = length(unique(Y))
-    G = 2
-    K = 1
+    C = length(unique(Y)) # number of classes
 
-    @testset "Layer Structure" begin
+    @testset "Bayesian Layer Structure" begin
 
         M = 4 # number of children under a sum node
         K = 4 # number of children under a product node
-        D = 2 # number of product-sum layers (excluding the root)
+        L = 2 # number of product-sum layers (excluding the root)
+        S = 2 # states
 
-        
+        spn = create_bayesian_discrete_layered_spn(M, K, L, D, S; α = 1.0, β = 1.0, γ = 1.0)
+
+        computationOrder = getOrderedLayers(spn)
+        @test length(computationOrder) == (2 * L) + 2 + 1 # 2 * L + root + full fact prod + categorical dists
+
 
     end
 
     @testset "Filter Structure" begin
+
         P = 10
         M = 2
         W = 0
+        G = 2
+        K = 1
+
         spn = SumLayer([1], Array{Int,2}(0, 0), Array{Float32, 2}(0, 0), SPNLayer[], nothing)
         imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
 

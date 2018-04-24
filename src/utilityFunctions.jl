@@ -18,7 +18,7 @@ function logsumexp(X::Matrix; dim = 1)
     alpha = one(T) * map(T, -Inf)
     r = zeros(T, size(X, odim))
 
-    @inbounds for i in 1:size(X, odim)
+    @inbounds @fastmath for i in 1:size(X, odim)
         Xi = slicedim(X, odim, i)
         for j in 1:length(Xi)
             if isinf(Xi[j])

@@ -32,7 +32,7 @@ type BayesianSumLayer <: AbstractBayesianLayer
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
     sufficientStats::Matrix{Int} # Ch x C matrix with sufficient statistics
-    α::Matrix{AbstractFloat} # 1 x C matrix
+    α::Matrix{AbstractFloat} # 1 x C matrix or Ch x C matrix
 
     children
     parent
@@ -58,7 +58,7 @@ type BayesianProductLayer <: AbstractBayesianLayer
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
     sufficientStats::Matrix{Int} # Ch x C with sufficient statistics
-    β::Matrix{AbstractFloat} # 1 x C matrix
+    β::Matrix{AbstractFloat} # 1 x C matrix or Ch x C matrix
 
     children
     parent
@@ -78,6 +78,7 @@ type ProductCLayer <: AbstractProductLayer
 end
 
 abstract type AbstractLeafLayer <: SPNLayer end
+abstract type AbstractBayesianLeafLayer <: AbstractLeafLayer end
 
 # Layer with MultivariateFeature Nodes
 type MultivariateFeatureLayer <: AbstractLeafLayer
@@ -108,6 +109,18 @@ type GaussianLayer <: AbstractLeafLayer
     scopes::Vector{Int} # C dimensional vector
     μ::Vector{Float32} # C dimensional vector of values location parameters
     σ::Vector{Float32} # C dimensional vector of values scale parameters
+
+    parent
+
+end
+
+# Layer with categorical distributions with Dirichlet as prior
+type BayesianCategoricalLayer <: AbstractBayesianLeafLayer
+
+    ids::Vector{Int} # C dimensional vector
+    scopes::Vector{Int} # C dimensional vector
+    sufficientStats::Matrix{Int} # Ch x C with sufficient statistics
+    γ::Matrix{AbstractFloat} # 1 x C matrix or Ch x C matrix
 
     parent
 

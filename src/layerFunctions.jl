@@ -1,4 +1,6 @@
-export size, weights, cids, sstats, posterior_sstats, evaluate!, evaluate, llh, cllh
+export size, weights, cids, sstats, posterior_sstats,
+        evaluate!, evaluate, evaluateLLH!, evaluateCLLH!,
+        llh, cllh
 
 """
 Several helper functions
@@ -13,9 +15,11 @@ weights(layer::AbstractSumLayer) = layer.logweights
 cids(layer::AbstractInternalLayer) = layer.childIds
 
 sstats(layer::AbstractBayesianLayer) = layer.sufficientStats
+sstats(layer::AbstractBayesianLeafLayer) = layer.sufficientStats
 
-posterior_sstats(layer::BayesianSumLayer) = layer.sufficientStats .+ layer.α/size(layer.sufficientStats, 2)
-posterior_sstats(layer::BayesianProductLayer) = layer.sufficientStats .+ layer.β/size(layer.sufficientStats, 2)
+posterior_sstats(layer::BayesianSumLayer) = layer.sufficientStats .+ layer.α
+posterior_sstats(layer::BayesianProductLayer) = layer.sufficientStats .+ layer.β
+posterior_sstats(layer::BayesianCategoricalLayer) = layer.sufficientStats .+ layer.γ
 
 """
   Compute log likelihood of the network given the data.
@@ -71,27 +75,14 @@ function cllh{T<:Real}(spn::SPNLayer, data::AbstractArray{T}, labels::Vector{Int
     return Sy - S1
 end
 
-function evaluate!(layer::SPNLayer, data::AbstractArray, labels::Vector{Int}, llhvals::Matrix)
-  evaluate!(layer, data, labels, llhvals, view(llhvals, :,layer.ids))
-end
-
-function evaluate!(layer::SPNLayer, data::AbstractArray, labels::Vector{Int}, llhvals::Matrix, llhvalOut::AbstractArray)
-  evaluate!(layer, data, llhvals, llhvalOut)
-end
-
-function evaluate(layer::SPNLayer, data::AbstractArray, labels::Vector{Int}, llhvals::Matrix)
-  llhvalOut = copy(llhvals[:,layer.ids])
-  evaluate!(layer, data, labels, llhvals, llhvalOut)
-  return llhvalOut
-end
-
-function evaluate!(layer::SPNLayer, data::AbstractArray, llhvals::Matrix)
-  evaluate!(layer, data, llhvals, view(llhvals, :,layer.ids))
-end
+# evaluation of a layer
+const evaluate!(layer::SPNLayer, data, llhvals) = evaluateLLH!(layer::SPNLayer, data, llhvals)
+const evaluateLLH!(layer::SPNLayer, data::AbstractArray, llhvals::Matrix) = evaluateLLH!(layer, data, llhvals, view(llhvals, :,layer.ids))
+const evaluateCLLH!(layer::SPNLayer, data::AbstractArray, labels::Vector{Int}, llhvals::Matrix) = evaluateCLLH!(layer, data, labels, llhvals, view(llhvals, :,layer.ids))
 
 function evaluate(layer::SPNLayer, data::AbstractArray, llhvals::Matrix)
   llhvalOut = copy(llhvals[:,layer.ids])
-  evaluate!(layer, data, llhvals, llhvalOut)
+  evaluateLLH!(layer, data, llhvals, llhvalOut)
   return llhvalOut
 end
 
@@ -103,7 +94,7 @@ Evaluates a SumLayer using its weights on the data matrix.
 * `data`: data matrix (in D × N format) used for the computation.
 * `llhvals`: resulting llh values (in C × N format).
 """
-function evaluate!(layer::SumLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
+function evaluateLLH!(layer::SumLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
 
   (Dx, N) = size(data)
   (C, Ch) = size(layer)
@@ -129,7 +120,7 @@ Evaluates a Bayesian SumLayer by drawing its weights from the posterior of a Dir
 * `data`: data matrix (in D × N format) used for the computation.
 * `llhvals`: resulting llh values (in C × N format).
 """
-function evaluate!(layer::BayesianSumLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
+function evaluateLLH!(layer::AbstractBayesianLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
 
   (Dx, N) = size(data)
   (C, Ch) = size(layer)
@@ -154,7 +145,7 @@ Evaluates a ProductLayer on the data matrix.
 * `data`: data matrix (in D × N format) used for the computation.
 * `llhvals`: resulting llh values (in C × N format).
 """
-function evaluate!(layer::AbstractProductLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
+function evaluateLLH!(layer::AbstractProductLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
 
   (Dx, N) = size(data)
   (C, Ch) = size(layer)
@@ -178,7 +169,7 @@ Evaluates a ProductCLayer with its class labels on the data matrix.
 * `labels`: labels vector (in N format, starting with 1) used for the computation.
 * `llhvals`: resulting llh values (in C × N format).
 """
-function evaluate!(layer::ProductCLayer, data::AbstractArray, labels::Vector{Int}, llhvals::Matrix, llhval::AbstractArray)
+function evaluateCLLH!(layer::ProductCLayer, data::AbstractArray, labels::Vector{Int}, llhvals::Matrix, llhval::AbstractArray)
 
   (Dx, N) = size(data)
   (C, Ch) = size(layer)
@@ -203,7 +194,7 @@ Evaluates a MultivariateFeatureLayer using its weights on the data matrix.
 * `data`: data matrix (in D × N format) used for the computation.
 * `llhvals`: resulting llh values (in C × N format).
 """
-function evaluate!(layer::MultivariateFeatureLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
+function evaluateLLH!(layer::MultivariateFeatureLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
 
   (Dx, N) = size(data)
   (Dl, C) = size(layer.scopes)
@@ -235,7 +226,7 @@ Evaluates a IndicatorLayer on the data matrix.
 * `data`: data matrix (in D × N format) used for the computation.
 * `llhvals`: resulting llh values (in C × N format).
 """
-function evaluate!(layer::IndicatorLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
+function evaluateLLH!(layer::IndicatorLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
 
   (Dx, N) = size(data)
   (Dl, C) = size(layer)
@@ -260,7 +251,7 @@ Evaluates a GaussianLayer on the data matrix.
 * `data`: data matrix (in D × N format) used for the computation.
 * `llhvals`: resulting llh values (in C × N format).
 """
-function evaluate!(layer::GaussianLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
+function evaluateLLH!(layer::GaussianLayer, data::AbstractArray, llhvals::Matrix, llhval::AbstractArray)
 
   (Dx, N) = size(data)
   (C, _) = size(layer)

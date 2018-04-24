@@ -118,7 +118,7 @@ using Base.Test
 
 	    llhvals[:,C+1:end] = rand(N,C*Ch)
 
-	    @inferred evaluate!(layer, X, y, llhvals)
+	    @inferred evaluateCLLH!(layer, X, y, llhvals)
 
 	    Y = zeros(N,C + C*Ch)
 	    Y[:,C+1:end] = llhvals[:,C+1:end]
