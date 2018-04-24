@@ -61,6 +61,16 @@ end
     G = 2
     K = 1
 
+    @testset "Layer Structure" begin
+
+        M = 4 # number of children under a sum node
+        K = 4 # number of children under a product node
+        D = 2 # number of product-sum layers (excluding the root)
+
+        
+
+    end
+
     @testset "Filter Structure" begin
         P = 10
         M = 2
@@ -68,7 +78,7 @@ end
         spn = SumLayer([1], Array{Int,2}(0, 0), Array{Float32, 2}(0, 0), SPNLayer[], nothing)
         imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
 
-        computationOrder = order(spn)
+        computationOrder = getOrderedLayers(spn)
         @test length(computationOrder) == 5
 
         @test size(computationOrder[1]) == (4*M*P*C, 1)
