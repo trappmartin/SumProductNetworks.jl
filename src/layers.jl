@@ -7,7 +7,8 @@ export SPNLayer,
     ProductCLayer,
     AbstractProductLayer,
     AbstractSumLayer,
-    IndicatorLayer
+    IndicatorLayer,
+    BayesianCategoricalLayer
 
 abstract type SPNLayer end
 abstract type AbstractInternalLayer <: SPNLayer end

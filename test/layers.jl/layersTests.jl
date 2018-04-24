@@ -15,11 +15,13 @@ using Base.Test
 
 		@test size(layer) == (C, 1)
 
-		X = rand(D, N)
+		X = rand(N, D)
 		llhvals = zeros(N, C)
 		@test all(llhvals .== 0.) == true
 
 		@inferred evaluate!(layer, X, llhvals)
+
+		@test all( llhvals .≈  -log.(1. + exp.( X * (layer.weights .* layer.scopes) )))
 	end
 
 	@testset "Sum Layer" begin
@@ -37,7 +39,7 @@ using Base.Test
 		@test size(weights(layer)) == (Ch, C)
 		@test size(cids(layer)) == (Ch, C)
 
-		X = rand(D, N)
+		X = rand(N, D)
 		llhvals = zeros(N, C + C*Ch)
 
 		@test all(llhvals .== 0.)
@@ -142,11 +144,11 @@ using Base.Test
 
 	  @test size(layer) == (D, C)
 
-	  X = rand(1:C, D, N)
+	  X = rand(1:C, N, D)
 	  llhvals = zeros(N, D * C)
 
 	  @inferred evaluate!(layer, X, llhvals)
-	  @test all(llhvals[1, :] .≈ reduce(vcat, [log.(X[scopes,1] .== c) for c in 1:C]))
+	  @test all(llhvals[1, :] .≈ reduce(vcat, [log.(X[1, scopes] .== c) for c in 1:C]))
 
 	end
 end
