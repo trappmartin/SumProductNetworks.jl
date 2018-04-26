@@ -7,13 +7,14 @@ export create_bayesian_discrete_layered_spn
 	* M: Number of children under a sum node
 	* K: Number of children under a product node
 	* L: Depth (Number of consecutive product-sum layers, excluding the root layer)
+	* N: Number of samples
 	* D: Number of dimensions
 	* S: Number of states for each dimension (we assume the same value for all dimenions), e.g. 2 = binary
 """
-function create_bayesian_discrete_layered_spn(M, K, L, D, S; α = 1.0, β = 1.0, γ = 1.0)
+function create_bayesian_discrete_layered_spn(M, K, L, N, D, S; α = 1.0, β = 1.0, γ = 1.0)
 
 	# create root
-	root = BayesianSumLayer([1], zeros(Int, 0, 0), zeros(Int, M, 1), ones(1, 1) * (α / M), SPNLayer[], nothing)
+	root = BayesianSumLayer([1], M, N, D, α)
 
 	parent = root
 	# create layers
@@ -26,9 +27,9 @@ function create_bayesian_discrete_layered_spn(M, K, L, D, S; α = 1.0, β = 1.0,
 		pnode_ids = collect(max_pid:(max_pid+pnode_count-1))
 
 		# add product layer
-		p_layer = BayesianProductLayer(pnode_ids, zeros(Int, 0, 0), zeros(Int, K, pnode_count), ones(1, pnode_count) * (β / K), SPNLayer[], parent)
+		p_layer = BayesianProductLayer(pnode_ids, K, N, D, β, parent_node = parent)
   		push!(parent.children, p_layer)
-		cids(parent) = reshape(pnode_ids, M, length(pids))
+		parent.childIds[:,:] = reshape(pnode_ids, M, length(pids))
 
 		# number of required nodes in the sum layer
 		sids = pnode_ids
@@ -37,9 +38,9 @@ function create_bayesian_discrete_layered_spn(M, K, L, D, S; α = 1.0, β = 1.0,
 		snode_ids = collect(max_sid:(max_sid+snode_count-1))
 
 		# add sum layer
-		s_layer = BayesianSumLayer(snode_ids, zeros(Int, 0, 0), zeros(Int, M, snode_count), ones(1, snode_count) * (α / M), SPNLayer[], p_layer)
+		s_layer = BayesianSumLayer(snode_ids, M, N, D, α, parent_node = p_layer)
   		push!(p_layer.children, s_layer)
-		cids(p_layer) = reshape(snode_ids, K, length(sids))
+		p_layer.childIds = reshape(snode_ids, K, length(sids))
 
 		parent = s_layer
 	end
@@ -52,17 +53,18 @@ function create_bayesian_discrete_layered_spn(M, K, L, D, S; α = 1.0, β = 1.0,
 
 	d_layer = ProductLayer(pnode_ids, zeros(Int, 0, 0), SPNLayer[], parent)
 	push!(parent.children, d_layer)
-	cids(parent) = reshape(pnode_ids, M, length(pids))
+	parent.childIds = reshape(pnode_ids, M, length(pids))
 
 	# create categorical distributions with Dirichlet as prior
 	ccids = pnode_ids
 	max_cid = maximum(ccids)+1
 	cnode_count = length(ccids) * D
 	cnode_ids = collect(max_cid:(max_cid+cnode_count-1))
+	cnode_scope = vec(repmat(collect(1:D), 1, length(ccids)))
 
-	c_layer = BayesianCategoricalLayer(cnode_ids, vec(repmat(collect(1:D), 1, length(ccids))), zeros(Int, S, cnode_count), ones(1, cnode_count) * (γ / S), d_layer)
+	c_layer = BayesianCategoricalLayer(cnode_ids, cnode_scope, S, N, γ, parent_node = d_layer)
 	push!(d_layer.children, c_layer)
-	cids(d_layer) = reshape(cnode_ids, D, length(ccids))
+	d_layer.childIds = reshape(cnode_ids, D, length(ccids))
 
 	root
 end

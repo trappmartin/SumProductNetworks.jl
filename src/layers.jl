@@ -33,10 +33,24 @@ type BayesianSumLayer <: AbstractBayesianLayer
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
     sufficientStats::Matrix{Int} # Ch x C matrix with sufficient statistics
+    activeObservations::SparseMatrixCSC{Bool, Int} # N x C matrix
+    activeDimensions::SparseMatrixCSC{Bool, Int} # D x C matrix
     α::Matrix{AbstractFloat} # 1 x C matrix or Ch x C matrix
 
     children
     parent
+
+    function BayesianSumLayer(ids::Vector{Int}, Ch::Int, N::Int, D::Int, α::AbstractFloat; parent_node = nothing)
+
+        C = length(ids)
+        childIds_ = zeros(Int, Ch, C)
+        sufficientStats_ = zeros(Int, Ch, C)
+        activeObservations_ = spzeros(Bool, N, C)
+        activeDimensions_ = spzeros(Bool, D, C)
+        α_ = ones(1, C) * (α / Ch)
+
+        new(ids, childIds_, sufficientStats_, activeObservations_, activeDimensions_, α_, SPNLayer[], parent_node)
+    end
 
 end
 
@@ -59,10 +73,24 @@ type BayesianProductLayer <: AbstractBayesianLayer
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
     sufficientStats::Matrix{Int} # Ch x C with sufficient statistics
+    activeObservations::SparseMatrixCSC{Bool, Int} # N x C matrix
+    activeDimensions::SparseMatrixCSC{Bool, Int} # N x C matrix
     β::Matrix{AbstractFloat} # 1 x C matrix or Ch x C matrix
 
     children
     parent
+
+    function BayesianProductLayer(ids::Vector{Int}, Ch::Int, N::Int, D::Int, β::AbstractFloat; parent_node = nothing)
+
+        C = length(ids)
+        childIds_ = zeros(Int, Ch, C)
+        sufficientStats_ = zeros(Int, Ch, C)
+        activeObservations_ = spzeros(Bool, N, C)
+        activeDimensions_ = spzeros(Bool, D, C)
+        β_ = ones(1, C) * (β / Ch)
+
+        new(ids, childIds_, sufficientStats_, activeObservations_, activeDimensions_, β_, SPNLayer[], parent_node)
+    end
 
 end
 
@@ -121,8 +149,19 @@ type BayesianCategoricalLayer <: AbstractBayesianLeafLayer
     ids::Vector{Int} # C dimensional vector
     scopes::Vector{Int} # C dimensional vector
     sufficientStats::Matrix{Int} # Ch x C with sufficient statistics
+    activeObservations::SparseMatrixCSC{Bool, Int} # N x C matrix
     γ::Matrix{AbstractFloat} # 1 x C matrix or Ch x C matrix
 
     parent
+
+    function BayesianCategoricalLayer(ids::Vector{Int}, scopes::Vector{Int}, S::Int, N::Int, γ::AbstractFloat; parent_node = nothing)
+
+        C = length(ids)
+        sufficientStats_ = zeros(Int, S, C)
+        activeObservations_ = spzeros(Bool, N, C)
+        γ_ = ones(1, C) * (γ / S)
+
+        new(ids, scopes, sufficientStats_, activeObservations_, γ_, parent_node)
+    end
 
 end

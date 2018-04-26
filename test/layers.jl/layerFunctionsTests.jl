@@ -66,7 +66,7 @@ end
         L = 2 # number of product-sum layers (excluding the root)
         S = 2 # states
 
-        spn = create_bayesian_discrete_layered_spn(M, K, L, D, S; α = 1.0, β = 1.0, γ = 1.0)
+        spn = create_bayesian_discrete_layered_spn(M, K, L, N, D, S; α = 1.0, β = 1.0, γ = 1.0)
 
         computationOrder = getOrderedLayers(spn)
         @test length(computationOrder) == (2 * L) + 2 + 1 # 2 * L + root + full fact prod + categorical dists

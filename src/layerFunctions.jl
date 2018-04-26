@@ -1,5 +1,6 @@
 export size, weights, cids, sstats, posterior_sstats,
 evaluate!, evaluate, evaluateLLH!, evaluateCLLH!,
+observations, scopes, set_observations, set_scopes,
 llh, cllh
 
 """
@@ -21,6 +22,19 @@ sstats(layer::AbstractBayesianLeafLayer) = layer.sufficientStats
 posterior_sstats(layer::BayesianSumLayer) = layer.sufficientStats .+ layer.α
 posterior_sstats(layer::BayesianProductLayer) = layer.sufficientStats .+ layer.β
 posterior_sstats(layer::BayesianCategoricalLayer) = layer.sufficientStats .+ layer.γ
+
+observations(layer::AbstractBayesianLayer) = map(c -> find(layer.activeObservations[:,c]), 1:size(layer.activeObservations, 2))
+observations(layer::AbstractBayesianLeafLayer) = map(c -> find(layer.activeObservations[:,c]), 1:size(layer.activeObservations, 2))
+
+set_observations(layer::AbstractBayesianLayer, c::Int, obs::Vector{Int}) = layer.activeObservations[obs,c] = true
+set_observations(layer::AbstractBayesianLeafLayer, c::Int, obs::Vector{Int}) = layer.activeObservations[obs,c] = true
+
+scopes(layer::AbstractBayesianLayer) = map(c -> find(layer.activeDimensions[:,c]), 1:size(layer.activeDimensions, 2))
+scopes(layer::AbstractBayesianLeafLayer) = layer.scopes
+
+set_scopes(layer::AbstractBayesianLayer, c::Int, dims::Vector{Int}) = layer.activeDimensions[dims,c] = true
+set_scopes(layer::AbstractBayesianLeafLayer, c::Int, dim::Int) = layer.scopes[c] = dim
+
 
 """
 Compute log likelihood of the network given the data.

@@ -9,11 +9,10 @@ using Base.Test
 		Ch = 5 # number of children
 		D = 10 # dimensionality
 		N = 100 # number of samples
+		α = 1.
 
-		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
-		sstat = map(Int, rand(1:100, Ch, C))
-		α = ones(1, C)
-		layer = BayesianSumLayer(collect(1:C), childIds, sstat, α, nothing, nothing)
+		layer = BayesianSumLayer(collect(1:C), Ch, N, D, α)
+		layer.childIds[:,:] = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
 
 		@test size(layer) == (C, Ch)
 		@test size(sstats(layer)) == (Ch, C)
@@ -37,9 +36,10 @@ using Base.Test
 		N = 100 # number of samples
 
 		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
-		sstat = map(Int, rand(1:100, Ch, C))
-		β = ones(1, C)
-		layer = BayesianProductLayer(collect(1:C), childIds, sstat, β, nothing, nothing)
+		β = 1.
+
+		layer = BayesianProductLayer(collect(1:C), Ch, N, D, β)
+		layer.childIds[:,:] = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
 
 		@test size(layer) == (C, Ch)
 		@test size(sstats(layer)) == (Ch, C)
@@ -57,10 +57,9 @@ using Base.Test
 
 		ids = collect(1:C)
 		scopes = vec(repmat(collect(1:D), 1, C_))
-		sstat = map(Int, rand(1:100, S, C))
-		γ = ones(1, C)
+		γ = 1.
 
-		layer = BayesianCategoricalLayer(ids, scopes, sstat, γ, nothing)
+		layer = BayesianCategoricalLayer(ids, scopes, S, N, γ)
 
 		@test size(layer) == (C, 1)
 		@test size(sstats(layer)) == (S, C)
