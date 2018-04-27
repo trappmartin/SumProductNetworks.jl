@@ -150,18 +150,25 @@ type BayesianCategoricalLayer <: AbstractBayesianLeafLayer
     scopes::Vector{Int} # C dimensional vector
     sufficientStats::Matrix{Int} # Ch x C with sufficient statistics
     activeObservations::SparseMatrixCSC{Bool, Int} # N x C matrix
+    activeDimensions::Vector{Bool} # D x C matrix
     γ::Matrix{AbstractFloat} # 1 x C matrix or Ch x C matrix
 
     parent
 
-    function BayesianCategoricalLayer(ids::Vector{Int}, scopes::Vector{Int}, S::Int, N::Int, γ::AbstractFloat; parent_node = nothing)
+    function BayesianCategoricalLayer(ids::Vector{Int}, scopes::Vector{Int}, S::Int, N::Int, D::Int, γ::AbstractFloat; parent_node = nothing)
+
+        @assert all(ids .> 0)
+        @assert length(ids) == length(scopes)
+        @assert maximum(scopes) <= D
 
         C = length(ids)
         sufficientStats_ = zeros(Int, S, C)
         activeObservations_ = spzeros(Bool, N, C)
+        activeDimensions_ = ones(Bool, C)
+
         γ_ = ones(1, C) * (γ / S)
 
-        new(ids, scopes, sufficientStats_, activeObservations_, γ_, parent_node)
+        new(ids, scopes, sufficientStats_, activeObservations_, activeDimensions_, γ_, parent_node)
     end
 
 end

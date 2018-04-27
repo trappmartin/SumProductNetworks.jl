@@ -59,7 +59,7 @@ using Base.Test
 		scopes = vec(repmat(collect(1:D), 1, C_))
 		γ = 1.
 
-		layer = BayesianCategoricalLayer(ids, scopes, S, N, γ)
+		layer = BayesianCategoricalLayer(ids, scopes, S, N, D, γ)
 
 		@test size(layer) == (C, 1)
 		@test size(sstats(layer)) == (S, C)

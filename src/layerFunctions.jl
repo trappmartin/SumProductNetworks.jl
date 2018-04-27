@@ -1,6 +1,7 @@
 export size, weights, cids, sstats, posterior_sstats,
 evaluate!, evaluate, evaluateLLH!, evaluateCLLH!,
-observations, scopes, set_observations, set_scopes,
+observations, scopes, set_observations, observation_isactive, set_observation_active,
+set_scopes, set_scope_active, scope_isactive,
 llh, cllh
 
 """
@@ -29,12 +30,26 @@ observations(layer::AbstractBayesianLeafLayer) = map(c -> find(layer.activeObser
 set_observations(layer::AbstractBayesianLayer, c::Int, obs::Vector{Int}) = layer.activeObservations[obs,c] = true
 set_observations(layer::AbstractBayesianLeafLayer, c::Int, obs::Vector{Int}) = layer.activeObservations[obs,c] = true
 
+set_observation_active(layer::AbstractBayesianLayer, flags::Vector{Bool}, obs::Int) = layer.activeObservations[obs,:] = flags
+set_observation_active(layer::AbstractBayesianLeafLayer, flags::Vector{Bool}, obs::Int) = layer.activeObservations[obs,:] = flags
+set_observation_active(layer::AbstractBayesianLayer, flag::Bool, c::Int, obs::Int) = layer.activeObservations[obs,c] = flag
+set_observation_active(layer::AbstractBayesianLeafLayer, flag::Bool, c::Int, obs::Int) = layer.activeObservations[obs,c] = flag
+
+observation_isactive(layer::AbstractBayesianLayer, obs::Int) = layer.activeObservations[obs,:]
+observation_isactive(layer::AbstractBayesianLeafLayer, obs::Int) = layer.activeObservations[obs,:]
+observation_isactive(layer::AbstractBayesianLayer, c::Int, obs::Int) = layer.activeObservations[obs,c]
+observation_isactive(layer::AbstractBayesianLeafLayer, c::Int, obs::Int) = layer.activeObservations[obs,c]
+
 scopes(layer::AbstractBayesianLayer) = map(c -> find(layer.activeDimensions[:,c]), 1:size(layer.activeDimensions, 2))
 scopes(layer::AbstractBayesianLeafLayer) = layer.scopes
 
 set_scopes(layer::AbstractBayesianLayer, c::Int, dims::Vector{Int}) = layer.activeDimensions[dims,c] = true
 set_scopes(layer::AbstractBayesianLeafLayer, c::Int, dim::Int) = layer.scopes[c] = dim
 
+set_scope_active(layer::AbstractBayesianLeafLayer, c::Int, flag::Bool) = layer.activeDimensions[c] = flag
+
+scope_isactive(layer::AbstractBayesianLeafLayer, c::Int, dim::Int) = layer.activeDimensions[dim,c]
+scope_isactive(layer::AbstractBayesianLeafLayer, c::Int) = layer.activeDimensions[c]
 
 """
 Compute log likelihood of the network given the data.

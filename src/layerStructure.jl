@@ -62,7 +62,7 @@ function create_bayesian_discrete_layered_spn(M, K, L, N, D, S; α = 1.0, β = 1
 	cnode_ids = collect(max_cid:(max_cid+cnode_count-1))
 	cnode_scope = vec(repmat(collect(1:D), 1, length(ccids)))
 
-	c_layer = BayesianCategoricalLayer(cnode_ids, cnode_scope, S, N, γ, parent_node = d_layer)
+	c_layer = BayesianCategoricalLayer(cnode_ids, cnode_scope, S, N, D, γ, parent_node = d_layer)
 	push!(d_layer.children, c_layer)
 	d_layer.childIds = reshape(cnode_ids, D, length(ccids))
 
