@@ -1,7 +1,7 @@
 export size, weights, cids, sstats, posterior_sstats,
 evaluate!, evaluate, evaluateLLH!, evaluateCLLH!,
-observations, scopes, set_observations, observation_isactive, set_observation_active,
-set_scopes, set_scope_active, scope_isactive,
+observations, scopes, set_observations, observation_isactive, set_observation_active, any_observation_isactive,
+set_scopes, set_scope_active, scope_isactive, dimension_isactive,
 llh, cllh
 
 """
@@ -40,6 +40,9 @@ observation_isactive(layer::AbstractBayesianLeafLayer, obs::Int) = layer.activeO
 observation_isactive(layer::AbstractBayesianLayer, c::Int, obs::Int) = layer.activeObservations[obs,c]
 observation_isactive(layer::AbstractBayesianLeafLayer, c::Int, obs::Int) = layer.activeObservations[obs,c]
 
+any_observation_isactive(layer::AbstractBayesianLayer, c::Int) = any(layer.activeObservations[:,c])
+any_observation_isactive(layer::AbstractBayesianLeafLayer, c::Int) = any(layer.activeObservations[:,c])
+
 scopes(layer::AbstractBayesianLayer) = map(c -> find(layer.activeDimensions[:,c]), 1:size(layer.activeDimensions, 2))
 scopes(layer::AbstractBayesianLeafLayer) = layer.scopes
 
@@ -48,7 +51,10 @@ set_scopes(layer::AbstractBayesianLeafLayer, c::Int, dim::Int) = layer.scopes[c]
 
 set_scope_active(layer::AbstractBayesianLeafLayer, c::Int, flag::Bool) = layer.activeDimensions[c] = flag
 
-scope_isactive(layer::AbstractBayesianLeafLayer, c::Int, dim::Int) = layer.activeDimensions[dim,c]
+dimension_isactive(layer::AbstractBayesianLayer, c::Int, dim::Int) = layer.activeDimensions[dim,c]
+dimension_isactive(layer::AbstractBayesianLayer, dim::Int) = layer.activeDimensions[dim,:]
+dimension_isactive(layer::AbstractBayesianLeafLayer, dim::Int) = layer.activeDimensions[layer.scopes .== dim]
+
 scope_isactive(layer::AbstractBayesianLeafLayer, c::Int) = layer.activeDimensions[c]
 
 """
