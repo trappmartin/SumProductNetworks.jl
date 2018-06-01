@@ -7,9 +7,11 @@ module SumProductNetworks
         Distances,
         Distributions,
         StatsFuns,
-		Base,
+        Base,
         HilbertSchmidtIndependenceCriterion,
-        BayesianNonparametrics
+        BayesianNonparametrics,
+        JLD2,
+        FileIO
 
     import Base.getindex
     import Base.map

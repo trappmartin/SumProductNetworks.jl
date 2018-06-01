@@ -1,7 +1,7 @@
-export size, weights, cids, sstats, posterior_sstats,
+export size, weights, cids, sstats, posterior_sstats, parameters,
 evaluate!, evaluate, evaluateLLH!, evaluateCLLH!,
 observations, scopes, set_observations, observation_isactive, set_observation_active, any_observation_isactive,
-set_scopes, set_scope_active, scope_isactive, dimension_isactive,
+set_scopes, set_scope_active, scope_isactive, dimension_isactive, set_dimension_active,
 llh, cllh
 
 """
@@ -17,6 +17,12 @@ children(layer::AbstractInternalLayer) = layer.children
 weights(layer::AbstractSumLayer) = layer.logweights
 cids(layer::AbstractInternalLayer) = layer.childIds
 
+parameters(layer::SumLayer) = Dict(:logweights => layer.logweights)
+parameters(layer::ProductLayer) = Dict()
+parameters(layer::BayesianSumLayer) = Dict(:sufficientStats => layer.sufficientStats, :activeObservations => layer.activeObservations, :activeDimensions => layer.activeDimensions, :alpha => layer.α)
+parameters(layer::BayesianProductLayer) = Dict(:sufficientStats => layer.sufficientStats, :activeObservations => layer.activeObservations, :activeDimensions => layer.activeDimensions, :beta => layer.β)
+parameters(layer::BayesianCategoricalLayer) = Dict(:sufficientStats => layer.sufficientStats, :activeObservations => layer.activeObservations, :activeDimensions => layer.activeDimensions, :gamma => layer.γ)
+
 sstats(layer::AbstractBayesianLayer) = layer.sufficientStats
 sstats(layer::AbstractBayesianLeafLayer) = layer.sufficientStats
 
@@ -30,8 +36,8 @@ observations(layer::AbstractBayesianLeafLayer) = map(c -> find(layer.activeObser
 set_observations(layer::AbstractBayesianLayer, c::Int, obs::Vector{Int}) = layer.activeObservations[obs,c] = true
 set_observations(layer::AbstractBayesianLeafLayer, c::Int, obs::Vector{Int}) = layer.activeObservations[obs,c] = true
 
-set_observation_active(layer::AbstractBayesianLayer, flags::Vector{Bool}, obs::Int) = layer.activeObservations[obs,:] = flags
-set_observation_active(layer::AbstractBayesianLeafLayer, flags::Vector{Bool}, obs::Int) = layer.activeObservations[obs,:] = flags
+set_observation_active(layer::AbstractBayesianLayer, flags, obs::Int) = layer.activeObservations[obs,:] = flags
+set_observation_active(layer::AbstractBayesianLeafLayer, flags, obs::Int) = layer.activeObservations[obs,:] = flags
 set_observation_active(layer::AbstractBayesianLayer, flag::Bool, c::Int, obs::Int) = layer.activeObservations[obs,c] = flag
 set_observation_active(layer::AbstractBayesianLeafLayer, flag::Bool, c::Int, obs::Int) = layer.activeObservations[obs,c] = flag
 
@@ -54,6 +60,12 @@ set_scope_active(layer::AbstractBayesianLeafLayer, c::Int, flag::Bool) = layer.a
 dimension_isactive(layer::AbstractBayesianLayer, c::Int, dim::Int) = layer.activeDimensions[dim,c]
 dimension_isactive(layer::AbstractBayesianLayer, dim::Int) = layer.activeDimensions[dim,:]
 dimension_isactive(layer::AbstractBayesianLeafLayer, dim::Int) = layer.activeDimensions[layer.scopes .== dim]
+
+set_dimension_active(layer::AbstractBayesianLayer, flags::Vector{Bool}, dim::Int) = layer.activeDimensions[dim,:] = flags
+set_dimension_active(layer::AbstractBayesianLeafLayer, flags::Vector{Bool}, dim::Int) = layer.activeDimensions[layer.scopes .== dim] = flags
+set_dimension_active(layer::AbstractBayesianLayer, flag::Bool, c::Int, dim::Int) = layer.activeDimensions[dim,c] = flag
+set_dimension_active(layer::AbstractBayesianLeafLayer, flag::Bool, c::Int, dim::Int) = layer.activeObservations[c] = flag
+
 
 scope_isactive(layer::AbstractBayesianLeafLayer, c::Int) = layer.activeDimensions[c]
 
