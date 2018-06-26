@@ -2,16 +2,19 @@ __precompile__()
 
 module SumProductNetworks
 
-  # loading dependencies into workspaces
-  using Clustering,
-        Distances,
-        Distributions,
-        StatsFuns,
-        Base,
-        HilbertSchmidtIndependenceCriterion,
-        BayesianNonparametrics,
-        JLD2,
-        FileIO
+    # loading dependencies into workspaces
+    using Clustering
+    using Distances
+    using Distributions
+    using StatsFuns
+    using Base
+    using HilbertSchmidtIndependenceCriterion
+    using BayesianNonparametrics
+    using JLD2
+    using FileIO
+    using InformationMeasures
+
+    using StatsBase: countmap
 
     import Base.getindex
     import Base.map
@@ -40,4 +43,5 @@ module SumProductNetworks
     # include utilities
     include("utilityFunctions.jl")
     include("io.jl")
+
 end # module

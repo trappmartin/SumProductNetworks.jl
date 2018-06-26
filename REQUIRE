@@ -5,6 +5,7 @@ Distributions
 StatsFuns
 HilbertSchmidtIndependenceCriterion
 BayesianNonparametrics
-JLD
+JLD2
 FileIO
 InformationMeasures
+StatsBase

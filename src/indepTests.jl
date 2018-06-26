@@ -1,5 +1,3 @@
-using InformationMeasures, StatsBase
-
 # Entropy based variable splitting
 # See: Alternative variable splitting methods to learn SPNs by Di Mauro et al.
 #
@@ -70,7 +68,7 @@ function greedySplit(X, rvs; factor = 5.0)
 
 		# If less than threshold, observed values could've been produced by noise on top of independent vars
         return (2. * gval) < (2. * dof * gfactor + 0.001);
-	end 
+	end
 
 	while length(toprocess) > 0
 

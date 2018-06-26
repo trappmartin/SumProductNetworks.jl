@@ -1,5 +1,3 @@
-using Clustering, Distances
-
 function stnll(x, m, a, c, B, D)
 	# Compute Student-t negative log likelihood (Appendix A, eqn. (20))
 
@@ -18,7 +16,7 @@ function nwupd(Nki, xki, m0, a0, c0, B0)
 
 	xmki = mean(xki, 1)
 	xmcki = xki .- xmki
-	Ski = xmcki' * xmcki   
+	Ski = xmcki' * xmcki
 	cki = c0+Nki
 	mki = (c0*m0+Nki*xmki)/cki
 	xm0cki = xmki-m0
@@ -126,21 +124,21 @@ function mapDP_NW(X, N0, m0, a0, c0, B0; ϵ = 1e-10, maxIter = 100)
 end
 
 function catupd(xki, α0, D)
-    
+
     α = Vector{Float64}(D)
-    
+
     for d in 1:D
         α[d] = α0[d] + sum(xki)
     end
-    
+
     return α
 end
-    
+
 function postpred(x, α, N, D)
     l1 = lgamma(N + 1) - sum(lgamma(x[d] + 1) for d in 1:D)
     l2 = lgamma(sum(α)) - sum(lgamma(α[d]) for d in 1:D)
     l3 = sum(lgamma(x[d] + α[d]) for d in 1:D) - lgamma(N + sum(α))
-    
+
     return l1 + l2 + l3
 end
 
@@ -150,14 +148,14 @@ function mapDP_Cat(X, N0, α0; ϵ = 1e-6, maxIter = 100)
     #K = 1
 
     #z = ones(Int, N) # initial assignments
-    
+
     (c1, c2) = kmpp(X', 2)
     Dist = pairwise(Euclidean(), X')[[c1, c2],:]
     #z = ones(Int, N) # initial assignments
     z = Int[indmin(Dist[:,i]) for i in 1:N]
-    
+
     K = 2
-    
+
     Enew = Inf
     dE = Inf
     ic = 0 #iteration count
@@ -236,4 +234,3 @@ function mapDP_Cat(X, N0, α0; ϵ = 1e-6, maxIter = 100)
     end
     return z
 end
-
