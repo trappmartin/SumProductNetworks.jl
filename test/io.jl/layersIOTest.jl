@@ -1,5 +1,5 @@
 using SumProductNetworks, Distributions
-using Base.Test
+using Test
 
 @testset "Export Layered SPN Test" begin
 
@@ -25,7 +25,7 @@ using Base.Test
     @test isfile(string(output_dot, ".dot"))
     @test isfile(string(output_param, "_layer7.jld2"))
 
-    mv(string(output_dot, ".dot"), "exportedNetwork.dot", remove_destination=true)
-    mv(string(output_param, "_layer7.jld2"), "spn.jld2", remove_destination=true)
+    mv(string(output_dot, ".dot"), "exportedNetwork.dot", force=true)
+    mv(string(output_param, "_layer7.jld2"), "spn.jld2", force=true)
 
 end

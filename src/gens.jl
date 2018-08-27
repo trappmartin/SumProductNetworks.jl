@@ -63,7 +63,7 @@ function learnSumNode(X::Matrix; iterations = 100, minN = 10, k = 2, method = :M
 		idClusterId = runNaiveBayes(X')
 		[idClusterId[i] for i in 1:N]
 	else
-		warn("Unknown method for clustering, returning one group!")
+		@warn("Unknown method for clustering, returning one group!")
 		ones(N)
 	end
 
@@ -90,14 +90,14 @@ function learnProductNode(X::AbstractArray; pvalue = 0.05, minN = 10, method = :
 	elseif method == :GTest
 		greedySplit(X, 1:D, factor = gfactor)
 	else
-		warn("Unknown method for variable selection")
+		@warn("Unknown method for variable selection")
 		(collect(1:D), Int[])
 	end
 
 	return (scope1, scope2)
 end
 
-function fitLeafDistribution{T <: AbstractFloat}(X::AbstractArray{T}, id::Int, scope::Int, obs::Vector{Int})
+function fitLeafDistribution(X::AbstractArray{T}, id::Int, scope::Int, obs::Vector{Int}) where T <: AbstractFloat
 	sigma = std(X[obs, scope])
 	sigma = isnan(sigma) ? 1e-6 : sigma + 1e-6
 	mu = mean(X[obs, scope])
@@ -230,7 +230,7 @@ function learnSPN(X::AbstractArray; minSamples = 10,
 					ccid = maximum(union(ids, usedids)) + 1
 					push!(cid, ccid)
 					push!(ids, ccid)
-					push!(observations, obs[find(assignments .== c)])
+					push!(observations, obs[findall(assignments .== c)])
 					push!(dimensions, dims)
 					push!(nodeDepths, nodeDepth + 1)
 				end

@@ -1,5 +1,5 @@
 using SumProductNetworks
-using Base.Test
+using Test
 
 @testset "utility functions" begin
     @testset "log-sum-exp" begin

@@ -1,5 +1,5 @@
 using SumProductNetworks, Distributions
-using Base.Test
+using Test
 
 @testset "Bayesian SPN layers" begin
 

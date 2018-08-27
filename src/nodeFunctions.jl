@@ -49,7 +49,7 @@ function removeScope!(node::SPNNode, scope::Int)
 end
 
 function scope(node::SPNNode)
-    return find(node.scopeVec)
+    return findall(node.scopeVec)
 end
 
 function hasSubScope(node1::ProductNode, node2::SPNNode)
@@ -68,7 +68,7 @@ function setObservations!(node::Node, obs::Vector{Int})
 end
 
 function obs(node::Node)
-    return find(node.obsVec)
+    return findall(node.obsVec)
 end
 
 function update!(node::Node)
@@ -86,7 +86,7 @@ Returns a list of class labels the Node is associated with.
 """
 function classes(node::FiniteProductNode)
 
-    classNodes = Vector{Int}(0)
+    classNodes = Vector{Int}()
 
     for classNode in filter(c -> isa(c, IndicatorNode), node.children)
         push!(classNodes, classNode.value)
@@ -101,7 +101,7 @@ end
 
 function classes(node::SPNNode)
 
-    classNodes = Vector{Int}(0)
+    classNodes = Vector{Int}()
 
     for parent in node.parents
         classNodes = cat(1, classNodes, classes(parent))
@@ -216,18 +216,18 @@ function evaluate!(node::NormalDistributionNode, data, llhvals)
     end
 end
 
-function evaluate!{U}(node::UnivariateNode{U}, data, llhvals)
+function evaluate!(node::UnivariateNode{U}, data, llhvals) where U
     @inbounds llhvals[:, node.id] = logpdf(node.dist, data[:, node.scope])
 end
 
-function evaluate!{U}(node::MultivariateNode{U}, data, llhvals)
+function evaluate!(node::MultivariateNode{U}, data, llhvals) where U
     @inbounds llhvals[:, node.id] = logpdf(node.dist, data[:, node.scope]')
 end
 
-function evaluate!{U<:ConjugatePostDistribution}(node::UnivariateNode{U}, data, llhvals)
+function evaluate!(node::UnivariateNode{U}, data, llhvals) where U<:ConjugatePostDistribution
     @inbounds llhvals[:, node.id] = logpostpred(node.dist, data[:, node.scope])
 end
 
-function evaluate!{U<:ConjugatePostDistribution}(node::MultivariateNode{U}, data, llhvals)
+function evaluate!(node::MultivariateNode{U}, data, llhvals) where U<:ConjugatePostDistribution
     @inbounds llhvals[:, node.id] = logpostpred(node.dist, data[:, node.scope])
 end

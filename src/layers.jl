@@ -16,7 +16,7 @@ abstract type AbstractSumLayer <: AbstractInternalLayer end
 abstract type AbstractBayesianLayer <: AbstractInternalLayer end
 
 # Layer with Sum Nodes
-type SumLayer <: AbstractSumLayer
+mutable struct SumLayer <: AbstractSumLayer
 
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
@@ -28,7 +28,7 @@ type SumLayer <: AbstractSumLayer
 end
 
 # Layer with Bayesian Sum Nodes, weights collapsed out
-type BayesianSumLayer <: AbstractBayesianLayer
+mutable struct BayesianSumLayer <: AbstractBayesianLayer
 
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
@@ -57,7 +57,7 @@ end
 abstract type AbstractProductLayer <: AbstractInternalLayer end
 
 # Layer with Product Nodes
-type ProductLayer <: AbstractProductLayer
+mutable struct ProductLayer <: AbstractProductLayer
 
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
@@ -68,7 +68,7 @@ type ProductLayer <: AbstractProductLayer
 end
 
 # Layer with Bayesian Product Nodes, augmented weights collapsed out
-type BayesianProductLayer <: AbstractBayesianLayer
+mutable struct BayesianProductLayer <: AbstractBayesianLayer
 
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
@@ -95,7 +95,7 @@ type BayesianProductLayer <: AbstractBayesianLayer
 end
 
 # Layer with Product Nodes, each equiped with a class label
-type ProductCLayer <: AbstractProductLayer
+mutable struct ProductCLayer <: AbstractProductLayer
 
     ids::Vector{Int}
     childIds::Matrix{Int} # Ch x C child ids
@@ -110,7 +110,7 @@ abstract type AbstractLeafLayer <: SPNLayer end
 abstract type AbstractBayesianLeafLayer <: AbstractLeafLayer end
 
 # Layer with MultivariateFeature Nodes
-type MultivariateFeatureLayer <: AbstractLeafLayer
+mutable struct MultivariateFeatureLayer <: AbstractLeafLayer
 
     ids::Vector{Int}
     weights::Matrix{AbstractFloat} # C x D filter matrix
@@ -121,7 +121,7 @@ type MultivariateFeatureLayer <: AbstractLeafLayer
 end
 
 # Layer with indicator nodes
-type IndicatorLayer <: AbstractLeafLayer
+mutable struct IndicatorLayer <: AbstractLeafLayer
 
     ids::Vector{Int} # flatten vector representing C x D ids matrix
     scopes::Vector{Int} # D dimensional vector
@@ -132,7 +132,7 @@ type IndicatorLayer <: AbstractLeafLayer
 end
 
 # Layer with univariate Gauss distributions
-type GaussianLayer <: AbstractLeafLayer
+mutable struct GaussianLayer <: AbstractLeafLayer
 
     ids::Vector{Int} # C dimensional vector
     scopes::Vector{Int} # C dimensional vector
@@ -144,7 +144,7 @@ type GaussianLayer <: AbstractLeafLayer
 end
 
 # Layer with categorical distributions with Dirichlet as prior
-type BayesianCategoricalLayer <: AbstractBayesianLeafLayer
+mutable struct BayesianCategoricalLayer <: AbstractBayesianLeafLayer
 
     ids::Vector{Int} # C dimensional vector
     scopes::Vector{Int} # C dimensional vector

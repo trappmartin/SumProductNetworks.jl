@@ -85,7 +85,7 @@ function exportNetwork(root::Node, filename::String; nodeObsDegeneration = false
     nodes = getOrderedNodes(root)
 
     if excludeDegenerated
-        warn("Excluding degenerated nodes, these nodes cannot be recovered from the DOT file!")
+        @warn("Excluding degenerated nodes, these nodes cannot be recovered from the DOT file!")
     end
 
     for node in nodes
@@ -151,7 +151,7 @@ function exportNetwork(root::SPNLayer, dot_filename::String, param_filename::Str
     layers = getOrderedLayers(root)
 
     if excludeDegenerated
-        warn("Excluding degenerated nodes, these nodes cannot be recovered from the DOT file!")
+        @warn("Excluding degenerated nodes, these nodes cannot be recovered from the DOT file!")
     end
 
     for (li, layer) in enumerate(layers)
