@@ -1,28 +1,28 @@
 function stnll(x, m, a, c, B, D)
-	# Compute Student-t negative log likelihood (Appendix A, eqn. (20))
+  # Compute Student-t negative log likelihood (Appendix A, eqn. (20))
 
-	mu = m'
-	nu = a-D+1.
-	Lambda = c * nu / (c+1.) * B
-    d = (x-mu) + 0.001
-	S = (d' * Lambda) * d
+  mu = m'
+  nu = a-D+1.
+  Lambda = c * nu / (c+1.) * B
+  d = (x-mu) + 0.001
+  S = (d' * Lambda) * d
 
-	logdetL = logdet(Lambda)
-	return nu+D/2.*log.(1.+S/nu) - 0.5*logdetL+lgamma(nu/2.) - lgamma((nu+D)/2.)+D/2.*log(nu*pi)
+  logdetL = logdet(Lambda)
+  return nu+D/2.0*log.(1.0+S/nu) - 0.5*logdetL+lgamma(nu/2.0) - lgamma((nu+D)/2.0)+D/2.0*log(nu*pi)
 end
 
 function nwupd(Nki, xki, m0, a0, c0, B0)
-	# Update Normal-Wishart hyper parameters (Appendix A, eqns. (18-19))
+  # Update Normal-Wishart hyper parameters (Appendix A, eqns. (18-19))
 
-	xmki = mean(xki, 1)
-	xmcki = xki .- xmki
-	Ski = xmcki' * xmcki
-	cki = c0+Nki
-	mki = (c0*m0+Nki*xmki)/cki
-	xm0cki = xmki-m0
-	Bki = inv(inv(B0)+Ski+c0*Nki/cki* (xm0cki' * xm0cki))
-	aki = a0+Nki
-	return (mki, aki, cki, Bki)
+  xmki = mean(xki, 1)
+  xmcki = xki .- xmki
+  Ski = xmcki' * xmcki
+  cki = c0+Nki
+  mki = (c0*m0+Nki*xmki)/cki
+  xm0cki = xmki-m0
+  Bki = inv(inv(B0)+Ski+c0*Nki/cki* (xm0cki' * xm0cki))
+  aki = a0+Nki
+  return (mki, aki, cki, Bki)
 end
 
 # MAP - DP code based on:
@@ -33,204 +33,204 @@ end
 # N0 ... concentration parameter
 function mapDP_NW(X, N0, m0, a0, c0, B0; ϵ = 1e-10, maxIter = 100)
 
-	(N, D) = size(X)
+  (N, D) = size(X)
 
-	K = 2
+  K = 2
 
-	(c1, c2) = kmpp(X', 2)
-	Dist = pairwise(Euclidean(), X')[[c1, c2],:]
-	#z = ones(Int, N) # initial assignments
-	z = Int[argmin(Dist[:,i]) for i in 1:N]
+  (c1, c2) = kmpp(X', 2)
+  Dist = pairwise(Euclidean(), X')[[c1, c2],:]
+  #z = ones(Int, N) # initial assignments
+  z = Int[argmin(Dist[:,i]) for i in 1:N]
 
-	Enew = Inf
-	dE = Inf
-	ic = 0 #iteration count
-	E = []
+  Enew = Inf
+  dE = Inf
+  ic = 0 #iteration count
+  E = []
 
-	# pre-compute student-t NLL for new cluster
-	newNLL = map(i -> stnll(X[i,:], m0, a0, c0, B0, D)[1], 1:N)
+  # pre-compute student-t NLL for new cluster
+  newNLL = map(i -> stnll(X[i,:], m0, a0, c0, B0, D)[1], 1:N)
 
-	while (abs(dE) > ϵ) & (ic < maxIter)
-		Eold = Enew
-		dik = ones(N, 1) * Inf
+  while (abs(dE) > ϵ) & (ic < maxIter)
+    Eold = Enew
+    dik = ones(N, 1) * Inf
 
-		for i in 1:N
-			dk = ones(K+1, 1) * Inf
-			f = Vector{Float64}(K+1)
-			Nki = ones(Int, K)
-			xi = X[i,:]
+    for i in 1:N
+      dk = ones(K+1, 1) * Inf
+      f = Vector{Float64}(K+1)
+      Nki = ones(Int, K)
+      xi = X[i,:]
 
-			for k in 1:K
-				zki = (z .== k)
-				zki[i] = false
-				Nki[k] = sum(zki)
+      for k in 1:K
+        zki = (z .== k)
+        zki[i] = false
+        Nki[k] = sum(zki)
 
-				# updates not necessary if Nki == 0
-				if Nki[k] == 0
-					continue
-				end
+        # updates not necessary if Nki == 0
+        if Nki[k] == 0
+          continue
+        end
 
-				# udpate
-				(mki, aki, cki, Bki) = nwupd(Nki[k], X[zki, :], m0, a0, c0, B0)
+        # udpate
+        (mki, aki, cki, Bki) = nwupd(Nki[k], X[zki, :], m0, a0, c0, B0)
 
-				# compute student-t NLL
-				p = stnll(xi, mki, aki, cki, Bki, D)
-				dk[k] = p[1]
+        # compute student-t NLL
+        p = stnll(xi, mki, aki, cki, Bki, D)
+        dk[k] = p[1]
 
-				# avoid reinforcement effet at initialization
-				#if ic == 0
-				#    Nki[1] = 1
-				#end
+        # avoid reinforcement effet at initialization
+        #if ic == 0
+        #    Nki[1] = 1
+        #end
 
-				f[k] = dk[k] - log(Nki[k])
-			end
+        f[k] = dk[k] - log(Nki[k])
+      end
 
-			# student-t NLL for new cluster
-			dk[K+1] = newNLL[i]
-			f[K+1] = dk[K+1] - log(N0)
+      # student-t NLL for new cluster
+      dk[K+1] = newNLL[i]
+      f[K+1] = dk[K+1] - log(N0)
 
-			# compute MAP assignment
-			z[i] = argmin(f)
-			dik[i] = f[z[i]]
+      # compute MAP assignment
+      z[i] = argmin(f)
+      dik[i] = f[z[i]]
 
-			# create new cluster if required
-			if z[i] > K
-				K += 1
-			end
-		end
+      # create new cluster if required
+      if z[i] > K
+        K += 1
+      end
+    end
 
-		# remove empty clusters and reassign
-		Knz = 1
-		for k in 1:K
-			i = (z .== k)
-			Nk = sum(i)
-			if Nk > 0
-				z[i] = Knz
-				Knz += 1
-			end
-		end
+    # remove empty clusters and reassign
+    Knz = 1
+    for k in 1:K
+      i = (z .== k)
+      Nk = sum(i)
+      if Nk > 0
+        z[i] = Knz
+        Knz += 1
+      end
+    end
 
-		K = Knz - 1
-		Nk = counts(z, 1:K)
+    K = Knz - 1
+    Nk = counts(z, 1:K)
 
-		Enew = sum(dik) - K * log(N0) - sum(lgamma.(Nk))
-		@assert !isinf(Enew)
-		dE = Eold - Enew
-		ic += 1
-		push!(E, Enew)
-	end
+    Enew = sum(dik) - K * log(N0) - sum(lgamma.(Nk))
+    @assert !isinf(Enew)
+    dE = Eold - Enew
+    ic += 1
+    push!(E, Enew)
+  end
 
-	return z
+  return z
 end
 
 function catupd(xki, α0, D)
 
-    α = Vector{Float64}(D)
+  α = Vector{Float64}(D)
 
-    for d in 1:D
-        α[d] = α0[d] + sum(xki)
-    end
+  for d in 1:D
+    α[d] = α0[d] + sum(xki)
+  end
 
-    return α
+  return α
 end
 
 function postpred(x, α, N, D)
-    l1 = lgamma(N + 1) - sum(lgamma(x[d] + 1) for d in 1:D)
-    l2 = lgamma(sum(α)) - sum(lgamma(α[d]) for d in 1:D)
-    l3 = sum(lgamma(x[d] + α[d]) for d in 1:D) - lgamma(N + sum(α))
+  l1 = lgamma(N + 1) - sum(lgamma(x[d] + 1) for d in 1:D)
+  l2 = lgamma(sum(α)) - sum(lgamma(α[d]) for d in 1:D)
+  l3 = sum(lgamma(x[d] + α[d]) for d in 1:D) - lgamma(N + sum(α))
 
-    return l1 + l2 + l3
+  return l1 + l2 + l3
 end
 
 function mapDP_Cat(X, N0, α0; ϵ = 1e-6, maxIter = 100)
-    (N, D) = size(X)
+  (N, D) = size(X)
 
-    #K = 1
+  #K = 1
 
-    #z = ones(Int, N) # initial assignments
+  #z = ones(Int, N) # initial assignments
 
-    (c1, c2) = kmpp(X', 2)
-    Dist = pairwise(Euclidean(), X')[[c1, c2],:]
-    #z = ones(Int, N) # initial assignments
-    z = Int[argmin(Dist[:,i]) for i in 1:N]
+  (c1, c2) = kmpp(X', 2)
+  Dist = pairwise(Euclidean(), X')[[c1, c2],:]
+  #z = ones(Int, N) # initial assignments
+  z = Int[argmin(Dist[:,i]) for i in 1:N]
 
-    K = 2
+  K = 2
 
-    Enew = Inf
-    dE = Inf
-    ic = 0 #iteration count
-    E = []
+  Enew = Inf
+  dE = Inf
+  ic = 0 #iteration count
+  E = []
 
-    # pre-compute student-t NLL for new cluster
-    newNLL = map(i -> postpred(X[i,:], α0, 0, D), 1:N)
+  # pre-compute student-t NLL for new cluster
+  newNLL = map(i -> postpred(X[i,:], α0, 0, D), 1:N)
 
-    while (abs(dE) > ϵ) & (ic < maxIter)
-        Eold = Enew
-        dik = ones(N, 1) * Inf
+  while (abs(dE) > ϵ) & (ic < maxIter)
+    Eold = Enew
+    dik = ones(N, 1) * Inf
 
-        for i in 1:N
-            dk = ones(K+1, 1) * Inf
-            f = Vector{Float64}(K+1)
-            Nki = ones(Int, K)
-            xi = X[i,:]
+    for i in 1:N
+      dk = ones(K+1, 1) * Inf
+      f = Vector{Float64}(K+1)
+      Nki = ones(Int, K)
+      xi = X[i,:]
 
-            for k in 1:K
-                zki = (z .== k)
-                zki[i] = false
-                Nki[k] = sum(zki)
+      for k in 1:K
+        zki = (z .== k)
+        zki[i] = false
+        Nki[k] = sum(zki)
 
-                # updates not necessary if Nki == 0
-                if Nki[k] == 0
-                    continue
-                end
-
-                # udpate
-                αs = catupd(X[zki, :], α0, D)
-
-                # compute student-t NLL
-                dk[k] = postpred(xi, αs, Nki[k], D)
-
-                # avoid reinforcement effet at initialization
-                if ic == 0
-                    Nki[1] = 1
-                end
-
-                f[k] = dk[k] - log(Nki[k])
-            end
-
-            # student-t NLL for new cluster
-            dk[K+1] = newNLL[i]
-            f[K+1] = dk[K+1] - log(N0)
-
-            # compute MAP assignment
-            z[i] = argmin(f)
-            dik[i] = f[z[i]]
-
-            # create new cluster if required
-            if z[i] > K
-                K += 1
-            end
+        # updates not necessary if Nki == 0
+        if Nki[k] == 0
+          continue
         end
 
-        # remove empty clusters and reassign
-        Knz = 1
-        for k in 1:K
-            i = (z .== k)
-            Nk = sum(i)
-            if Nk > 0
-                z[i] = Knz
-                Knz += 1
-            end
+        # udpate
+        αs = catupd(X[zki, :], α0, D)
+
+        # compute student-t NLL
+        dk[k] = postpred(xi, αs, Nki[k], D)
+
+        # avoid reinforcement effet at initialization
+        if ic == 0
+          Nki[1] = 1
         end
 
-        K = Knz - 1
-        Nk = counts(z, 1:K)
+        f[k] = dk[k] - log(Nki[k])
+      end
 
-        Enew = sum(dik) - K * log(N0) - sum(lgamma.(Nk))
-        @assert !isinf(Enew)
-        dE = Eold - Enew
-        ic += 1
-        push!(E, Enew)
+      # student-t NLL for new cluster
+      dk[K+1] = newNLL[i]
+      f[K+1] = dk[K+1] - log(N0)
+
+      # compute MAP assignment
+      z[i] = argmin(f)
+      dik[i] = f[z[i]]
+
+      # create new cluster if required
+      if z[i] > K
+        K += 1
+      end
     end
-    return z
+
+    # remove empty clusters and reassign
+    Knz = 1
+    for k in 1:K
+      i = (z .== k)
+      Nk = sum(i)
+      if Nk > 0
+        z[i] = Knz
+        Knz += 1
+      end
+    end
+
+    K = Knz - 1
+    Nk = counts(z, 1:K)
+
+    Enew = sum(dik) - K * log(N0) - sum(lgamma.(Nk))
+    @assert !isinf(Enew)
+    dE = Eold - Enew
+    ic += 1
+    push!(E, Enew)
+  end
+  return z
 end

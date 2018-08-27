@@ -100,12 +100,12 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   classesLayer = ProductCLayer(collect(maxId + 1:maxId + C), Array{Int,2}(undef, 0, 0), collect(1:C), SPNLayer[], spn)
   push!(spn.children, classesLayer)
   spn.childIds = reshape(classesLayer.ids, length(classesLayer.ids), 1)
-  spn.logweights = log.(rand(Dirichlet([1./C for j in 1:C]), 1))
+  spn.logweights = log.(rand(Dirichlet([1. / C for j in 1:C]), 1))
 
   # add parts
   maxId = maximum(classesLayer.ids)
   P = C * parts
-  logw = log.(rand(Dirichlet([1./mixtures for j in 1:mixtures]), P))
+  logw = log.(rand(Dirichlet([1. / mixtures for j in 1:mixtures]), P))
   partsLayer = SumLayer(collect(maxId + 1:maxId + P),  Array{Int,2}(undef, 0, 0), logw, SPNLayer[], classesLayer)
   push!(classesLayer.children, partsLayer)
   classesLayer.childIds = reshape(partsLayer.ids, parts, C)
@@ -113,7 +113,7 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   # add mixtures
   maxId = maximum(partsLayer.ids)
   M = C * parts * mixtures
-  logw = log.(rand(Dirichlet([1./locations for j in 1:locations]), M))
+  logw = log.(rand(Dirichlet([1. /locations for j in 1:locations]), M))
   mixturesLayer = SumLayer(collect(maxId + 1:maxId + M),  Array{Int,2}(undef, 0, 0), logw, SPNLayer[], partsLayer)
   push!(partsLayer.children, mixturesLayer)
   partsLayer.childIds = reshape(mixturesLayer.ids, mixtures, P)

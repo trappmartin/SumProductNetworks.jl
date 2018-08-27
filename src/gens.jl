@@ -45,7 +45,7 @@ function learnSumNode(X::Matrix; iterations = 100, minN = 10, k = 2, method = :M
             m0 = mean(X, 1)
             a0 = 5.
             c0 = 9. / N
-            B0 = eye(D) .* (1./0.05*var(X, 1))
+            B0 = eye(D) .* (1. / 0.05*var(X, 1))
 
             mapDP_NW(X, N0, m0, a0, c0, B0, maxIter = iterations)
         end
