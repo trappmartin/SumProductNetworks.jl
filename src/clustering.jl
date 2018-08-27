@@ -40,7 +40,7 @@ function mapDP_NW(X, N0, m0, a0, c0, B0; ϵ = 1e-10, maxIter = 100)
 	(c1, c2) = kmpp(X', 2)
 	Dist = pairwise(Euclidean(), X')[[c1, c2],:]
 	#z = ones(Int, N) # initial assignments
-	z = Int[indmin(Dist[:,i]) for i in 1:N]
+	z = Int[argmin(Dist[:,i]) for i in 1:N]
 
 	Enew = Inf
 	dE = Inf
@@ -90,7 +90,7 @@ function mapDP_NW(X, N0, m0, a0, c0, B0; ϵ = 1e-10, maxIter = 100)
 			f[K+1] = dk[K+1] - log(N0)
 
 			# compute MAP assignment
-			z[i] = indmin(f)
+			z[i] = argmin(f)
 			dik[i] = f[z[i]]
 
 			# create new cluster if required
@@ -152,7 +152,7 @@ function mapDP_Cat(X, N0, α0; ϵ = 1e-6, maxIter = 100)
     (c1, c2) = kmpp(X', 2)
     Dist = pairwise(Euclidean(), X')[[c1, c2],:]
     #z = ones(Int, N) # initial assignments
-    z = Int[indmin(Dist[:,i]) for i in 1:N]
+    z = Int[argmin(Dist[:,i]) for i in 1:N]
 
     K = 2
 
@@ -203,7 +203,7 @@ function mapDP_Cat(X, N0, α0; ϵ = 1e-6, maxIter = 100)
             f[K+1] = dk[K+1] - log(N0)
 
             # compute MAP assignment
-            z[i] = indmin(f)
+            z[i] = argmin(f)
             dik[i] = f[z[i]]
 
             # create new cluster if required

@@ -8,7 +8,7 @@ function imageStructure!(spn::SumNode, C::Int, D::Int, G::Int, K::Int; parts = 2
   # create scopes of leaves
   posx = 1
   posy = 1
-  scopes = Vector{Vector{Int}}(0)
+  scopes = Vector{Vector{Int}}()
   while (posy + window) <= G
     while (posx + window) <= G
       scope = Int[]
@@ -71,7 +71,7 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   # create scopes of leaves
   posx = 1
   posy = 1
-  scopes = Vector{Vector{Bool}}(0)
+  scopes = Vector{Vector{Bool}}()
   while (posy + window) <= G
     while (posx + window) <= G
       mask = zeros(Bool, D)
@@ -97,7 +97,7 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   maxId = maximum(spn.ids)
 
   # add classes
-  classesLayer = ProductCLayer(collect(maxId + 1:maxId + C), Array{Int,2}(0, 0), collect(1:C), SPNLayer[], spn)
+  classesLayer = ProductCLayer(collect(maxId + 1:maxId + C), Array{Int,2}(undef, 0, 0), collect(1:C), SPNLayer[], spn)
   push!(spn.children, classesLayer)
   spn.childIds = reshape(classesLayer.ids, length(classesLayer.ids), 1)
   spn.logweights = log.(rand(Dirichlet([1./C for j in 1:C]), 1))
@@ -106,7 +106,7 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   maxId = maximum(classesLayer.ids)
   P = C * parts
   logw = log.(rand(Dirichlet([1./mixtures for j in 1:mixtures]), P))
-  partsLayer = SumLayer(collect(maxId + 1:maxId + P),  Array{Int,2}(0, 0), logw, SPNLayer[], classesLayer)
+  partsLayer = SumLayer(collect(maxId + 1:maxId + P),  Array{Int,2}(undef, 0, 0), logw, SPNLayer[], classesLayer)
   push!(classesLayer.children, partsLayer)
   classesLayer.childIds = reshape(partsLayer.ids, parts, C)
 
@@ -114,7 +114,7 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   maxId = maximum(partsLayer.ids)
   M = C * parts * mixtures
   logw = log.(rand(Dirichlet([1./locations for j in 1:locations]), M))
-  mixturesLayer = SumLayer(collect(maxId + 1:maxId + M),  Array{Int,2}(0, 0), logw, SPNLayer[], partsLayer)
+  mixturesLayer = SumLayer(collect(maxId + 1:maxId + M),  Array{Int,2}(undef, 0, 0), logw, SPNLayer[], partsLayer)
   push!(partsLayer.children, mixturesLayer)
   partsLayer.childIds = reshape(mixturesLayer.ids, mixtures, P)
 

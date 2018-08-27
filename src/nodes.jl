@@ -117,7 +117,7 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
 end
 
 # definition of indicater Node
-type IndicatorNode{T <: Integer} <: Leaf{T}
+mutable struct IndicatorNode{T <: Integer} <: Leaf{T}
 
 	# * immutable fields * #
 	id::Int
@@ -139,7 +139,7 @@ end
 #
 # A univariate node computes the likelihood of x under a univariate distribution.
 #
-type UnivariateNode{T} <: Leaf{Any}
+mutable struct UnivariateNode{T} <: Leaf{Any}
 
 	# unique node identifier
 	id::Int
@@ -157,7 +157,7 @@ type UnivariateNode{T} <: Leaf{Any}
 	end
 end
 
-type NormalDistributionNode <: Leaf{Any}
+mutable struct NormalDistributionNode <: Leaf{Any}
 
 	# unique node identifier
 	id::Int
@@ -179,7 +179,7 @@ end
 #
 # A multivariate node computes the likelihood of x under a multivariate distribution.
 #
-type MultivariateNode{T} <: Leaf{Any}
+mutable struct MultivariateNode{T} <: Leaf{Any}
 
 	# unique node identifier
 	id::Int

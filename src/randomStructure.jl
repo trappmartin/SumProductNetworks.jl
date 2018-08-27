@@ -67,7 +67,7 @@ function randomSPN(X::AbstractArray; maxDepth = Inf, minChildren = 1, maxChildre
 					ccid = maximum(usedids)
 					push!(cid, ccid + c)
 					push!(ids, ccid + c)
-					push!(observations, obs[find(assignments .== c)])
+					push!(observations, obs[findall(assignments .== c)])
 					push!(dimensions, dims)
 					push!(modes, :product)
 					push!(nodeDepths, nodeDepth + 1)
@@ -232,7 +232,7 @@ function randomStructure!(spn::SumLayer, values::Vector{Int}, D::Int; mixtureSiz
         if layerType == :product
 
             # construct layer
-            ids = Vector{Int}(0)
+            ids = Vector{Int}()
 
             for id in lastLayer.ids
                 scope = nodeScopes[id]
@@ -264,7 +264,7 @@ function randomStructure!(spn::SumLayer, values::Vector{Int}, D::Int; mixtureSiz
         elseif layerType == :sum
 
             # construct layer
-            ids = Vector{Int}(0)
+            ids = Vector{Int}()
 
             for id in lastLayer.ids
                 subscopes = nodeScopes[id] # assuming product layer

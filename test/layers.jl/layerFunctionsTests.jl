@@ -1,6 +1,6 @@
 using SumProductNetworks, Distributions
 import RDatasets.dataset
-using Base.Test
+using Test
 
 @testset "Topological Order Test" begin
     C = 10
@@ -82,7 +82,7 @@ end
         G = 2
         K = 1
 
-        spn = SumLayer([1], Array{Int,2}(0, 0), Array{Float32, 2}(0, 0), SPNLayer[], nothing)
+        spn = SumLayer([1], Array{Int,2}(undef, 0, 0), Array{Float32, 2}(undef, 0, 0), SPNLayer[], nothing)
         imageStructure!(spn, C, D, G, K; parts = P, mixtures = M, window = W)
 
         computationOrder = getOrderedLayers(spn)

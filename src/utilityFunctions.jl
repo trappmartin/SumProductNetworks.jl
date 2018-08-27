@@ -42,13 +42,13 @@ end
 Get all nodes in topological order using Tarjan's algoritm.
 """
 function getOrderedNodes(root)
-    visitedNodes = Vector{SPNNode}(0)
+    visitedNodes = Vector{SPNNode}()
     visitNode!(root, visitedNodes)
     return visitedNodes
 end
 
 function getOrderedLayers(root)
-    visitedLayers = Vector{SPNLayer}(0)
+    visitedLayers = Vector{SPNLayer}()
     visitLayer!(root, visitedLayers)
     return visitedLayers
 end

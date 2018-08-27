@@ -1,7 +1,7 @@
 export learnSPNStructure, transformToLogisticLeaves
 
 function learnSPNStructure(X, Y, maxiterations, maxdepth, randomseed; method = :gens, removedegenerated = false, maxChildren = 4, minChildren = 2, allowScopeOverlap = false)
-    srand(randomseed)
+    Random.seed!(randomseed)
 
     if method == :gens
         SStructure = learnSPN(X, maxiter = maxiterations, maxDepth = maxdepth)
@@ -62,7 +62,7 @@ function transformToLogisticLeaves(SPN::FiniteSumNode; filterInitialisation = :z
             add!(parent, fnode, weight)
         elseif any(n -> isa(n, NormalDistributionNode), children(node))
 
-            ids = find(n -> isa(n, NormalDistributionNode), children(node))
+            ids = findall(n -> isa(n, NormalDistributionNode), children(node))
             scopes = [n.scope for n in children(node)[ids]]
 
             fnode = MultivariateFeatureNode(children(node)[ids[1]].id, scopes)

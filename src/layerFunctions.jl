@@ -30,8 +30,8 @@ posterior_sstats(layer::BayesianSumLayer) = layer.sufficientStats .+ layer.α
 posterior_sstats(layer::BayesianProductLayer) = layer.sufficientStats .+ layer.β
 posterior_sstats(layer::BayesianCategoricalLayer) = layer.sufficientStats .+ layer.γ
 
-observations(layer::AbstractBayesianLayer) = map(c -> find(layer.activeObservations[:,c]), 1:size(layer.activeObservations, 2))
-observations(layer::AbstractBayesianLeafLayer) = map(c -> find(layer.activeObservations[:,c]), 1:size(layer.activeObservations, 2))
+observations(layer::AbstractBayesianLayer) = map(c -> findall(layer.activeObservations[:,c]), 1:size(layer.activeObservations, 2))
+observations(layer::AbstractBayesianLeafLayer) = map(c -> findall(layer.activeObservations[:,c]), 1:size(layer.activeObservations, 2))
 
 set_observations(layer::AbstractBayesianLayer, c::Int, obs::Vector{Int}) = layer.activeObservations[obs,c] = true
 set_observations(layer::AbstractBayesianLeafLayer, c::Int, obs::Vector{Int}) = layer.activeObservations[obs,c] = true
@@ -49,7 +49,7 @@ observation_isactive(layer::AbstractBayesianLeafLayer, c::Int, obs::Int) = layer
 any_observation_isactive(layer::AbstractBayesianLayer, c::Int) = any(layer.activeObservations[:,c])
 any_observation_isactive(layer::AbstractBayesianLeafLayer, c::Int) = any(layer.activeObservations[:,c])
 
-scopes(layer::AbstractBayesianLayer) = map(c -> find(layer.activeDimensions[:,c]), 1:size(layer.activeDimensions, 2))
+scopes(layer::AbstractBayesianLayer) = map(c -> findall(layer.activeDimensions[:,c]), 1:size(layer.activeDimensions, 2))
 scopes(layer::AbstractBayesianLeafLayer) = layer.scopes
 
 set_scopes(layer::AbstractBayesianLayer, c::Int, dims::Vector{Int}) = layer.activeDimensions[dims,c] = true
@@ -72,7 +72,7 @@ scope_isactive(layer::AbstractBayesianLeafLayer, c::Int) = layer.activeDimension
 """
 Compute log likelihood of the network given the data.
 """
-function llh{T<:Real}(spn::SPNLayer, X::AbstractArray{T})
+function llh(spn::SPNLayer, X::AbstractArray{T}) where T<:Real
     # get topological order
     computationOrder = order(spn)
 
@@ -93,7 +93,7 @@ end
 """
 Compute conditional log likelihood of the network given the data.
 """
-function cllh{T<:Real}(spn::SPNLayer, X::AbstractArray{T}, y::Vector{Int})
+function cllh(spn::SPNLayer, X::AbstractArray{T}, y::Vector{Int}) where T<:Real
     # get topological order
     computationOrder = order(spn)
 
