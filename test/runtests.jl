@@ -1,6 +1,6 @@
 using SumProductNetworks
 
-println("[runtests.jl] runtests.jl loaded")
+@info("[runtests.jl] runtests.jl loaded")
 
 testcases = Dict(
         "utilities.jl"  => ["utilityFunctionTest"],
@@ -12,14 +12,14 @@ testcases = Dict(
 path = dirname(@__FILE__)
 cd(path)
 
-println("[runtests.jl] CDed test path")
-println("[runtests.jl] testing starts")
+@info("[runtests.jl] CDed test path")
+@info("[runtests.jl] testing starts")
 
 for (target, list) in testcases
   for t in list
-    println("[runtests.jl] \"$target/$t.jl\" is running")
+    @info("[runtests.jl] \"$target/$t.jl\" is running")
     include(target*"/"t*".jl");
-    println("[runtests.jl] \"$target/$t.jl\" is successful")
+    @info("[runtests.jl] \"$target/$t.jl\" is successful")
   end
 end
-println("[runtests.jl] all tests pass")
+@info("[runtests.jl] all tests pass")
