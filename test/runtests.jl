@@ -17,8 +17,9 @@ cd(path)
 
 for (target, list) in testcases
   for t in list
+    filename = string(t, ".jl")
     @info("[runtests.jl] \"$target/$t.jl\" is running")
-    include(target*"/"t*".jl");
+    include( joinpath(target, filename) );
     @info("[runtests.jl] \"$target/$t.jl\" is successful")
   end
 end

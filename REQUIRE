@@ -3,7 +3,7 @@ Clustering
 Distances
 Distributions
 StatsFuns
-HilbertSchmidtIndependenceCriterion 0.1.1
+HilbertSchmidtIndependenceCriterion 0.2.0
 BayesianNonparametrics
 JLD2
 FileIO

@@ -1,5 +1,5 @@
 using SumProductNetworks, Distributions
-using Test
+using Test, Random
 
 @testset "SPN layers" begin
 
@@ -21,7 +21,7 @@ using Test
 
 		@inferred evaluate!(layer, X, llhvals)
 
-		@test all( llhvals .≈  -log.(1. + exp.( X * (layer.weights .* layer.scopes) )))
+		@test all( llhvals .≈  -log.(1. .+ exp.( X * (layer.weights .* layer.scopes) )))
 	end
 
 	@testset "Sum Layer" begin
@@ -32,7 +32,7 @@ using Test
 		N = 100 # number of samples
 
 		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
-		w = log.(rand(Dirichlet([1./Ch for j in 1:Ch]), C))
+		w = log.(rand(Dirichlet([1. /Ch for j in 1:Ch]), C))
 		layer = SumLayer(collect(1:C), childIds, w, nothing, nothing)
 
 		@test size(layer) == (C, Ch)

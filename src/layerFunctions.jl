@@ -253,7 +253,7 @@ function evaluateLLH!(layer::MultivariateFeatureLayer, X::AbstractArray, llhvals
 
     # apply the standard logistic function: $\frac{1}{1+exp(-x*w')}$
     # derivative: $\frac{x * exp(w*x)}{(1+exp(w*x))^2}$
-    @fastmath llhval[:,:] = -log.(1. + exp.( X * (layer.weights .* layer.scopes) ))
+    @fastmath llhval[:,:] = -log.(1. .+ exp.( X * (layer.weights .* layer.scopes) ))
     llhval
 end
 
@@ -276,7 +276,7 @@ function evaluateLLH!(layer::IndicatorLayer, X::AbstractArray, llhvals::Matrix, 
     @inbounds fill!(llhval, map(typeof(first(llhval)), -Inf))
 
     @inbounds for c in 1:C
-        idx = Int[sub2ind((Dl, C), i, c) for i in 1:Dl]
+        idx = Int[sub2ind2(Dl, i, c) for i in 1:Dl]
         @fastmath llhval[:, idx] = log.(X[:, layer.scopes] .== layer.values[c])
     end
     llhval
