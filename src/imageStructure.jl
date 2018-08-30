@@ -15,7 +15,7 @@ function imageStructure!(spn::SumNode, C::Int, D::Int, G::Int, K::Int; parts = 2
       for k in 1:K
         for w2 in posx:window+posx
           for w1 in posy:window+posy
-            push!(scope, sub2ind((K, G, G), k, w2, w1))
+            push!(scope, sub2ind3(K, G, k, w2, w1))
           end
         end
       end
@@ -78,7 +78,7 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
       for k in 1:K
         for w2 in posx:window+posx
           for w1 in posy:window+posy
-            mask[sub2ind((K, G, G), k, w2, w1)] = true
+            mask[sub2ind3(K, G, k, w2, w1)] = true
           end
         end
       end
@@ -121,7 +121,7 @@ function imageStructure!(spn::SumLayer, C::Int, D::Int, G::Int, K::Int; parts = 
   # number of nodes in the MultivariateFeatureLayer
   maxId = maximum(mixturesLayer.ids)
   L = C * parts * mixtures * locations
-  filterLayer = MultivariateFeatureLayer(collect(maxId + 1:maxId + L), zeros(Float32, D, L), repmat(scopes, 1, M), mixturesLayer)
+  filterLayer = MultivariateFeatureLayer(collect(maxId + 1:maxId + L), zeros(Float32, D, L), repeat(scopes, 1, M), mixturesLayer)
   push!(mixturesLayer.children, filterLayer)
   mixturesLayer.childIds = reshape(filterLayer.ids, locations, M)
 

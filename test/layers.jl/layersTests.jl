@@ -1,4 +1,5 @@
 using SumProductNetworks, Distributions
+using StatsFuns
 using Test, Random
 
 @testset "SPN layers" begin
@@ -31,7 +32,7 @@ using Test, Random
 		D = 10 # dimensionality
 		N = 100 # number of samples
 
-		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
+		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) .+ C
 		w = log.(rand(Dirichlet([1. /Ch for j in 1:Ch]), C))
 		layer = SumLayer(collect(1:C), childIds, w, nothing, nothing)
 
@@ -52,14 +53,14 @@ using Test, Random
 		Y[:, C+1:end] = llhvals[:, C+1:end]
 		for c in 1:C
 		  for n in 1:N
-			Y[n, c] = StatsFuns.logsumexp(Y[n, childIds[:,c]] + w[:,c])
+			Y[n, c] = StatsFuns.logsumexp(Y[n, childIds[:,c]] .+ w[:,c])
 		  end
 		end
 
 		@test all(llhvals[:,1:C] .≈ Y[:,1:C])
 
 		# set some weights to 0. should still validate to llhvals > -Inf
-		weights(layer)[2:end, :] = -Inf
+		weights(layer)[2:end, :] .= -Inf
 		evaluate!(layer, X, llhvals)
 
 		@test all(isfinite.(llhvals[:,1:C]))
@@ -71,7 +72,7 @@ using Test, Random
 		D = 10 # dimensionality
 		N = 100 # number of samples
 
-		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
+		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) .+ C
 		layer = ProductLayer(collect(1:C), childIds, nothing, nothing)
 
 		@test size(layer) == (C, Ch)
@@ -105,7 +106,7 @@ using Test, Random
 	    D = 10 # dimensionality
 	    N = 100 # number of samples
 
-	    childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
+	    childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) .+ C
 	    clabels = collect(1:C)
 	    layer = ProductCLayer(collect(1:C), childIds, clabels, nothing, nothing)
 

@@ -175,7 +175,7 @@ function evaluateLLH!(layer::AbstractBayesianLayer, X::AbstractArray, llhvals::M
     # clear data
     @inbounds fill!(llhval, map(typeof(first(llhval)), -Inf))
     @inbounds cids = layer.childIds[:,1]
-    @inbounds @fastmath logw = mapslices(sstat -> log.(rand(Dirichlet(vec(sstat)))), posterior_sstats(layer), [1]) # Ch x C
+    @inbounds @fastmath logw = mapslices(sstat -> log.(rand(Dirichlet(vec(sstat)))), posterior_sstats(layer), dims = [1]) # Ch x C
 
     @inbounds for c in 1:C
         cids[:] = layer.childIds[:,c]
@@ -198,11 +198,11 @@ function evaluateLLH!(layer::AbstractProductLayer, X::AbstractArray, llhvals::Ma
     (C, Ch) = size(layer)
 
     # clear data
-    @inbounds fill!(llhval, map(typeof(first(llhval)), -Inf))
+    @inbounds fill!(llhval, convert(eltype(llhval), -Inf))
 
     @inbounds for c in 1:C
         cids = layer.childIds[:,c]
-        llhval[:,c] = sum(llhvals[:,cids], 2)
+        llhval[:,c] = sum(llhvals[:,cids], dims = 2)
     end
 
     llhval
@@ -228,7 +228,7 @@ function evaluateCLLH!(layer::ProductCLayer, X::AbstractArray, y::Vector{Int}, l
         label = layer.clabels[c]
         cids = layer.childIds[:,c]
 
-        @fastmath llhval[:,c] = sum(llhvals[:,cids], 2) .+ log.(y .== label)
+        @fastmath llhval[:,c] = sum(llhvals[:,cids], dims = 2) .+ log.(y .== label)
     end
     llhval
 end

@@ -12,7 +12,7 @@ using Test
 		α = 1.
 
 		layer = BayesianSumLayer(collect(1:C), Ch, N, D, α)
-		layer.childIds[:,:] = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
+		layer.childIds[:,:] = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) .+ C
 
 		@test size(layer) == (C, Ch)
 		@test size(sstats(layer)) == (Ch, C)
@@ -23,7 +23,7 @@ using Test
 
 		@test all(llhvals .== 0.)
 
-		llhvals[:, C+1:end] = log.(rand(N, C*Ch))
+		llhvals[:, C+1:end] .= log.(rand(N, C*Ch))
 
 		@inferred evaluate!(layer, X, llhvals)
 		@test all(isfinite.(llhvals[:,1:C]))
@@ -35,11 +35,11 @@ using Test
 		D = 10 # dimensionality
 		N = 100 # number of samples
 
-		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
+		childIds = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) .+ C
 		β = 1.
 
 		layer = BayesianProductLayer(collect(1:C), Ch, N, D, β)
-		layer.childIds[:,:] = reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) + C
+		layer.childIds[:,:] .= reduce(hcat, [[i+(j-1)*Ch for i in 1:Ch] for j in 1:C]) .+ C
 
 		@test size(layer) == (C, Ch)
 		@test size(sstats(layer)) == (Ch, C)
@@ -56,7 +56,7 @@ using Test
 		C = C_ * D
 
 		ids = collect(1:C)
-		scopes = vec(repmat(collect(1:D), 1, C_))
+		scopes = vec(repeat(collect(1:D), 1, C_))
 		γ = 1.
 
 		layer = BayesianCategoricalLayer(ids, scopes, S, N, D, γ)

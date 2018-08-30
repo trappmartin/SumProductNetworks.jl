@@ -427,6 +427,8 @@ end
 """
   sub2ind2(size1, ind1, ind2) -> linear index
 """
-function sub2ind2(s1, i, j)
-  return i + (j-1)*s1
-end
+sub2ind2(s1, i, j) = i + (j-1)*s1
+"""
+  sub2ind3(size1, size2, ind1, ind2, ind3) -> linear index
+"""
+sub2ind3(s1, s2, i, j, k) = i + (j-1)*s1 + (k-1)*s1*s2 

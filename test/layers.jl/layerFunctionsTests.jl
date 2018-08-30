@@ -1,5 +1,4 @@
 using SumProductNetworks, Distributions
-import RDatasets.dataset
 using Test
 
 @testset "Topological Order Test" begin
@@ -52,9 +51,8 @@ end
 @testset "Structure Generation" begin
 
     # create dummy data
-    iris = convert(Array, dataset("datasets", "iris"))
-    X = iris[:, 1:4]
-    Y = Int[findfirst(unique(iris[:,5]) .== yi) for yi in iris[:,5]]
+    X = randn(150, 4)
+    Y = rand(1:3, 150)
 
     (N, D) = size(X)
     C = length(unique(Y)) # number of classes
