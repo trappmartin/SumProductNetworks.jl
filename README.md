@@ -4,7 +4,7 @@
 
 This software package implements node and layer wise Sum-Product Networks (SPNs). Further, this code provides high level routines to work with SPNs.
 
-** This package is currently wip to get ready for Julia 1.0. Several things might break! **
+**This package is currently wip to get ready for Julia 1.0. Several things might break!**
 
 ## Requireements
 * julia 1.0
