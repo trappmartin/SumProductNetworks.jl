@@ -3,8 +3,8 @@ using SumProductNetworks
 @info("[runtests.jl] runtests.jl loaded")
 
 testcases = Dict(
-        "utilities.jl"  => ["utilityFunctionTest"],
-        "layers.jl"     => ["layersTests", "bayesianLayerTests", "layerFunctionsTests"]
+        "utilities"  => ["utilityFunctionTest"],
+        "layers"     => ["layersTests", "bayesianLayerTests", "layerFunctionsTests"]
 )
 
 
@@ -18,9 +18,9 @@ cd(path)
 for (target, list) in testcases
   for t in list
     filename = string(t, ".jl")
-    @info("[runtests.jl] \"$target/$t.jl\" is running")
+    @info("[runtests.jl] \"$target/$t.jl\" starts")
     include( joinpath(target, filename) );
-    @info("[runtests.jl] \"$target/$t.jl\" is successful")
+    @info("[runtests.jl] \"$target/$t.jl\" finished")
   end
 end
-@info("[runtests.jl] all tests pass")
+@info("[runtests.jl] all tests processed")
