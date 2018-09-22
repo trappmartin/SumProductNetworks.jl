@@ -1,45 +1,48 @@
 using SumProductNetworks
-using FactCheck
-using BenchmarkTools
+using Distributions
+using Test
 
-facts("Node Function Functions") do
+@testset "indicator node" begin
+    value = 1
+    dim = 2
+    node = IndicatorNode(value, dim)
 
-	context("sum node evaluate test") do
+    @test logpdf(node, [1, 2]) == -Inf
+    @test logpdf(node, [1, 1]) == 0.
+end
 
-		S = FiniteSumNode{Float32}(1, 1, 1)
-		S.cids = Int[2, 3]
-		S.logweights = map(Float32, log.([0.3, 0.7]))
+@testset "univariate node" begin
+    dist = Normal()
+    node = UnivariateNode(dist, 2)
 
-		llhvals = log.(rand(3, 3))
-		llhvals[:,1] = 0.
+    @test logpdf(node, [0.1, 1.0]) ≈ logpdf(dist, 1.0)
+end
 
-		evaluate!(S, rand(), llhvals)
+@testset "multivariate node" begin
+    dist = MvNormal(ones(2))
+    node = MultivariateNode(dist, [1, 2])
 
-		for i in 1:3
-			L = llhvals[i,2:3] + S.logweights
-			a = maximum(L)
-			@fact llhvals[i,1] --> log(sum(exp.(L - a))) + a
-		end
-	end
+    @test logpdf(node, [1., 0.2, 2.]) ≈ logpdf(dist, [1., 0.2])
+end
 
-	context("product node evaluate test") do
+@testset "sum node" begin
 
-		P = FiniteProductNode(1, 2, 1)
-		P.cids = Int[2, 3]
-		setScope!(P, [1, 2])
-		add!(P, IndicatorNode{Int}(2, 1, 2))
-		add!(P, IndicatorNode{Int}(3, 1, 2))
+    node = FiniteSumNode{Float32}()
 
-		setScope!(children(P)[1], 1)
-		setScope!(children(P)[2], 2)
+    add!(node, IndicatorNode(0, 1), log(0.3))
+    add!(node, IndicatorNode(1, 1), log(0.7))
 
-		llhvals = log.(rand(3, 3))
-		llhvals[:,1] = 0.
+    @test logpdf(node, [0]) ≈ log(0.3)
+    @test logpdf(node, [1]) ≈ log(0.7)
+end
 
-		evaluate!(P, rand(), llhvals)
+@testset "product node" begin
 
-		for i in 1:3
-			@fact llhvals[i,1] --> sum(llhvals[i,2:3])
-		end
-	end
+    node = FiniteProductNode()
+    add!(node, IndicatorNode(1, 1))
+    add!(node, IndicatorNode(1, 2))
+
+    @test logpdf(node, [0, 1]) == -Inf
+    @test logpdf(node, [1, 0]) == -Inf
+    @test logpdf(node, [1, 1]) == 0
 end

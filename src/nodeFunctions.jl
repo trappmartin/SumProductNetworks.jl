@@ -1,4 +1,5 @@
-export hasWeights, getWeights, setScope!, setObservations!, scope, obs, update!, classes, children, parents, length, add!, remove!, evaluate!
+export hasWeights, weights, setScope!, setObservations!, scope, obs, update!
+export classes, children, parents, length, add!, remove!, logpdf!, logpdf
 
 function hasWeights(node::SumNode)
     return true
@@ -12,11 +13,11 @@ function hasWeights(node::Node)
     return false
 end
 
-function getWeights(node::SumNode)
+function weights(node::SumNode)
     return node.logweights
 end
 
-function getWeights(node::FiniteAugmentedProductNode)
+function weights(node::FiniteAugmentedProductNode)
     return node.logomega
 end
 
@@ -186,48 +187,74 @@ function length(node::Node)
     Base.length(node.children)
 end
 
+function logpdf(node::Node, x::Vector{T}) where T<:Real
+    idx= Axis{:id}([n.id for n in getOrderedNodes(node)])
+    llhvals = AxisArray(Vector{Float32}(undef, length(idx)), idx)
+    
+    # Call inplace function.
+    logpdf!(node, x, llhvals)
+    return llhvals[node.id]
+end
+
 """
 Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
-function evaluate!(node::SumNode, data, llhvals)
-    @inbounds llhvals[:, node.id] = logsumexp(llhvals[:, node.cids] .+ node.logweights', dim = 2)
-#    @assert !any(isnan.(llhvals[:,node.id])) "Found NaN in output, w: $(node.logweights)"
-end
+function logpdf!(node::SumNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+    alpha = -Inf
+    r = 0.0
+    y = -Inf32
+    for (i, child) in enumerate(children(node))
+        if !isdefined(llhvals, child.id)
+            logpdf!(child, x, llhvals)
+        end
 
-function evaluate!(node::ProductNode, data, llhvals)
-    @inbounds for k in 1:length(node)
-        if hasSubScope(node, node.children[k])
-            llhvals[:, node.id] += llhvals[:, node.cids[k]]
+        y = llhvals[child.id] + weights(node)[i]
+
+        if isinf(y)
+            continue
+        elseif y <= alpha
+            r += exp(y - alpha)
+        else
+            r *= exp(alpha - y)
+            r += 1.
+            alpha = y
         end
     end
-#    @assert !any(isnan.(llhvals[:,node.id]))
+
+    llhvals[node.id] = log(r) + alpha
+    return llhvals
 end
 
-function evaluate!(node::IndicatorNode, data, llhvals)
-    @inbounds idx = find(data[:, node.scopeVec] .!= node.value)
-    @inbounds llhvals[idx, node.id] = -Inf32
-#    @assert !any(isnan.(llhvals[:,node.id]))
-end
-
-function evaluate!(node::NormalDistributionNode, data, llhvals)
-    @simd for i in 1:size(data, 1)
-        @inbounds llhvals[i, node.id] = normlogpdf(node.μ, node.σ, data[i, node.scope])
+function logpdf!(node::ProductNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+    r = 0.0
+    for child in children(node)
+        if !isdefined(llhvals, child.id)
+            logpdf!(child, x, llhvals)
+        end
+        r += llhvals[child.id]
     end
+    llhvals[node.id] = r
+    return llhvals
 end
 
-function evaluate!(node::UnivariateNode{U}, data, llhvals) where U
-    @inbounds llhvals[:, node.id] = logpdf(node.dist, data[:, node.scope])
+function logpdf(node::Leaf, x::Vector{T}) where T<:Real
+    llhvals = AxisArray(Vector{Float32}(undef, 1), Axis{:id}([node.id]))
+    logpdf!(node, x, llhvals)
+    return llhvals[node.id]
 end
 
-function evaluate!(node::MultivariateNode{U}, data, llhvals) where U
-    @inbounds llhvals[:, node.id] = logpdf(node.dist, data[:, node.scope]')
+function logpdf!(node::IndicatorNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+    llhvals[node.id] = x[node.scope] == node.value ? zero(Float32) : -Inf32
+    return llhvals
 end
 
-function evaluate!(node::UnivariateNode{U}, data, llhvals) where U<:ConjugatePostDistribution
-    @inbounds llhvals[:, node.id] = logpostpred(node.dist, data[:, node.scope])
+function logpdf!(node::UnivariateNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+    llhvals[node.id] = convert(Float32, logpdf(node.dist, x[node.scope]))
+    return llhvals
 end
 
-function evaluate!(node::MultivariateNode{U}, data, llhvals) where U<:ConjugatePostDistribution
-    @inbounds llhvals[:, node.id] = logpostpred(node.dist, data[:, node.scope])
+function logpdf!(node::MultivariateNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+    llhvals[node.id] = convert(Float32, logpdf(node.dist, x[node.scope]))
+    return llhvals
 end

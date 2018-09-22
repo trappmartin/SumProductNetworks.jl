@@ -5,11 +5,11 @@ using Clustering
 using Distances
 using Distributions
 using StatsFuns
-using Base
 using HilbertSchmidtIndependenceCriterion
 using BayesianNonparametrics
 using JLD2
 using FileIO
+using AxisArrays
 # using InformationMeasures
 
 using StatsBase: countmap
@@ -20,6 +20,7 @@ import Base.parent
 import Base.length
 import Base.size
 import Base.show
+import Distributions.logpdf
 
 # add Base modules
 using Statistics

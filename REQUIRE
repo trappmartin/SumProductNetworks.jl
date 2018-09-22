@@ -4,8 +4,8 @@ Distances 0.7.3
 Distributions 0.16.2
 StatsFuns 0.7.0
 HilbertSchmidtIndependenceCriterion 0.2.0
-BayesianNonparametrics
+BayesianNonparametrics 0.0.1
 JLD2
 FileIO
-InformationMeasures
 StatsBase 0.25.0
+AxisArrays
