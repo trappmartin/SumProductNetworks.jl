@@ -4,11 +4,8 @@
 
 This software package implements node and layer wise Sum-Product Networks (SPNs). Further, this code provides high level routines to work with SPNs.
 
-**This package is currently wip to get ready for Julia 1.0. Several things might break!**
-
-## Requireements
-* julia 1.0
-* packages listed in REQUIRE
+### News
+* 24.09.2018 - SumProductNetworks.jl now works under Julia 1.0. 
 
 ## Installation
 Make sure you have julia running. Currently the package is not registered (this will change soon) and you have to run the following inside of julia's package mode. (You can enter the package mode by typing ] in the REPL.)
@@ -17,14 +14,37 @@ Make sure you have julia running. Currently the package is not registered (this 
 pkg> add https://github.com/trappmartin/SumProductNetworks.jl.git
 ```
 
-## Documentation
-Please check the doc folder for a documentation on this software package. Note that this package is under constant development and the documentation might be behind things.
+## Usage
+The following example is a minimal example.
+```julia
+using SumProductNetworks
+using Distributions
 
-### Developing the source code
-To ensure correctness of the implementation, the source code is developed using a test-driven approach by automatically rerunning all test. Please post an issue if you find a bug or run into trouble using this package!
+# Create a root sum node.
+root = FiniteSumNode()
+
+# Add two product nodes to the root.
+add!(root, FiniteProductNode(), log(0.3)) # Use a weight of 0.3
+add!(root, FiniteProductNode(), log(0.7)) # Use a weight of 0.7
+
+# Add Normal distributions to the product nodes, i.e. leaves.
+for prod in children(root)
+    for d in 1:2 # Assume 2-D data
+        add!(prod, UnivariateNode(Normal(), d)
+    end
+end
+
+# Evaluate the network on some data.
+x = [0.8, 1.2]
+
+logp = logpdf(root, x)
+```
+
+## Documentation
+The documentation is currently work in progress.
 
 ### Contribute
-This package is currently maintained only by myself. Feel free to contact me if you want to contribute!
+Feel free to open a PR if you want to contribute!
 
 ### References
 Please consider citing any of the following publications if you use this package.
