@@ -1,4 +1,4 @@
-export hasWeights, weights, setScope!, setObservations!, scope, obs, update!
+export hasWeights, weights, setScope!, setObservations!, scope, obs
 export classes, children, parents, length, add!, remove!, logpdf!, logpdf
 
 function hasWeights(node::SumNode)
@@ -26,7 +26,7 @@ function setScope!(node::SPNNode, scope::Vector{Int})
         @assert maximum(scope) <= length(node.scopeVec)
 
         fill!(node.scopeVec, false)
-        node.scopeVec[scope] = true
+        node.scopeVec[scope] .= true
     else
         fill!(node.scopeVec, false)
     end
@@ -70,10 +70,6 @@ end
 
 function obs(node::Node)
     return findall(node.obsVec)
-end
-
-function update!(node::Node)
-    node.cids = Int[child.id for child in children(node)]
 end
 
 """

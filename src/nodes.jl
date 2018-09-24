@@ -65,7 +65,6 @@ function FiniteAugmentedProductNode{T}(; D = 0, N = 0, parents = SPNNode[]) wher
                                gensym(),
                                parents,
                                SPNNode[],
-                               Int[],
                                T[],
                                falses(D),
                                falses(N)
