@@ -26,6 +26,18 @@ function FiniteSumNode{T}(;D = 0, N = 0, parents = SPNNode[], α = 1.) where T <
     return FiniteSumNode(gensym(), parents, SPNNode[], T[], α, falses(D), falses(N))
 end
 
+function Base.show(io::IO, node::FiniteSumNode)
+    println(io, "sum node ($(node.id))")
+    println(io, "\tparents = $(map(p -> p.id, node.parents))")
+    println(io, "\tchildren = $(map(c -> c.id, node.children))")
+    println(io, "\t(log) weights = $(node.logweights)")
+    println(io, "\tweights = $(exp.(node.logweights))")
+    println(io, "\tnormalized = $(isnormalized(node))")
+    println(io, "\talpha = $(node.α)")
+    println(io, "\tscope = $(findall(node.scopeVec))")
+    println(io, "\tassigns = $(findall(node.obsVec))")
+end
+
 # A finite split node.
 mutable struct FiniteSplitNode <: ProductNode
     id::Symbol
@@ -51,6 +63,17 @@ function FiniteProductNode(;D = 0, N = 0, parents = SPNNode[])
     return FiniteProductNode(gensym(), parents, SPNNode[], falses(D), falses(N))
 end
 
+function Base.show(io::IO, node::FiniteProductNode)
+    if get(io, :compact, true)
+        print(io, """product node ($(node.id) : parents = $(map(p -> p.id, node.parents)), 
+              children = $(map(c -> c.id, node.children))""")
+    else
+        println(io, "product node ($(node.id))")
+        println(io, "\tparents = $(map(p -> p.id, node.parents))")
+        println(io, "\tchildren = $(map(c -> c.id, node.children))")
+    end
+end
+
 mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
     id::Symbol
     parents::Vector{SPNNode}
@@ -71,6 +94,17 @@ function FiniteAugmentedProductNode{T}(; D = 0, N = 0, parents = SPNNode[]) wher
     )
 end
 
+function Base.show(io::IO, node::FiniteAugmentedProductNode)
+    if get(io, :compact, true)
+        print(io, """augmented product node ($(node.id) : parents = $(map(p -> p.id, node.parents)), 
+              children = $(map(c -> c.id, node.children))""")
+    else
+        println(io, "augmented product node ($(node.id))")
+        println(io, "\tparents = $(map(p -> p.id, node.parents))")
+        println(io, "\tchildren = $(map(c -> c.id, node.children))")
+    end
+end
+
 # Definition of an indicater Node.
 mutable struct IndicatorNode <: Leaf
     id::Symbol
@@ -83,6 +117,17 @@ function IndicatorNode(value::Int, dim::Int; parents = SPNNode[])
     return IndicatorNode(gensym(), value, dim, parents)
 end
 
+function Base.show(io::IO, node::IndicatorNode)
+    if get(io, :compact, true)
+        print(io, """indicator node ($(node.id) : parents = $(map(p -> p.id, node.parents)), 
+              function = 1(x[$(node.scope)] = $(node.value))""")
+    else
+        println(io, "indicator node ($(node.id))")
+        println(io, "\tparents = $(map(p -> p.id, node.parents))")
+        println(io, "\tfunction = 1(x[$(node.scope)] = $(node.value))")
+    end
+end
+
 # A univariate node computes the likelihood of x under a univariate distribution.
 mutable struct UnivariateNode <: Leaf
     id::Symbol
@@ -93,6 +138,17 @@ end
 
 function UnivariateNode(distribution::T, dim::Int; parents = SPNNode[]) where {T<:UnivariateDistribution}
     return UnivariateNode(gensym(), parents, distribution, dim)
+end
+
+function Base.show(io::IO, node::UnivariateNode)
+    if get(io, :compact, true)
+        print(io, """univariate node ($(node.id) : parents = $(map(p -> p.id, node.parents)), 
+              distribution function = $(node.dist)""")
+    else
+        println(io, "univariate node ($(node.id))")
+        println(io, "\tparents = $(map(p -> p.id, node.parents))")
+        println(io, "\tdistribution function = $(node.dist)")
+    end
 end
 
 # A multivariate node computes the likelihood of x under a multivariate distribution.

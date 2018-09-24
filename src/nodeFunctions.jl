@@ -1,27 +1,23 @@
-export hasWeights, weights, setScope!, setObservations!, scope, obs
+export hasweights, weights, setscope!, setObservations!, addobs!, scope, obs, isnormalized
 export classes, children, parents, length, add!, remove!, logpdf!, logpdf
 
-function hasWeights(node::SumNode)
-    return true
+function isnormalized(node::Node)
+    if !hasweights(node)
+        return mapreduce(child -> isnormalized(child), &, children(node))
+    else
+        return sum(exp.(weights(node))) ≈ 1.0
+    end
 end
+isnormalized(node::Leaf) = true
 
-function hasWeights(node::FiniteAugmentedProductNode)
-    return true
-end
+hasweights(node::SumNode) = true
+hasweights(node::FiniteAugmentedProductNode) = true
+hasweights(node::Node) = false
 
-function hasWeights(node::Node)
-    return false
-end
+weights(node::SumNode) = node.logweights
+weights(node::FiniteAugmentedProductNode) = node.logomega
 
-function weights(node::SumNode)
-    return node.logweights
-end
-
-function weights(node::FiniteAugmentedProductNode)
-    return node.logomega
-end
-
-function setScope!(node::SPNNode, scope::Vector{Int})
+function setscope!(node::SPNNode, scope::Vector{Int})
     if length(scope) > 0
         @assert maximum(scope) <= length(node.scopeVec)
 
@@ -32,7 +28,7 @@ function setScope!(node::SPNNode, scope::Vector{Int})
     end
 end
 
-function setScope!(node::SPNNode, scope::Int)
+function setscope!(node::SPNNode, scope::Int)
     @assert scope <= length(node.scopeVec)
 
     fill!(node.scopeVec, false)
@@ -55,6 +51,11 @@ end
 
 function hasSubScope(node1::ProductNode, node2::SPNNode)
     return any(node1.scopeVec .& node2.scopeVec)
+end
+
+function addobs!(node::SPNNode, obs::Int)
+    @assert obs <= length(node.obsVec)
+    node.obsVec[obs] = true
 end
 
 function setObservations!(node::Node, obs::Vector{Int})
