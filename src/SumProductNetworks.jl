@@ -2,8 +2,9 @@ module SumProductNetworks
 
 # loading dependencies into workspaces
 using Clustering
+using Reexport
 using Distances
-using Distributions
+@reexport using Distributions
 using StatsFuns
 using HilbertSchmidtIndependenceCriterion
 using BayesianNonparametrics
@@ -14,16 +15,11 @@ using AxisArrays
 
 using StatsBase: countmap
 
-import Base.getindex
-import Base.map
-import Base.parent
-import Base.length
-import Base.size
-import Base.show
+import Base: getindex, map, parent, length, size, show
 import Distributions.logpdf
 
 # add Base modules
-using Statistics
+@reexport using Statistics
 using LinearAlgebra
 using SparseArrays
 using Random

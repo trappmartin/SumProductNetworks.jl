@@ -7,5 +7,6 @@ HilbertSchmidtIndependenceCriterion 0.2.0
 BayesianNonparametrics 0.0.1
 JLD2
 FileIO
+Reexport
 StatsBase 0.25.0
 AxisArrays

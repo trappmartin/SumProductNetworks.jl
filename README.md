@@ -18,7 +18,6 @@ pkg> add https://github.com/trappmartin/SumProductNetworks.jl.git
 The following example is a minimal example.
 ```julia
 using SumProductNetworks
-using Distributions
 
 # Create a root sum node.
 root = FiniteSumNode()
@@ -36,7 +35,6 @@ end
 
 # Evaluate the network on some data.
 x = [0.8, 1.2]
-
 logp = logpdf(root, x)
 ```
 
