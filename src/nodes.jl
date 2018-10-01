@@ -26,10 +26,14 @@ function FiniteSumNode{T}(;D = 0, N = 0, parents = SPNNode[], α = 1.) where T <
     return FiniteSumNode(gensym(), parents, SPNNode[], T[], α, falses(D), falses(N))
 end
 
+function header(node::SPNNode)
+    return "$(summary(node))($(node.id))"
+end
+
 function Base.show(io::IO, node::FiniteSumNode)
-    println(io, "sum node ($(node.id))")
-    println(io, "\tparents = $(map(p -> p.id, node.parents))")
-    println(io, "\tchildren = $(map(c -> c.id, node.children))")
+    println(io, header(node))
+    println(io, "\tparents = $(map(p -> header(p), node.parents))")
+    println(io, "\tchildren = $(map(c -> header(c), node.children))")
     println(io, "\t(log) weights = $(node.logweights)")
     println(io, "\tweights = $(exp.(node.logweights))")
     println(io, "\tnormalized = $(isnormalized(node))")
@@ -64,14 +68,9 @@ function FiniteProductNode(;D = 0, N = 0, parents = SPNNode[])
 end
 
 function Base.show(io::IO, node::FiniteProductNode)
-    if get(io, :compact, true)
-        print(io, """product node ($(node.id) : parents = $(map(p -> p.id, node.parents)), 
-              children = $(map(c -> c.id, node.children))""")
-    else
-        println(io, "product node ($(node.id))")
-        println(io, "\tparents = $(map(p -> p.id, node.parents))")
-        println(io, "\tchildren = $(map(c -> c.id, node.children))")
-    end
+    println(io, header(node))
+    println(io, "\tparents = $(map(p -> header(p), node.parents))")
+    println(io, "\tchildren = $(map(c -> header(c), node.children))")
 end
 
 mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
