@@ -1,3 +1,4 @@
+export SumProductNetwork
 export SPNNode, Node, Leaf, SumNode, ProductNode
 export FiniteSumNode, FiniteProductNode, FiniteAugmentedProductNode
 export InfiniteSumNode, InfiniteProductNode
@@ -11,13 +12,31 @@ abstract type SumNode{T} <: Node end
 abstract type ProductNode <: Node end
 abstract type Leaf <: SPNNode end
 
+struct SumProductNetwork
+    root::SumNode
+    nodes::Vector{SPNNode}
+    leaves::Vector{Leaf}
+    idx::Dict{Symbol, Int}
+    topological_order::Vector{Int}
+end
+
+Base.keys(spn::SumProductNetwork) = keys(spn.idx)
+Base.getindex(spn::SumProductNetwork, i...) = spn.nodes[spn.idx[i...]]
+Base.length(spn::SumProductNetwork) = length(spn.nodes)
+function Base.show(io::IO, spn::SumProductNetwork)
+    println(io, summary(spn))
+    println(io, "\t#nodes = $(length(spn))")
+    println(io, "\t#leaves = $(length(spn.leaves))")
+    println(io, "\troot = $(spn.root.id)")
+end
+
 # A finite sum node.
 mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
     id::Symbol
     parents::Vector{SPNNode}
     children::Vector{SPNNode}
     logweights::Vector{T}
-    α::Float64
+    α::Union{Float64, Vector{Float64}}
     scopeVec::BitArray{1}
     obsVec::BitArray{1}
 end
@@ -116,15 +135,14 @@ function IndicatorNode(value::Int, dim::Int; parents = SPNNode[])
     return IndicatorNode(gensym(), value, dim, parents)
 end
 
+function Base.isequal(n1::IndicatorNode, n2::IndicatorNode)
+    return (n1.value == n2.value) && (n1.scope == n2.scope)
+end
+
 function Base.show(io::IO, node::IndicatorNode)
-    if get(io, :compact, true)
-        print(io, """indicator node ($(node.id) : parents = $(map(p -> p.id, node.parents)), 
-              function = 1(x[$(node.scope)] = $(node.value))""")
-    else
-        println(io, "indicator node ($(node.id))")
-        println(io, "\tparents = $(map(p -> p.id, node.parents))")
-        println(io, "\tfunction = 1(x[$(node.scope)] = $(node.value))")
-    end
+    println(io, "indicator node ($(node.id))")
+    println(io, "\tparents = $(map(p -> p.id, node.parents))")
+    println(io, "\tfunction = 1(x[$(node.scope)] = $(node.value))")
 end
 
 # A univariate node computes the likelihood of x under a univariate distribution.

@@ -1,11 +1,15 @@
-export hasweights, weights, setscope!, setObservations!, addobs!, scope, obs, isnormalized
+export hasweights, weights, setscope!, setobs!, addobs!, scope, obs, isnormalized
+export addscope!
+export removescope!
+export hasscope
+export logweights
 export classes, children, parents, length, add!, remove!, logpdf!, logpdf
 
 function isnormalized(node::Node)
     if !hasweights(node)
         return mapreduce(child -> isnormalized(child), &, children(node))
     else
-        return sum(exp.(weights(node))) ≈ 1.0
+        return sum(weights(node)) ≈ 1.0
     end
 end
 isnormalized(node::Leaf) = true
@@ -14,8 +18,10 @@ hasweights(node::SumNode) = true
 hasweights(node::FiniteAugmentedProductNode) = true
 hasweights(node::Node) = false
 
-weights(node::SumNode) = node.logweights
-weights(node::FiniteAugmentedProductNode) = node.logomega
+weights(node::SumNode) = exp.(node.logweights)
+logweights(node::SumNode) = node.logweights
+weights(node::FiniteAugmentedProductNode) = exp.(node.logomega)
+logweights(node::FiniteAugmentedProductNode) = node.logomega
 
 function setscope!(node::SPNNode, scope::Vector{Int})
     if length(scope) > 0
@@ -35,12 +41,12 @@ function setscope!(node::SPNNode, scope::Int)
     node.scopeVec[scope] = true
 end
 
-function addScope!(node::SPNNode, scope::Int)
+function addscope!(node::Node, scope::Int)
     @assert scope <= length(node.scopeVec)
     node.scopeVec[scope] = true
 end
 
-function removeScope!(node::SPNNode, scope::Int)
+function removescope!(node::Node, scope::Int)
     @assert scope <= length(node.scopeVec)
     node.scopeVec[scope] = false
 end
@@ -48,6 +54,12 @@ end
 function scope(node::SPNNode)
     return findall(node.scopeVec)
 end
+
+function hasscope(node::Node)
+    return sum(node.scopeVec) > 0
+end
+hasscope(node::Leaf) = true
+
 
 function hasSubScope(node1::ProductNode, node2::SPNNode)
     return any(node1.scopeVec .& node2.scopeVec)
@@ -58,20 +70,20 @@ function addobs!(node::SPNNode, obs::Int)
     node.obsVec[obs] = true
 end
 
-function setObservations!(node::Node, obs::Vector{Int})
+function setobs!(node::Node, obs::AbstractVector{Int})
     if length(obs) > 0
         @assert maximum(obs) <= length(node.obsVec)
 
         fill!(node.obsVec, false)
-        node.obsVec[obs] = true
+        node.obsVec[obs] .= true
     else
         fill!(node.obsVec, false)
     end
 end
 
-function obs(node::Node)
-    return findall(node.obsVec)
-end
+obs(node::Node) = findall(node.obsVec)
+hasobs(node::Node) = any(node.obsVec)
+
 
 """
 
@@ -184,8 +196,8 @@ function length(node::Node)
     Base.length(node.children)
 end
 
-function logpdf(node::Node, x::Vector{T}) where T<:Real
-    idx= Axis{:id}([n.id for n in getOrderedNodes(node)])
+function logpdf(node::Node, x::AbstractVector{T}) where T<:Real
+    idx = Axis{:id}([n.id for n in getOrderedNodes(node)])
     llhvals = AxisArray(Vector{Float32}(undef, length(idx)), idx)
     
     # Call inplace function.
@@ -197,7 +209,7 @@ end
 Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
-function logpdf!(node::SumNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     alpha = -Inf
     r = 0.0
     y = -Inf32
@@ -206,7 +218,7 @@ function logpdf!(node::SumNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
             logpdf!(child, x, llhvals)
         end
 
-        y = llhvals[child.id] + weights(node)[i]
+        y = llhvals[child.id] + logweights(node)[i]
 
         if isinf(y)
             continue
@@ -223,7 +235,7 @@ function logpdf!(node::SumNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
     return llhvals
 end
 
-function logpdf!(node::ProductNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+function logpdf!(node::ProductNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     r = 0.0
     for child in children(node)
         if !isdefined(llhvals, child.id)
@@ -235,23 +247,23 @@ function logpdf!(node::ProductNode, x::Vector{T}, llhvals::AxisArray) where T<:R
     return llhvals
 end
 
-function logpdf(node::Leaf, x::Vector{T}) where T<:Real
+function logpdf(node::Leaf, x::AbstractVector{T}) where T<:Real
     llhvals = AxisArray(Vector{Float32}(undef, 1), Axis{:id}([node.id]))
     logpdf!(node, x, llhvals)
     return llhvals[node.id]
 end
 
-function logpdf!(node::IndicatorNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+function logpdf!(node::IndicatorNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     llhvals[node.id] = x[node.scope] == node.value ? zero(Float32) : -Inf32
     return llhvals
 end
 
-function logpdf!(node::UnivariateNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+function logpdf!(node::UnivariateNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     llhvals[node.id] = convert(Float32, logpdf(node.dist, x[node.scope]))
     return llhvals
 end
 
-function logpdf!(node::MultivariateNode, x::Vector{T}, llhvals::AxisArray) where T<:Real
+function logpdf!(node::MultivariateNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     llhvals[node.id] = convert(Float32, logpdf(node.dist, x[node.scope]))
     return llhvals
 end

@@ -15,7 +15,7 @@ using AxisArrays
 
 using StatsBase: countmap
 
-import Base: getindex, map, parent, length, size, show
+import Base: getindex, map, parent, length, size, show, isequal, getindex, keys
 import Distributions.logpdf
 
 # add Base modules
