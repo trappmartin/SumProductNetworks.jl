@@ -16,12 +16,14 @@ struct SumProductNetwork
     root::SumNode
     nodes::Vector{SPNNode}
     leaves::Vector{Leaf}
-    idx::Dict{Symbol, Int}
+    idx::Dict{Symbol,Int}
     topological_order::Vector{Int}
 end
 
 Base.keys(spn::SumProductNetwork) = keys(spn.idx)
-Base.getindex(spn::SumProductNetwork, i...) = spn.nodes[spn.idx[i...]]
+Base.values(spn::SumProductNetwork) = spn.nodes
+Base.getindex(spn::SumProductNetwork, i...) = getindex(spn.nodes, spn.idx[i...])
+Base.setindex!(spn::SumProductNetwork, v, i...) = setindex!(spn.nodes, v, spn.idx[i...])
 Base.length(spn::SumProductNetwork) = length(spn.nodes)
 function Base.show(io::IO, spn::SumProductNetwork)
     println(io, summary(spn))
@@ -42,7 +44,7 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
 end
 
 function FiniteSumNode{T}(;D = 0, N = 0, parents = SPNNode[], α = 1.) where T <: Real
-    return FiniteSumNode(gensym(), parents, SPNNode[], T[], α, falses(D), falses(N))
+    return FiniteSumNode{T}(gensym(), parents, SPNNode[], T[], α, falses(D), falses(N))
 end
 
 function header(node::SPNNode)
@@ -97,16 +99,18 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
     parents::Vector{SPNNode}
     children::Vector{SPNNode}
     logomega::Vector{T}
+    α::Union{Float64, Vector{Float64}}
     scopeVec::BitArray{1}
     obsVec::BitArray{1}
 end
 
 function FiniteAugmentedProductNode{T}(; D = 0, N = 0, parents = SPNNode[]) where T<:Real
-    return FiniteAugmentedProductNode(
+    return FiniteAugmentedProductNode{T}(
                                gensym(),
                                parents,
                                SPNNode[],
                                T[],
+                               1.,
                                falses(D),
                                falses(N)
     )

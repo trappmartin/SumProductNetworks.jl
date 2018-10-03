@@ -1,8 +1,9 @@
 export hasweights, weights, setscope!, setobs!, addobs!, scope, obs, isnormalized
 export addscope!
 export removescope!
-export hasscope
+export hasscope, hasobs
 export logweights
+export updatescope!
 export classes, children, parents, length, add!, remove!, logpdf!, logpdf
 
 function isnormalized(node::Node)
@@ -51,8 +52,12 @@ function removescope!(node::Node, scope::Int)
     node.scopeVec[scope] = false
 end
 
-function scope(node::SPNNode)
+function scope(node::Node)
     return findall(node.scopeVec)
+end
+
+function scope(node::Leaf)
+    return node.scope
 end
 
 function hasscope(node::Node)
@@ -83,6 +88,35 @@ end
 
 obs(node::Node) = findall(node.obsVec)
 hasobs(node::Node) = any(node.obsVec)
+
+
+"""
+    updatescope!(spn)
+Update the scope of all nodes in the SPN.
+"""
+function updatescope!(spn::SumProductNetwork)
+    updatescope!(spn.root)
+end
+
+function updatescope!(node::SumNode)
+    for child in children(node)
+        updatescope!(child)
+    end
+    setscope!(node, scope(first(children(node))))
+    return node
+end
+
+function updatescope!(node::ProductNode)
+    for child in children(node)
+        updatescope!(child)
+    end
+    setscope!(node, mapreduce(c -> scope(c), vcat, children(node)))
+    return node
+end
+
+function updatescope!(node::Leaf)
+    return node
+end
 
 
 """
@@ -178,7 +212,8 @@ Remove a node from the children list of a sum node in place.
 remove!(node::FiniteSumNode, index::Int)
 """
 function remove!(parent::SumNode, index::Int)
-    pid = findfirst(parent .== parent.children[index].parents)
+    pid = findfirst(map(p -> p == parent, parent.children[index].parents))
+
     @assert pid > 0 "Could not find parent ($(node.id)) in list of parents ($(parent.children[index].parents))!"
     deleteat!(parent.children[index].parents, pid)
     deleteat!(parent.children, index)
@@ -210,15 +245,15 @@ Evaluate Sum-Node on data.
 This function updates the llh of the data under the model.
 """
 function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
-    alpha = -Inf
-    r = 0.0
+    alpha = -Inf32
+    r = 0.0f0
     y = -Inf32
     for (i, child) in enumerate(children(node))
         if !isdefined(llhvals, child.id)
             logpdf!(child, x, llhvals)
         end
 
-        y = llhvals[child.id] + logweights(node)[i]
+        y = llhvals[child.id] + Float32(logweights(node)[i])
 
         if isinf(y)
             continue
@@ -226,7 +261,7 @@ function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where 
             r += exp(y - alpha)
         else
             r *= exp(alpha - y)
-            r += 1.
+            r += 1.f0
             alpha = y
         end
     end
@@ -236,8 +271,8 @@ function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where 
 end
 
 function logpdf!(node::ProductNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
-    r = 0.0
-    for child in children(node)
+    r = 0.0f0
+    for child in filter(c -> hasscope(c), children(node))
         if !isdefined(llhvals, child.id)
             logpdf!(child, x, llhvals)
         end

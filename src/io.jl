@@ -33,7 +33,7 @@ function getLabel(node::Leaf)
 end
 
 function getLabel(node::IndicatorNode)
-    return "\"X$(scope(node)) = $(node.value-1)\""
+    return "\"X$(scope(node)) = $(node.value)\""
 end
 
 function getShape(node::SPNNode)
@@ -69,26 +69,26 @@ function getParameters(node::IndicatorNode)
 end
 
 function isDegenerated(node::Node, nodeObsDegeneration)
-    return nodeObsDegeneration ? ( isempty(scope(node)) | isempty(obs(node)) ) : isempty(scope(node))
+    return nodeObsDegeneration ? !(hasscope(node) && hasobs(node)) : !hasscope(node)
 end
 
 function isDegenerated(node::Leaf, nodeObsDegeneration)
     return isDegenerated(parents(node)[1], nodeObsDegeneration)
 end
 
-function exportNetwork(root::Node, filename::String; nodeObsDegeneration = false, excludeDegenerated = false)
+function exportNetwork(spn::SumProductNetwork,
+                       filename::AbstractString;
+                       nodeObsDegeneration = false,
+                       excludeDegenerated = false)
 
-	gstring = ["digraph SPN {"]
-
+    gstring = ["digraph SPN {"]
     push!(gstring, "node [margin=0, width=0.7, fixedsize=true];")
-
-    nodes = getOrderedNodes(root)
 
     if excludeDegenerated
         @warn("Excluding degenerated nodes, these nodes cannot be recovered from the DOT file!")
     end
 
-    for node in nodes
+    for node in values(spn)
         label = getLabel(node)
         shape = getShape(node)
         fontsize = getFontSize(node)
@@ -100,18 +100,21 @@ function exportNetwork(root::Node, filename::String; nodeObsDegeneration = false
         degeneratedNode = isDegenerated(node, nodeObsDegeneration)
         style = !degeneratedNode ? "" : "style=dotted,"
 
-        if excludeDegenerated & degeneratedNode
+        if excludeDegenerated && degeneratedNode
             continue
+        else
+            # sanity check
+            @assert any(map(p -> !isDegenerated(p, nodeObsDegeneration), parents(node))) "$node"
         end
 
-        nodestring = "$(node.id) [label=$(label), shape=$(shape), $(style) fontsize=$(fontsize), "*
+        nodestring = "$(spn.idx[node.id]) [label=$(label), shape=$(shape), $(style) fontsize=$(fontsize), "*
                         "nodeType=$(nodeType), nodeScope=$(nodeScope), nodeNumObs=$(nodeNumObs), "*
                         "nodeParameters=$(parameters)];"
 
         push!(gstring, nodestring)
     end
 
-    for node in filter(n -> isa(n, Node), nodes)
+    for node in filter(n -> isa(n, Node), values(spn))
         for (ci, child) in enumerate(children(node))
             degeneratedChild = isDegenerated(child, nodeObsDegeneration)
             style = !degeneratedChild ? "" : "style=dotted,"
@@ -120,16 +123,15 @@ function exportNetwork(root::Node, filename::String; nodeObsDegeneration = false
                 continue
             end
 
-            if hasWeights(node)
-                logw = getWeights(node)[ci]
+            if hasweights(node)
+                w = weights(node)[ci]
                 #logw = @sprintf("%0.4f", logw)
-                w = @sprintf("%0.2f", exp(logw))
-
-                push!(gstring, "$(node.id) -> $(child.id) [label=$(w), $(style) logWeight=\"$(logw)\"];")
+                w = @sprintf("%0.2f", w)
+                push!(gstring, "$(spn.idx[node.id]) -> $(spn.idx[child.id]) [label=$(w), $(style) logWeight=\"$(logweights(node))\"];")
 
             else
                 style = !degeneratedChild ? "" : "style=dotted"
-                push!(gstring, "$(node.id) -> $(child.id) [$(style)];")
+                push!(gstring, "$(spn.idx[node.id]) -> $(spn.idx[child.id]) [$(style)];")
             end
         end
     end
@@ -137,118 +139,6 @@ function exportNetwork(root::Node, filename::String; nodeObsDegeneration = false
     push!(gstring, "}")
 
     open(filename, "w") do f
-        write(f, join(gstring, '\n'))
-    end
-end
-
-function exportNetwork(root::SPNLayer, dot_filename::String, param_filename::String; nodeObsDegeneration = false, excludeDegenerated = false)
-
-	gstring = ["digraph SPN {"]
-
-    push!(gstring, "node [margin=0.5, width=0.7, fixedsize=true];")
-    push!(gstring, "compound=true;")
-
-    layers = getOrderedLayers(root)
-
-    if excludeDegenerated
-        @warn("Excluding degenerated nodes, these nodes cannot be recovered from the DOT file!")
-    end
-
-    for (li, layer) in enumerate(layers)
-
-        label = getLabel(layer)
-        shape = getShape(layer)
-        #fontsize = getFontSize(node)
-        #parameters = getParameters(node)
-        layer_type = "\"$(string(typeof(layer)))\""
-        #nodeScope = "\"$(string(scope(node)))\""
-        #nodeNumObs = isa(node, Node) ? string(sum(node.obsVec)) : "\"\""
-
-        #degeneratedNode = isDegenerated(node, nodeObsDegeneration)
-        #style = !degeneratedNode ? "" : "style=dotted,"
-        style = ""
-
-        #if excludeDegenerated & degeneratedNode
-        #    continue
-        #end
-
-        if isa(layer, AbstractInternalLayer)
-
-            (C, Ch) = size(layer)
-
-            layer_string = ["subgraph cluster$(li) { "]
-
-            nodestring = "$(layer.ids[1]) [label=$(label), shape=$(shape), $(style) xlabel=$(layer.ids[1])];"
-            push!(layer_string, nodestring)
-
-            if C > 1
-                if C > 2
-                    nodestring = "$(layer.ids[2]) [shape=point, width=0.1];"
-                    push!(layer_string, nodestring)
-                end
-
-                nodestring = "$(layer.ids[end]) [label=$(label), shape=$(shape), $(style) xlabel=$(layer.ids[end])];"
-                push!(layer_string, nodestring)
-            end
-
-            push!(layer_string, "label = \"$(string(typeof(layer))) - [$(li)]\";")
-            push!(layer_string, "number_of_nodes = \"C\";")
-            push!(layer_string, "number_of_children = \"Ch\";")
-
-            push!(layer_string, "}")
-            append!(gstring, layer_string)
-
-            # construct connections
-            childids = cids(layer)
-
-            if C > 1
-                push!(gstring, "$(layer.ids[1]) -> $(childids[1, 1]) [ltail=cluster$(li),lhead=cluster$(li-1)];")
-                push!(gstring, "$(layer.ids[end]) -> $(childids[end, end]) [ltail=cluster$(li),lhead=cluster$(li-1)];")
-            else
-                push!(gstring, "$(layer.ids[1]) -> $(childids[2, 1]) [ltail=cluster$(li),lhead=cluster$(li-1)];")
-            end
-
-            jldopen(string(param_filename, "_layer$(li).jld2"), "w") do file
-                file["layer_id"] = li
-                file["ids"] = layer.ids
-                file["child_ids"] = cids(layer)
-                file["parameters"] = parameters(layer)
-            end
-
-        else
-
-            (C, _) = size(layer)
-
-            layer_string = ["subgraph cluster$(li) { "]
-
-            nodestring = "$(layer.ids[1]) [label=$(label), shape=$(shape), $(style) xlabel=$(layer.ids[1])];"
-            push!(layer_string, nodestring)
-
-            nodestring = "$(layer.ids[end]) [label=$(label), shape=$(shape), $(style) xlabel=$(layer.ids[end])];"
-            push!(layer_string, nodestring)
-
-            push!(layer_string, "label = \"$(string(typeof(layer))) - [$(li)]\";")
-            push!(layer_string, "number_of_nodes = \"C\";")
-
-            push!(layer_string, "}")
-            append!(gstring, layer_string)
-
-            jldopen(string(param_filename, "_layer$(li).jld2"), "w") do file
-                file["layer_id"] = li
-                file["ids"] = layer.ids
-                file["scopes"] = layer.scopes
-                file["parameters"] = parameters(layer)
-            end
-
-        end
-
-
-
-    end
-
-    push!(gstring, "}")
-
-    open(string(dot_filename, ".dot"), "w") do f
         write(f, join(gstring, '\n'))
     end
 end
