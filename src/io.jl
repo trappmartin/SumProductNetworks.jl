@@ -73,7 +73,7 @@ function isDegenerated(node::Node, nodeObsDegeneration)
 end
 
 function isDegenerated(node::Leaf, nodeObsDegeneration)
-    return isDegenerated(parents(node)[1], nodeObsDegeneration)
+    return all(map(p -> isDegenerated(p, nodeObsDegeneration), parents(node)))
 end
 
 function exportNetwork(spn::SumProductNetwork,
@@ -102,9 +102,6 @@ function exportNetwork(spn::SumProductNetwork,
 
         if excludeDegenerated && degeneratedNode
             continue
-        else
-            # sanity check
-            @assert any(map(p -> !isDegenerated(p, nodeObsDegeneration), parents(node))) "$node"
         end
 
         nodestring = "$(spn.idx[node.id]) [label=$(label), shape=$(shape), $(style) fontsize=$(fontsize), "*
@@ -117,9 +114,10 @@ function exportNetwork(spn::SumProductNetwork,
     for node in filter(n -> isa(n, Node), values(spn))
         for (ci, child) in enumerate(children(node))
             degeneratedChild = isDegenerated(child, nodeObsDegeneration)
+            degeneratedNode = isDegenerated(node, nodeObsDegeneration)
             style = !degeneratedChild ? "" : "style=dotted,"
 
-            if excludeDegenerated & degeneratedChild
+            if excludeDegenerated & (degeneratedNode || degeneratedChild)
                 continue
             end
 

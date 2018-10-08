@@ -60,6 +60,7 @@ function Base.show(io::IO, node::FiniteSumNode)
     println(io, "\tnormalized = $(isnormalized(node))")
     println(io, "\talpha = $(node.α)")
     println(io, "\tscope = $(findall(node.scopeVec))")
+    println(io, "\thasscope = $(hasscope(node))")
     println(io, "\tassigns = $(findall(node.obsVec))")
 end
 
