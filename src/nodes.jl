@@ -105,13 +105,13 @@ mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
     obsVec::BitArray{1}
 end
 
-function FiniteAugmentedProductNode{T}(; D = 0, N = 0, parents = SPNNode[]) where T<:Real
+function FiniteAugmentedProductNode{T}(; D = 0, N = 0, parents = SPNNode[], α = 1.0) where T<:Real
     return FiniteAugmentedProductNode{T}(
                                gensym(),
                                parents,
                                SPNNode[],
                                T[],
-                               1.,
+                               α,
                                falses(D),
                                falses(N)
     )
