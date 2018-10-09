@@ -20,7 +20,7 @@ The following example is a minimal example.
 using SumProductNetworks
 
 # Create a root sum node.
-root = FiniteSumNode()
+root = FiniteSumNode{Float64}()
 
 # Add two product nodes to the root.
 add!(root, FiniteProductNode(), log(0.3)) # Use a weight of 0.3
