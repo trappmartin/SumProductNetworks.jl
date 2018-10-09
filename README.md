@@ -29,7 +29,7 @@ add!(root, FiniteProductNode(), log(0.7)) # Use a weight of 0.7
 # Add Normal distributions to the product nodes, i.e. leaves.
 for prod in children(root)
     for d in 1:2 # Assume 2-D data
-        add!(prod, UnivariateNode(Normal(), d)
+        add!(prod, UnivariateNode(Normal(), d))
     end
 end
 
