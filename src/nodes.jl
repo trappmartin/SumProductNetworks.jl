@@ -47,9 +47,9 @@ function FiniteSumNode{T}(;D = 0, N = 0, parents = SPNNode[], α = 1.) where T <
     return FiniteSumNode{T}(gensym(), parents, SPNNode[], T[], α, falses(D), falses(N))
 end
 
-function header(node::SPNNode)
-    return "$(summary(node))($(node.id))"
-end
+header(node::SPNNode) = "$(summary(node))($(node.id))"
+eltype(::Type{FiniteSumNode{T}}) where T<:Real = T
+eltype(n::SPNNode) = eltype(typeof(n))
 
 function Base.show(io::IO, node::FiniteSumNode)
     println(io, header(node))
@@ -116,6 +116,8 @@ function FiniteAugmentedProductNode{T}(; D = 0, N = 0, parents = SPNNode[], α =
                                falses(N)
     )
 end
+
+eltype(::Type{FiniteAugmentedProductNode{T}}) where T<:Real = T
 
 function Base.show(io::IO, node::FiniteAugmentedProductNode)
     if get(io, :compact, true)
