@@ -15,31 +15,118 @@ pkg> add https://github.com/trappmartin/SumProductNetworks.jl.git
 ```
 
 ## Usage
-The following example is a minimal example.
+The following minimal example illustrates the use of the package.
+
 ```julia
 using SumProductNetworks
 
 # Create a root sum node.
-root = FiniteSumNode{Float64}()
+root = FiniteSumNode{Float64}();
 
 # Add two product nodes to the root.
-add!(root, FiniteProductNode(), log(0.3)) # Use a weight of 0.3
-add!(root, FiniteProductNode(), log(0.7)) # Use a weight of 0.7
+add!(root, FiniteProductNode(), log(0.3)); # Use a weight of 0.3
+add!(root, FiniteProductNode(), log(0.7)); # Use a weight of 0.7
 
 # Add Normal distributions to the product nodes, i.e. leaves.
 for prod in children(root)
     for d in 1:2 # Assume 2-D data
-        add!(prod, UnivariateNode(Normal(), d))
+        add!(prod, UnivariateNode(Normal(), d));
     end
 end
 
+# Compile the constructed network to an SPN type
+spn = SumProductNetwork(root);
+
+# Print statistics on the network.
+println(spn)
+
 # Evaluate the network on some data.
-x = [0.8, 1.2]
-logp = logpdf(root, x)
+x = [0.8, 1.2];
+logp = logpdf(spn, x)
 ```
 
 ## Documentation
-The documentation is currently work in progress.
+
+#### Datatypes
+The following types are implemented and supported in this package. The abstract type hierarchy is designed such that it is easy to extend the existing types and that efficient implementations using type dispatching is possible.
+
+```julia
+# Abstract type hierarchy.
+SPNNode
+Node <: SPNNode
+Leaf <: SPNNode
+SumNode{T} <: Node
+ProductNode <: Node
+
+# Node types.
+FiniteSumNode() <: SumNode
+FiniteProductNode() <: ProductNode
+IndicatorNode() <: Leaf
+UnivariateNode() <: Leaf
+MultivariateNode() <: Leaf
+```
+
+To get more details on the individual node type, please use the internal documentation system of Julia.
+
+In addition to this types, the package also provides a composite type to represent an SPN, i.e.:
+
+```julia
+SumProductNetwork(root::Node)
+```
+
+#### Utility Functions on an SumProductNetwork
+The following utility functions can be used on an instance of a SumProductNetwork.
+
+```julia
+# Get all nodes of the network.
+values(spn::SumProductNetwork)
+
+# Get the ids of all nodes in the network.
+keys(spn::SumProductNetwork)
+
+# Number of nodes in the network.
+length(spn::SumProductNetwork)
+
+# Indexing using an id.
+spn[id::Symbol]
+```
+
+#### Utility Functions on Nodes
+The following utility functions can be used on an instance of an SPN Node.
+
+```julia
+# Add a child to an internal node (with or without weight).
+add!(node::Node, child::SPNNode)
+add!(node::Node, child::SPNNode, logw::Real)
+
+# Remove a child from an internal node.
+remove!(node::Node, child::SPNNode)
+
+# The depth of the SPN rooted at the node.
+depth(node::SPNNode)
+
+# Get all children of a node.
+children(node::Node)
+
+# Get the number of children of node.
+length(node::Node)
+
+# Get all parents of a node.
+parents(node::SPNNode)
+
+# Has the node a weights field.
+hasweights(node::Node)
+
+# Get all weights of the node.
+weights(node::Node) = exp.(logweights(node))
+
+# Get all log weights of the node
+logweights(node::Node)
+
+# Is the SPN rooted at the node normalized?
+isnormalized(node::SPNNode)
+
+```
 
 ### Contribute
 Feel free to open a PR if you want to contribute!

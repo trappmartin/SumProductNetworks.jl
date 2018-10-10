@@ -1,7 +1,6 @@
 export SumProductNetwork
 export SPNNode, Node, Leaf, SumNode, ProductNode
 export FiniteSumNode, FiniteProductNode, FiniteAugmentedProductNode
-export InfiniteSumNode, InfiniteProductNode
 export IndicatorNode, UnivariateNode 
 export MultivariateNode
 
