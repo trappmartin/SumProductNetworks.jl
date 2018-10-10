@@ -2,13 +2,15 @@
 [![Build Status](https://travis-ci.org/trappmartin/SumProductNetworks.jl.svg?branch=master)](https://travis-ci.org/trappmartin/SumProductNetworks.jl)
 [![Coverage Status](https://coveralls.io/repos/github/trappmartin/SumProductNetworks.jl/badge.svg?branch=master)](https://coveralls.io/github/trappmartin/SumProductNetworks.jl?branch=master)
 
-This software package implements node and layer wise Sum-Product Networks (SPNs). Further, this code provides high level routines to work with SPNs.
+This software package implements the tractable probabilistic model sum-product network (SPN) in Julia. 
+The package provides a clean and modular interface for SPNs and implements various helper and utility functions to efficienty work with SPN models.
 
 ### News
-* 24.09.2018 - SumProductNetworks.jl now works under Julia 1.0. 
+* 10.10.2018 - The package now provides more efficient logpdf routines and allows for multithreaded computations.
+* 24.09.2018 - SumProductNetworks now works under Julia 1.0. 
 
 ## Installation
-Make sure you have julia running. Currently the package is not registered (this will change soon) and you have to run the following inside of julia's package mode. (You can enter the package mode by typing ] in the REPL.)
+Make sure you have Julia 1.0 running. The package is currently not registered (this will change soon) and you have to run the following command inside of Julia's package mode. (You can enter the package mode by typing ] in the REPL.)
 
 ```julia
 pkg> add https://github.com/trappmartin/SumProductNetworks.jl.git
