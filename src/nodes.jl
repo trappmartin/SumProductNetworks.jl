@@ -18,6 +18,22 @@ struct SumProductNetwork
     leaves::Vector{Leaf}
     idx::Dict{Symbol,Int}
     topological_order::Vector{Int}
+    layers::Vector{AbstractVector{SPNNode}}
+end
+
+function SumProductNetwork(root::Node)
+    nodes = unique(getOrderedNodes(root))
+    leaves = filter(n -> isa(n, Leaf), nodes)
+    idx = Dict(n.id => indx for (indx, n) in enumerate(nodes))
+    toporder = collect(1:length(nodes))
+    
+    maxdepth = depth(root)
+    nodedepth = map(n -> depth(n), nodes)
+    layer = Vector{Vector{SPNNode}}(undef, maxdepth)
+    for d in 1:maxdepth
+        layer[d] = nodes[findall(nodedepth .== d)]
+    end
+    return SumProductNetwork(root, nodes, leaves, idx, toporder, layer)
 end
 
 Base.keys(spn::SumProductNetwork) = keys(spn.idx)
@@ -29,7 +45,8 @@ function Base.show(io::IO, spn::SumProductNetwork)
     println(io, summary(spn))
     println(io, "\t#nodes = $(length(spn))")
     println(io, "\t#leaves = $(length(spn.leaves))")
-    println(io, "\troot = $(spn.root.id)")
+    println(io, "\troot id = $(spn.root.id)")
+    println(io, "\tdepth = $(length(spn.layers))")
 end
 
 # A finite sum node.

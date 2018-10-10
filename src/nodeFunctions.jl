@@ -231,6 +231,17 @@ function length(node::Node)
     Base.length(node.children)
 end
 
+function logpdf(spn::SumProductNetwork, x::AbstractVector{T}) where T<:Real
+    idx = Axis{:id}(collect(keys(spn)))
+    llhvals = AxisArray(Vector{Float32}(undef, length(idx)), idx)
+    
+    # Call inplace function.
+    for node in values(spn)
+        logpdf!(node, x, llhvals)
+    end
+    return llhvals[spn.root.id]
+end
+
 function logpdf(node::Node, x::AbstractVector{T}) where T<:Real
     idx = Axis{:id}([n.id for n in getOrderedNodes(node)])
     llhvals = AxisArray(Vector{Float32}(undef, length(idx)), idx)
@@ -240,10 +251,32 @@ function logpdf(node::Node, x::AbstractVector{T}) where T<:Real
     return llhvals[node.id]
 end
 
-"""
-Evaluate Sum-Node on data.
-This function updates the llh of the data under the model.
-"""
+function logpdf!(node::SumNode, x::AbstractMatrix{T}, llhvals::AxisArray) where T<:Real
+    alpha = ones(Float32, size(x, 1)) * -Inf32
+    r = zeros(Float32, size(x, 1))
+    y = ones(Float32, size(x, 1)) * -Inf32
+    for (i, child) in enumerate(children(node))
+        if !isdefined(llhvals, child.id)
+            logpdf!(child, x, llhvals)
+        end
+
+        y[:] .= llhvals[:, child.id] .+ Float32(logweights(node)[i])
+
+        ind = .!isinf.(y)
+        ind2 = y .<= alpha
+        
+        j = findall(ind .& ind2)
+        r[j] .+= exp.(y[j] .- alpha[j])
+        j = findall(ind .& .!ind2)
+        r[j] .*= exp.(alpha[j] - y[j])
+        r[j] .+= 1.f0
+        alpha[j] .= y[j]
+    end
+
+    llhvals[:, node.id] = log.(r) .+ alpha
+    return llhvals
+end
+
 function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     alpha = -Inf32
     r = 0.0f0
@@ -270,6 +303,18 @@ function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where 
     return llhvals
 end
 
+function logpdf!(node::ProductNode, x::AbstractMatrix{T}, llhvals::AxisArray) where T<:Real
+    r = zeros(Float32, size(x, 1))
+    for child in filter(c -> hasscope(c), children(node))
+        if !isdefined(llhvals, child.id)
+            logpdf!(child, x, llhvals)
+        end
+        r .+= llhvals[:, child.id]
+    end
+    llhvals[:, node.id] .= r
+    return llhvals
+end
+
 function logpdf!(node::ProductNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     r = 0.0f0
     for child in filter(c -> hasscope(c), children(node))
@@ -288,8 +333,18 @@ function logpdf(node::Leaf, x::AbstractVector{T}) where T<:Real
     return llhvals[node.id]
 end
 
+function logpdf!(node::IndicatorNode, x::AbstractMatrix{T}, llhvals::AxisArray) where T<:Real
+    llhvals[:, node.id] .= map(b -> b ? 0.f0 : -Inf32, x[:, node.scope] .== node.value)
+    return llhvals
+end
+
 function logpdf!(node::IndicatorNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     llhvals[node.id] = x[node.scope] == node.value ? zero(Float32) : -Inf32
+    return llhvals
+end
+
+function logpdf!(node::UnivariateNode, x::AbstractMatrix{T}, llhvals::AxisArray) where T<:Real
+    llhvals[:, node.id] .= convert(Float32, logpdf(node.dist, x[:, node.scope]))
     return llhvals
 end
 
