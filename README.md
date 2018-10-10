@@ -93,7 +93,7 @@ end
 T = eltype(spn.root)
 
 # Update the weights of the root.
-w = map(c -> nobs(spn.root) / nobs(c), children(spn.root))
+w = map(c -> nobs(c) / nobs(spn.root), children(spn.root))
 for k in 1:length(spn.root)
     logweights(spn.root)[k] = T(log(w[k]))
 end
