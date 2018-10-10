@@ -40,9 +40,61 @@ spn = SumProductNetwork(root);
 # Print statistics on the network.
 println(spn)
 
+# Update the scope of all nodes, i.e. propagate the scope bottom-up.
+updatescope!(spn)
+
 # Evaluate the network on some data.
 x = [0.8, 1.2];
 logp = logpdf(spn, x)
+
+# Save the network to a DOT file.
+exportNetwork(spn, "mySPN.dot")
+```
+
+## Advanced Usage
+Besides the basic functionality for nodes and SPNs, this package additionally provides helper functions that are useful for more advanced use-cases. The following examples illustrates a more advanced tasks.
+
+```julia
+using SumProductNetworks
+using AxisArrays
+
+N = 100
+D = 2
+
+x = rand(N, D)
+
+# Compute the logpdf value for every node in the SPN.
+idx = Axis{:id}(collect(keys(spn)))
+llhvals = AxisArray(Matrix{Float32}(undef, N, length(spn)), 1:N, idx)
+
+# Using SPN of the minimal example.
+logpdf(spn, x; idx, llhvals)
+
+# Print the logpdf value for each leaf.
+for node in spn.leaves
+    println("logpdf at $(node.id) = $(llhvals[:,node.id])")
+end
+
+# Assign all observations to their most likely child under the root.
+j = argmax(llhvals[:, map(c -> c.id, children(spn.root))], dims = 2)
+
+# Set observations for the root.
+observations = collect(1:N)
+setobs!(spn.root, observations)
+
+# Set observations for the children of the root.
+for k in length(spn.root)
+    setobs!(spn.root[k], observations[findall(j .== k)])
+end
+
+# Get the parametric type of the root.
+T = eltype(spn.root)
+
+# Update the weights of the root.
+w = map(c -> nobs(spn.root) / nobs(c), children(spn.root))
+for k in 1:length(spn.root)
+    logweights(spn.root)[k] = T(log(w[k]))
+end
 ```
 
 ## Documentation
@@ -100,7 +152,7 @@ add!(node::Node, child::SPNNode)
 add!(node::Node, child::SPNNode, logw::Real)
 
 # Remove a child from an internal node.
-remove!(node::Node, child::SPNNode)
+remove!(node::Node, childIndex::Int)
 
 # The depth of the SPN rooted at the node.
 depth(node::SPNNode)
@@ -134,18 +186,5 @@ Feel free to open a PR if you want to contribute!
 ### References
 Please consider citing any of the following publications if you use this package.
 
-```
-@inproceedings{trapp2018,
-  title={Safe Semi-Supervised Learning of Sum-Product Networks},
-  author={Trapp, Martin and Madl, Tamas and Peharz, Robert and Pernkopf, Pernkopf and Trappl, Robert},
-  booktitle={Conference on Uncertainty in Artificial Intelligence},
-  year={2017}
-}
-
-@misc{trapp2016,
-  title={Structure Inference in Sum-Product Networks using Infinite Sum-Product Trees},
-  author={Trapp, Martin and Peharz, Robert and Skowron, Marcin and Madl, Tamas and Pernkopf, Pernkopf and Trappl, Robert},
-  booktitle={NIPS Workshop on Practical Bayesian Nonparametrics},
-  year={2016}
-}
-```
+* Martin Trapp, Tamas Madl, Robert Peharz, Franz Pernkopf, Robert Trappl: **Safe Semi-Supervised Learning of Sum-Product Networks.** UAI 2017. [pdf](auai.org/uai2017/proceedings/papers/108.pdf) [bibtex](https://dblp.uni-trier.de/rec/bibtex/conf/uai/TrappMPPT17)
+* Martin Trapp, Robert Peharz, Marcin Skowron, Tamas Madl, Franz Pernkopf, Robert Trappl: **Structure Inference in Sum-Product Networks using Infinite Sum-Product Trees.** NIPS 2016 - Workshop on Practical Bayesian Nonparametrics. [paper](https://www.spsc.tugraz.at/sites/default/files/BNPNIPS_2016_paper_9.pdf) [bibtex](https://www.spsc.tugraz.at/biblio/export/bibtex/3537)

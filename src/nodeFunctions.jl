@@ -1,4 +1,7 @@
-export hasweights, weights, setscope!, setobs!, addobs!, scope, obs, isnormalized
+export hasweights, weights
+export setscope!, setobs!, addobs!, scope, obs
+export nobs, nscope
+export isnormalized
 export addscope!
 export removescope!
 export hasscope, hasobs
@@ -23,6 +26,8 @@ weights(node::SumNode) = exp.(node.logweights)
 logweights(node::SumNode) = node.logweights
 weights(node::FiniteAugmentedProductNode) = exp.(node.logomega)
 logweights(node::FiniteAugmentedProductNode) = node.logomega
+
+getindex(node::Node, i...) = getindex(node.children, i...)
 
 function setscope!(node::SPNNode, scope::Vector{Int})
     if length(scope) > 0
@@ -52,23 +57,13 @@ function removescope!(node::Node, scope::Int)
     node.scopeVec[scope] = false
 end
 
-function scope(node::Node)
-    return findall(node.scopeVec)
-end
-
-function scope(node::Leaf)
-    return node.scope
-end
-
-function hasscope(node::Node)
-    return sum(node.scopeVec) > 0
-end
-hasscope(node::Leaf) = true
-
-
-function hasSubScope(node1::ProductNode, node2::SPNNode)
-    return any(node1.scopeVec .& node2.scopeVec)
-end
+@inline scope(node::Node) = findall(node.scopeVec)
+@inline scope(node::Leaf) = node.scope
+@inline nscope(node::Node) = sum(node.scopeVec)
+@inline nscope(node::Leaf) = length(node.scope)
+@inline hasscope(node::Node) = sum(node.scopeVec) > 0
+@inline hasscope(node::Leaf) = true
+hassubscope(node1::ProductNode, node2::SPNNode) = any(node1.scopeVec .& node2.scopeVec)
 
 function addobs!(node::SPNNode, obs::Int)
     @assert obs <= length(node.obsVec)
@@ -86,8 +81,9 @@ function setobs!(node::Node, obs::AbstractVector{Int})
     end
 end
 
-obs(node::Node) = findall(node.obsVec)
-hasobs(node::Node) = any(node.obsVec)
+@inline nobs(node::Node) = sum(node.obsVec)
+@inline obs(node::Node) = findall(node.obsVec)
+@inline hasobs(node::Node) = any(node.obsVec)
 
 
 """
@@ -116,42 +112,6 @@ end
 
 function updatescope!(node::Leaf)
     return node
-end
-
-
-"""
-
-classes(node) -> classlabels::Vector{Int}
-
-Returns a list of class labels the Node is associated with.
-
-##### Parameters:
-* `node::FiniteProductNode`: node to be evaluated
-"""
-function classes(node::FiniteProductNode)
-
-    classNodes = Vector{Int}()
-
-    for classNode in filter(c -> isa(c, IndicatorNode), node.children)
-        push!(classNodes, classNode.value)
-    end
-
-    for parent in node.parents
-        classNodes = cat(1, classNodes, classes(parent))
-    end
-
-    return unique(classNodes)
-end
-
-function classes(node::SPNNode)
-
-    classNodes = Vector{Int}()
-
-    for parent in node.parents
-        classNodes = cat(1, classNodes, classes(parent))
-    end
-
-    return unique(classNodes)
 end
 
 """
@@ -229,6 +189,20 @@ end
 
 function length(node::Node)
     Base.length(node.children)
+end
+
+function logpdf(
+                spn::SumProductNetwork,
+                x::AbstractMatrix{T};
+                idx = Axis{:id}(collect(keys(spn))),
+                llhvals = AxisArray(Matrix{Float32}(undef, size(x, 1), length(spn)), idx)
+              ) where T<:Real
+    for layer in spn.layers
+        Threads.@threads for node in layer
+            logpdf!(node, x, llhvals)
+        end
+    end
+    return llhvals[:,spn.root.id]
 end
 
 function logpdf(spn::SumProductNetwork, x::AbstractVector{T}) where T<:Real
@@ -344,7 +318,7 @@ function logpdf!(node::IndicatorNode, x::AbstractVector{T}, llhvals::AxisArray) 
 end
 
 function logpdf!(node::UnivariateNode, x::AbstractMatrix{T}, llhvals::AxisArray) where T<:Real
-    llhvals[:, node.id] .= convert(Float32, logpdf(node.dist, x[:, node.scope]))
+    llhvals[:, node.id] .= convert(Vector{Float32}, logpdf.(node.dist, x[:, node.scope]))
     return llhvals
 end
 

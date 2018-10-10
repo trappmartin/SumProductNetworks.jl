@@ -17,6 +17,7 @@ using StatsBase: countmap
 
 import Base: getindex, map, parent, length, size, show, isequal, getindex, keys, eltype
 import Distributions.logpdf
+import StatsBase.nobs
 
 # add Base modules
 @reexport using Statistics
