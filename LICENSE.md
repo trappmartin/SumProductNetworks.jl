@@ -1,4 +1,4 @@
-Copyright (c) 2017: Austrian Research Institute for Artificial Intelligence.
+Copyright (c) 2018: Martin Trapp.
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
