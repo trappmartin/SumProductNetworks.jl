@@ -26,7 +26,7 @@ include("nodeFunctions.jl")
 include("networkFunctions.jl")
 
 # include approach specific implementations
-include("bmitest.jl")
+include("bmiTest.jl")
 include("structureUtilities.jl")
 
 # include utilities
