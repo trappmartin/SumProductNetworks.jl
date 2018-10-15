@@ -62,6 +62,9 @@ end
 function FiniteSumNode{T}(;D = 0, N = 0, parents = SPNNode[], α = 1.) where T <: Real
     return FiniteSumNode{T}(gensym(), parents, SPNNode[], T[], α, falses(D), falses(N))
 end
+function FiniteSumNode(;D=0, N=0, parents=SPNNode[], α=1.)
+    return FiniteSumNode{Float64}(;D=D, N=N, parents=parents, α=α)
+end
 
 header(node::SPNNode) = "$(summary(node))($(node.id))"
 eltype(::Type{FiniteSumNode{T}}) where T<:Real = T

@@ -1,17 +1,11 @@
 module SumProductNetworks
 
 # loading dependencies into workspaces
-using Clustering
 using Reexport
-using Distances
 @reexport using Distributions
 using StatsFuns
-using HilbertSchmidtIndependenceCriterion
-using BayesianNonparametrics
-using JLD2
-using FileIO
+using SpecialFunctions
 using AxisArrays
-# using InformationMeasures
 
 using StatsBase: countmap
 
@@ -30,17 +24,9 @@ using Printf
 include("nodes.jl")
 include("nodeFunctions.jl")
 include("networkFunctions.jl")
-include("layers.jl")
-include("layerFunctions.jl")
 
 # include approach specific implementations
-include("clustering.jl")
-include("indepTests.jl")
-include("naiveBayesClustering.jl")
-include("gens.jl")
-include("randomStructure.jl")
-include("imageStructure.jl")
-include("layerStructure.jl")
+include("bmitest.jl")
 include("structureUtilities.jl")
 
 # include utilities

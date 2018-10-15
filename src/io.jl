@@ -1,72 +1,18 @@
-export exportNetwork
+export export_network
 
-function getLabel(node::AbstractSumLayer)
-    return "\"+\""
-end
+getLabel(node::SumNode) = "\"+\""
+getLabel(node::ProductNode) = "<&times;>"
+getLabel(node::Leaf) = "\"X$(scope(node))\""
+getLabel(node::IndicatorNode) = "\"X$(scope(node)) = $(node.value)\""
 
-function getLabel(node::BayesianSumLayer)
-    return "\"+\""
-end
+getShape(node::SPNNode) = "circle"
+getShape(node::IndicatorNode) = "doublecircle"
 
-function getLabel(node::AbstractProductLayer)
-    return "<&times;>"
-end
+getFontSize(node::SPNNode) = 40
+getFontSize(node::IndicatorNode) = 14
 
-function getLabel(node::BayesianProductLayer)
-    return "<&times;>"
-end
-
-function getLabel(node::AbstractLeafLayer)
-    return "L"
-end
-
-function getLabel(node::SumNode)
-    return "\"+\""
-end
-
-function getLabel(node::ProductNode)
-    return "<&times;>"
-end
-
-function getLabel(node::Leaf)
-    return "\"X$(scope(node))\""
-end
-
-function getLabel(node::IndicatorNode)
-    return "\"X$(scope(node)) = $(node.value)\""
-end
-
-function getShape(node::SPNNode)
-    return "circle"
-end
-
-function getShape(node::IndicatorNode)
-    return "doublecircle"
-end
-
-function getShape(node::SPNLayer)
-    return "circle"
-end
-
-function getShape(node::AbstractLeafLayer)
-    return "doublecircle"
-end
-
-function getFontSize(node::SPNNode)
-    return 40
-end
-
-function getFontSize(node::IndicatorNode)
-    return 14
-end
-
-function getParameters(node::SPNNode)
-    return "nothing"
-end
-
-function getParameters(node::IndicatorNode)
-    return "\"value=$(node.value)\""
-end
+getParameters(node::SPNNode) = "nothing"
+getParameters(node::IndicatorNode) = "\"value=$(node.value)\""
 
 function isDegenerated(node::Node, nodeObsDegeneration)
     return nodeObsDegeneration ? !(hasscope(node) && hasobs(node)) : !hasscope(node)
@@ -76,7 +22,7 @@ function isDegenerated(node::Leaf, nodeObsDegeneration)
     return all(map(p -> isDegenerated(p, nodeObsDegeneration), parents(node)))
 end
 
-function exportNetwork(spn::SumProductNetwork,
+function export_network(spn::SumProductNetwork,
                        filename::AbstractString;
                        nodeObsDegeneration = false,
                        excludeDegenerated = false)

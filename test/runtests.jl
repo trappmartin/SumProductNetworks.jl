@@ -3,7 +3,6 @@ using Test
 
 testcases = Dict(
         "utilities"  => ["utilityFunctionTest"],
-        "layers"     => ["layersTests", "bayesianLayerTests", "layerFunctionsTests"],
         "nodes"     => ["nodeFunctionTests"]
 )
 

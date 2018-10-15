@@ -23,7 +23,7 @@ The following minimal example illustrates the use of the package.
 using SumProductNetworks
 
 # Create a root sum node.
-root = FiniteSumNode{Float64}();
+root = FiniteSumNode();
 
 # Add two product nodes to the root.
 add!(root, FiniteProductNode(), log(0.3)); # Use a weight of 0.3
@@ -65,6 +65,23 @@ D = 2
 
 x = rand(N, D)
 
+# Create a root sum node.
+root = FiniteSumNode{Float32}();
+
+# Add two product nodes to the root.
+add!(root, FiniteProductNode(), Float32(log(0.3))); # Use a weight of 0.3
+add!(root, FiniteProductNode(), Float32(log(0.7))); # Use a weight of 0.7
+
+# Add Normal distributions to the product nodes, i.e. leaves.
+for prod in children(root)
+    for d in 1:2 # Assume 2-D data
+        add!(prod, UnivariateNode(Normal(), d));
+    end
+end
+
+# Compile the constructed network to an SPN type
+spn = SumProductNetwork(root);
+
 # Compute the logpdf value for every node in the SPN.
 idx = Axis{:id}(collect(keys(spn)))
 llhvals = AxisArray(Matrix{Float32}(undef, N, length(spn)), 1:N, idx)
@@ -89,7 +106,7 @@ for k in length(spn.root)
     setobs!(spn.root[k], observations[findall(j .== k)])
 end
 
-# Get the parametric type of the root.
+# Get the parametric type of the root, i.e. Float32.
 T = eltype(spn.root)
 
 # Update the weights of the root.
@@ -128,6 +145,15 @@ In addition to this types, the package also provides a composite type to represe
 SumProductNetwork(root::Node)
 ```
 
+#### Structure Learning
+Utility functions for structure learning are currently not implemented in this package. An additional package providing a variety of structure learning algorithms will be provided soon.
+
+The interface for learning SPN structure is:
+
+```julia
+generate_spn(X::Matrix, algo::Symbol; params...)
+```
+
 #### Utility Functions on an SumProductNetwork
 The following utility functions can be used on an instance of a SumProductNetwork.
 
@@ -143,6 +169,15 @@ length(spn::SumProductNetwork)
 
 # Indexing using an id.
 spn[id::Symbol]
+
+# Locally normalize an SPN.
+normalize!(spn::SumProductNetwork)
+
+# Number of free parameters in the SPN.
+complexity(spn::SumProductNetwork)
+
+# Export the SPN to a DOT file.
+export_network(spn::SumProductNetwork, filename::String)
 ```
 
 #### Utility Functions on Nodes
@@ -179,7 +214,14 @@ logweights(node::Node)
 
 # Is the SPN rooted at the node normalized?
 isnormalized(node::SPNNode)
+```
 
+#### General utility functions
+The following functions are general utility functions.
+
+```julia
+# Independence test by Margaritis and Thurn for discrete sets.
+bmitest(X::Vector{Int}, Y::Vector{Int})
 ```
 
 ### Contribute
