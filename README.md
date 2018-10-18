@@ -10,10 +10,10 @@ The package provides a clean and modular interface for SPNs and implements vario
 * 24.09.2018 - SumProductNetworks now works under Julia 1.0. 
 
 ## Installation
-Make sure you have Julia 1.0 running. The package is currently not registered (this will change soon) and you have to run the following command inside of Julia's package mode. (You can enter the package mode by typing ] in the REPL.)
+Make sure you have Julia 1.0 running. The package can be installed using Julia's package mode. (You can enter the package mode by typing ] in the REPL.)
 
 ```julia
-pkg> add https://github.com/trappmartin/SumProductNetworks.jl.git
+pkg> add SumProductNetworks
 ```
 
 ## Usage
