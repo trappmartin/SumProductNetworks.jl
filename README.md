@@ -6,6 +6,7 @@ This software package implements the tractable probabilistic model sum-product n
 The package provides a clean and modular interface for SPNs and implements various helper and utility functions to efficienty work with SPN models.
 
 ### News
+* 18.10.2018 - The package is officialy registered.
 * 10.10.2018 - The package now provides more efficient logpdf routines and allows for multithreaded computations.
 * 24.09.2018 - SumProductNetworks now works under Julia 1.0. 
 
