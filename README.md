@@ -87,7 +87,7 @@ spn = SumProductNetwork(root);
 idx = Axis{:id}(collect(keys(spn)))
 llhvals = AxisArray(Matrix{Float32}(undef, N, length(spn)), 1:N, idx)
 
-# Using SPN of the minimal example.
+# Compute logpdf values for all nodes in the network.
 logpdf(spn, x; idx, llhvals)
 
 # Print the logpdf value for each leaf.
@@ -95,26 +95,30 @@ for node in spn.leaves
     println("logpdf at $(node.id) = $(llhvals[:,node.id])")
 end
 
-# Assign all observations to their most likely child under the root.
-j = argmax(llhvals[:, map(c -> c.id, children(spn.root))], dims = 2)
+# Assign observations to their most likely child under a sum node.
+function assignobs!(node::SumNode, observations::Vector{Int})
+    j = argmax(llhvals[observations, map(c -> c.id, children(node))], dims = 2)
 
-# Set observations for the root.
-observations = collect(1:N)
-setobs!(spn.root, observations)
+    # Set observations to the node.
+    setobs!(node, observations)
 
-# Set observations for the children of the root.
-for k in length(spn.root)
-    setobs!(spn.root[k], observations[findall(j .== k)])
+    # Set observations for the children of the node.
+    for k in length(node)
+        setobs!(node[k], observations[findall(j .== k)])
+    end
+
+    # Get the parametric type of the sum node, i.e. Float32.
+    T = eltype(node)
+
+    # Update the weights of the root.
+    w = map(c -> nobs(c) / nobs(node), children(node))
+    for k in 1:length(node)
+        logweights(node)[k] = T(log(w[k]))
+    end
 end
 
-# Get the parametric type of the root, i.e. Float32.
-T = eltype(spn.root)
-
-# Update the weights of the root.
-w = map(c -> nobs(c) / nobs(spn.root), children(spn.root))
-for k in 1:length(spn.root)
-    logweights(spn.root)[k] = T(log(w[k]))
-end
+# Call assignment function for the root.
+assignobs!(spn.root, collect(1:N))
 ```
 
 ## Documentation
@@ -159,7 +163,7 @@ generate_spn(X::Matrix, algo::Symbol; params...)
 The following utility functions can be used on an instance of a SumProductNetwork.
 
 ```julia
-# Get all nodes of the network.
+# Get all nodes of the network in topological order.
 values(spn::SumProductNetwork)
 
 # Get the ids of all nodes in the network.
@@ -185,6 +189,9 @@ export_network(spn::SumProductNetwork, filename::String)
 The following utility functions can be used on an instance of an SPN Node.
 
 ```julia
+# Indexing an internal node returns the respective child.
+node[i::Int]
+
 # Add a child to an internal node (with or without weight).
 add!(node::Node, child::SPNNode)
 add!(node::Node, child::SPNNode, logw::Real)
