@@ -51,7 +51,7 @@ x = [0.8, 1.2];
 logp = logpdf(spn, x)
 
 # Save the network to a DOT file.
-exportNetwork(spn, "mySPN.dot")
+export_network(spn, "mySPN.dot")
 ```
 
 ## Advanced Usage
@@ -133,9 +133,9 @@ ProductNode <: Node
 # Node types.
 FiniteSumNode() <: SumNode
 FiniteProductNode() <: ProductNode
-IndicatorNode() <: Leaf
-UnivariateNode() <: Leaf
-MultivariateNode() <: Leaf
+IndicatorNode(value::Int, scope::Int) <: Leaf
+UnivariateNode(dist::UnivariateDistribution, scope::Int) <: Leaf
+MultivariateNode(dist::MultivariateDistribution, scope::Vector{Int}) <: Leaf
 ```
 
 To get more details on the individual node type, please use the internal documentation system of Julia.
