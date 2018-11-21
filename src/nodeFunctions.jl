@@ -31,7 +31,11 @@ getindex(node::Node, i...) = getindex(node.children, i...)
 
 function setscope!(node::SPNNode, scope::Vector{Int})
     if length(scope) > 0
-        @assert maximum(scope) <= length(node.scopeVec)
+
+        if maximum(scope) > length(node.scopeVec)
+            @warn "New scope is larger than original scope, resize node scope..."
+            resize!(node.scopeVec, maximum(scope))
+        end
 
         fill!(node.scopeVec, false)
         node.scopeVec[scope] .= true
@@ -41,7 +45,11 @@ function setscope!(node::SPNNode, scope::Vector{Int})
 end
 
 function setscope!(node::SPNNode, scope::Int)
-    @assert scope <= length(node.scopeVec)
+
+    if scope <= length(node.scopeVec)
+        @warn "New scope is larger than original scope, resize node scope..."
+        resize!(node.scopeVec, scope)
+    end
 
     fill!(node.scopeVec, false)
     node.scopeVec[scope] = true
@@ -195,7 +203,7 @@ function logpdf(
                 spn::SumProductNetwork,
                 x::AbstractMatrix{T};
                 idx = Axis{:id}(collect(keys(spn))),
-                llhvals = AxisArray(Matrix{Float32}(undef, size(x, 1), length(spn)), idx)
+                llhvals = AxisArray(Matrix{Float32}(undef, size(x, 1), length(spn)), 1:size(x,1), idx)
               ) where T<:Real
     for layer in spn.layers
         Threads.@threads for node in layer
