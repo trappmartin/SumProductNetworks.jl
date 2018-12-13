@@ -205,6 +205,8 @@ function logpdf(
                 idx = Axis{:id}(collect(keys(spn))),
                 llhvals = AxisArray(Matrix{Float32}(undef, size(x, 1), length(spn)), 1:size(x,1), idx)
               ) where T<:Real
+
+    # Call inplace functions.
     for layer in spn.layers
         Threads.@threads for node in layer
             logpdf!(node, x, llhvals)
@@ -216,10 +218,12 @@ end
 function logpdf(spn::SumProductNetwork, x::AbstractVector{T}) where T<:Real
     idx = Axis{:id}(collect(keys(spn)))
     llhvals = AxisArray(Vector{Float32}(undef, length(idx)), idx)
-    
-    # Call inplace function.
-    for node in values(spn)
-        logpdf!(node, x, llhvals)
+
+    # Call inplace functions.
+    for layer in spn.layers
+        Threads.@threads for node in layer
+            logpdf!(node, x, llhvals)
+        end
     end
     return llhvals[spn.root.id]
 end
@@ -227,9 +231,14 @@ end
 function logpdf(node::Node, x::AbstractVector{T}) where T<:Real
     idx = Axis{:id}([n.id for n in getOrderedNodes(node)])
     llhvals = AxisArray(Vector{Float32}(undef, length(idx)), idx)
-    
-    # Call inplace function.
-    logpdf!(node, x, llhvals)
+
+    # Get topological order.
+    nodes_ = unique(getOrderedNodes(node))
+
+    # Call inplace functions.
+    for node_ in nodes_
+        logpdf!(node_, x, llhvals)
+    end
     return llhvals[node.id]
 end
 
@@ -238,9 +247,6 @@ function logpdf!(node::SumNode, x::AbstractMatrix{T}, llhvals::AxisArray) where 
     r = zeros(Float32, size(x, 1))
     y = ones(Float32, size(x, 1)) * -Inf32
     for (i, child) in enumerate(children(node))
-        if !isdefined(llhvals, child.id)
-            logpdf!(child, x, llhvals)
-        end
 
         y[:] .= llhvals[:, child.id] .+ Float32(logweights(node)[i])
 
@@ -264,10 +270,6 @@ function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where 
     r = 0.0f0
     y = -Inf32
     for (i, child) in enumerate(children(node))
-        if !isdefined(llhvals, child.id)
-            logpdf!(child, x, llhvals)
-        end
-
         y = llhvals[child.id] + Float32(logweights(node)[i])
 
         if isinf(y)
@@ -288,9 +290,6 @@ end
 function logpdf!(node::ProductNode, x::AbstractMatrix{T}, llhvals::AxisArray) where T<:Real
     r = zeros(Float32, size(x, 1))
     for child in filter(c -> hasscope(c), children(node))
-        if !isdefined(llhvals, child.id)
-            logpdf!(child, x, llhvals)
-        end
         r .+= llhvals[:, child.id]
     end
     llhvals[:, node.id] .= r
@@ -300,9 +299,6 @@ end
 function logpdf!(node::ProductNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
     r = 0.0f0
     for child in filter(c -> hasscope(c), children(node))
-        if !isdefined(llhvals, child.id)
-            logpdf!(child, x, llhvals)
-        end
         r += llhvals[child.id]
     end
     llhvals[node.id] = r

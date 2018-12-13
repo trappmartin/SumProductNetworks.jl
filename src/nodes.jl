@@ -25,7 +25,7 @@ function SumProductNetwork(root::Node)
     leaves = filter(n -> isa(n, Leaf), nodes)
     idx = Dict(n.id => indx for (indx, n) in enumerate(nodes))
     toporder = collect(1:length(nodes))
-    
+
     maxdepth = depth(root)
     nodedepth = map(n -> depth(n), nodes)
     layer = Vector{Vector{SPNNode}}(undef, maxdepth)
