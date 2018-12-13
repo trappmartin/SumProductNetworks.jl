@@ -246,13 +246,13 @@ function logpdf!(node::SumNode, x::AbstractMatrix{T}, llhvals::AxisArray) where 
     alpha = ones(Float32, size(x, 1)) * -Inf32
     r = zeros(Float32, size(x, 1))
     y = ones(Float32, size(x, 1)) * -Inf32
-    for (i, child) in enumerate(children(node))
+    @inbounds for (i, child) in enumerate(children(node))
 
         y[:] .= llhvals[:, child.id] .+ Float32(logweights(node)[i])
 
         ind = .!isinf.(y)
         ind2 = y .<= alpha
-        
+
         j = findall(ind .& ind2)
         r[j] .+= exp.(y[j] .- alpha[j])
         j = findall(ind .& .!ind2)
@@ -261,7 +261,7 @@ function logpdf!(node::SumNode, x::AbstractMatrix{T}, llhvals::AxisArray) where 
         alpha[j] .= y[j]
     end
 
-    llhvals[:, node.id] = log.(r) .+ alpha
+    @inbounds llhvals[:, node.id] = log.(r) .+ alpha
     return llhvals
 end
 
@@ -269,7 +269,7 @@ function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where 
     alpha = -Inf32
     r = 0.0f0
     y = -Inf32
-    for (i, child) in enumerate(children(node))
+    @inbounds for (i, child) in enumerate(children(node))
         y = llhvals[child.id] + Float32(logweights(node)[i])
 
         if isinf(y)
@@ -288,20 +288,18 @@ function logpdf!(node::SumNode, x::AbstractVector{T}, llhvals::AxisArray) where 
 end
 
 function logpdf!(node::ProductNode, x::AbstractMatrix{T}, llhvals::AxisArray) where T<:Real
-    r = zeros(Float32, size(x, 1))
-    for child in filter(c -> hasscope(c), children(node))
-        r .+= llhvals[:, child.id]
+    @inbounds fill!( view(llhvals, :, node.id), 0.0f0 )
+    @inbounds for child in filter(c -> hasscope(c), children(node))
+        llhvals[:, node.id] += llhvals[:, child.id]
     end
-    llhvals[:, node.id] .= r
     return llhvals
 end
 
 function logpdf!(node::ProductNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
-    r = 0.0f0
-    for child in filter(c -> hasscope(c), children(node))
-        r += llhvals[child.id]
+    @inbounds fill!( view(llhvals, node.id), 0.0f0 )
+    @inbounds for child in filter(c -> hasscope(c), children(node))
+        llhvals[node.id] += llhvals[child.id]
     end
-    llhvals[node.id] = r
     return llhvals
 end
 

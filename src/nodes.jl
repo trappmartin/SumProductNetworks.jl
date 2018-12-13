@@ -28,11 +28,12 @@ function SumProductNetwork(root::Node)
 
     maxdepth = depth(root)
     nodedepth = map(n -> depth(n), nodes)
-    layer = Vector{Vector{SPNNode}}(undef, maxdepth)
-    for d in 1:maxdepth
-        layer[d] = nodes[findall(nodedepth .== d)]
+    layers = Vector{Vector{SPNNode}}(undef, maxdepth+1)
+    for d in 0:maxdepth
+        layers[d+1] = nodes[findall(nodedepth .== d)]
     end
-    return SumProductNetwork(root, nodes, leaves, idx, toporder, layer)
+
+    return SumProductNetwork(root, nodes, leaves, idx, toporder, layers)
 end
 
 Base.keys(spn::SumProductNetwork) = keys(spn.idx)
