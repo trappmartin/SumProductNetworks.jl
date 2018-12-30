@@ -205,7 +205,7 @@ function logpdf(
                 idx = Axis{:id}(collect(keys(spn))),
                 llhvals = AxisArray(Matrix{Float32}(undef, size(x, 1), length(spn)), 1:size(x,1), idx)
               ) where T<:Real
-
+    fill!(llhvals, -Inf32)
     # Call inplace functions.
     for layer in spn.layers
         Threads.@threads for node in layer
@@ -218,7 +218,7 @@ end
 function logpdf(spn::SumProductNetwork, x::AbstractVector{T}) where T<:Real
     idx = Axis{:id}(collect(keys(spn)))
     llhvals = AxisArray(Vector{Float32}(undef, length(idx)), idx)
-
+    fill!(llhvals, -Inf32)
     # Call inplace functions.
     for layer in spn.layers
         Threads.@threads for node in layer
@@ -231,7 +231,7 @@ end
 function logpdf(node::Node, x::AbstractVector{T}) where T<:Real
     idx = Axis{:id}([n.id for n in getOrderedNodes(node)])
     llhvals = AxisArray(Vector{Float32}(undef, length(idx)), idx)
-
+    fill!(llhvals, -Inf32)
     # Get topological order.
     nodes_ = unique(getOrderedNodes(node))
 
@@ -305,6 +305,7 @@ end
 
 function logpdf(node::Leaf, x::AbstractVector{T}) where T<:Real
     llhvals = AxisArray(Vector{Float32}(undef, 1), Axis{:id}([node.id]))
+    fill!(llhvals, -Inf32)
     logpdf!(node, x, llhvals)
     return llhvals[node.id]
 end
