@@ -38,7 +38,7 @@ struct SumProductNetwork
 end
 
 function SumProductNetwork(root::Node)
-    nodes = unique(getOrderedNodes(root))
+    nodes = getOrderedNodes(root)
     leaves = filter(n -> isa(n, Leaf), nodes)
     idx = Dict(n.id => indx for (indx, n) in enumerate(nodes))
     toporder = collect(1:length(nodes))

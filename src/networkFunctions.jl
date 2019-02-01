@@ -3,7 +3,7 @@ export normalize!
 """
     normalize!(S)
 
-Localy normalize the weights of a SPN using Algorithm 1 from Peharz et al.
+Locally normalize the weights of a SPN using Algorithm 1 from Peharz et al.
 """
 function normalize!(spn::SumProductNetwork; ϵ = 1e-10)
     αp = ones(length(spn))
