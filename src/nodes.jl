@@ -11,6 +11,22 @@ abstract type SumNode{T} <: Node end
 abstract type ProductNode <: Node end
 abstract type Leaf <: SPNNode end
 
+function Base.show(io::IO, node::SPNNode)
+    println(io, header(node))
+    if hasweights(node)
+        println(io, "\tweights = $(weights(node))")
+        println(io, "\tnormalized = $(isnormalized(node))")
+    end
+    if hasscope(node)
+        println(io, "\tscope = $(scope(node))")
+    else
+        println(io, "\tNo scope set!")
+    end
+    if hasobs(node)
+        println(io, "\tassigns = $(obs(node))")
+    end
+end
+
 struct SumProductNetwork
     root::SumNode
     nodes::Vector{SPNNode}
@@ -18,6 +34,7 @@ struct SumProductNetwork
     idx::Dict{Symbol,Int}
     topological_order::Vector{Int}
     layers::Vector{AbstractVector{SPNNode}}
+    info::Dict{Symbol, Real}
 end
 
 function SumProductNetwork(root::Node)
@@ -33,7 +50,7 @@ function SumProductNetwork(root::Node)
         layers[d+1] = nodes[findall(nodedepth .== d)]
     end
 
-    return SumProductNetwork(root, nodes, leaves, idx, toporder, layers)
+    return SumProductNetwork(root, nodes, leaves, idx, toporder, layers, Dict{Symbol, Real}())
 end
 
 Base.keys(spn::SumProductNetwork) = keys(spn.idx)
@@ -45,7 +62,6 @@ function Base.show(io::IO, spn::SumProductNetwork)
     println(io, summary(spn))
     println(io, "\t#nodes = $(length(spn))")
     println(io, "\t#leaves = $(length(spn.leaves))")
-    println(io, "\troot id = $(spn.root.id)")
     println(io, "\tdepth = $(length(spn.layers))")
 end
 
@@ -60,29 +76,16 @@ mutable struct FiniteSumNode{T <: Real} <: SumNode{T}
     obsVec::BitArray{1}
 end
 
-function FiniteSumNode{T}(;D = 0, N = 0, parents = SPNNode[], α = 1.) where T <: Real
-    return FiniteSumNode{T}(gensym(), parents, SPNNode[], T[], α, falses(D), falses(N))
+function FiniteSumNode{T}(;D=1, N=1, parents = SPNNode[], α = 1.) where T <: Real
+    return FiniteSumNode{T}(gensym(:sum), parents, SPNNode[], T[], α, falses(D), falses(N))
 end
-function FiniteSumNode(;D=0, N=0, parents=SPNNode[], α=1.)
+function FiniteSumNode(;D=1, N=1, parents=SPNNode[], α=1.)
     return FiniteSumNode{Float64}(;D=D, N=N, parents=parents, α=α)
 end
 
 header(node::SPNNode) = "$(summary(node))($(node.id))"
 eltype(::Type{FiniteSumNode{T}}) where T<:Real = T
 eltype(n::SPNNode) = eltype(typeof(n))
-
-function Base.show(io::IO, node::FiniteSumNode)
-    println(io, header(node))
-    println(io, "\tparents = $(map(p -> header(p), node.parents))")
-    println(io, "\tchildren = $(map(c -> header(c), node.children))")
-    println(io, "\t(log) weights = $(node.logweights)")
-    println(io, "\tweights = $(exp.(node.logweights))")
-    println(io, "\tnormalized = $(isnormalized(node))")
-    println(io, "\talpha = $(node.α)")
-    println(io, "\tscope = $(findall(node.scopeVec))")
-    println(io, "\thasscope = $(hasscope(node))")
-    println(io, "\tassigns = $(findall(node.obsVec))")
-end
 
 # A finite split node.
 mutable struct FiniteSplitNode <: ProductNode
@@ -105,14 +108,8 @@ struct FiniteProductNode <: ProductNode
     obsVec::BitArray{1}
 end
 
-function FiniteProductNode(;D = 0, N = 0, parents = SPNNode[])
-    return FiniteProductNode(gensym(), parents, SPNNode[], falses(D), falses(N))
-end
-
-function Base.show(io::IO, node::FiniteProductNode)
-    println(io, header(node))
-    println(io, "\tparents = $(map(p -> header(p), node.parents))")
-    println(io, "\tchildren = $(map(c -> header(c), node.children))")
+function FiniteProductNode(;D=1, N=1, parents = SPNNode[])
+    return FiniteProductNode(gensym(:prod), parents, SPNNode[], falses(D), falses(N))
 end
 
 mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
@@ -139,17 +136,6 @@ end
 
 eltype(::Type{FiniteAugmentedProductNode{T}}) where T<:Real = T
 
-function Base.show(io::IO, node::FiniteAugmentedProductNode)
-    if get(io, :compact, true)
-        print(io, """augmented product node ($(node.id) : parents = $(map(p -> p.id, node.parents)), 
-              children = $(map(c -> c.id, node.children))""")
-    else
-        println(io, "augmented product node ($(node.id))")
-        println(io, "\tparents = $(map(p -> p.id, node.parents))")
-        println(io, "\tchildren = $(map(c -> c.id, node.children))")
-    end
-end
-
 # Definition of an indicater Node.
 mutable struct IndicatorNode <: Leaf
     id::Symbol
@@ -159,18 +145,13 @@ mutable struct IndicatorNode <: Leaf
 end
 
 function IndicatorNode(value::Int, dim::Int; parents = SPNNode[])
-    return IndicatorNode(gensym(), value, dim, parents)
+    return IndicatorNode(gensym(:indicator), value, dim, parents)
 end
 
 function Base.isequal(n1::IndicatorNode, n2::IndicatorNode)
     return (n1.value == n2.value) && (n1.scope == n2.scope)
 end
-
-function Base.show(io::IO, node::IndicatorNode)
-    println(io, "indicator node ($(node.id))")
-    println(io, "\tparents = $(map(p -> p.id, node.parents))")
-    println(io, "\tfunction = 1(x[$(node.scope)] = $(node.value))")
-end
+params(n::IndicatorNode) = (n.value)
 
 # A univariate node computes the likelihood of x under a univariate distribution.
 mutable struct UnivariateNode <: Leaf
@@ -181,18 +162,15 @@ mutable struct UnivariateNode <: Leaf
 end
 
 function UnivariateNode(distribution::T, dim::Int; parents = SPNNode[]) where {T<:UnivariateDistribution}
-    return UnivariateNode(gensym(), parents, distribution, dim)
+    return UnivariateNode(gensym(:univ), parents, distribution, dim)
 end
 
-function Base.show(io::IO, node::UnivariateNode)
-    if get(io, :compact, true)
-        print(io, """univariate node ($(node.id) : parents = $(map(p -> p.id, node.parents)), 
-              distribution function = $(node.dist)""")
-    else
-        println(io, "univariate node ($(node.id))")
-        println(io, "\tparents = $(map(p -> p.id, node.parents))")
-        println(io, "\tdistribution function = $(node.dist)")
-    end
+params(n::UnivariateNode) = Distributions.params(n.dist)
+
+function Base.show(io::IO, node::Leaf)
+    println(io, header(node))
+    println(io, "\tscope = $(scope(node))")
+    println(io, "\tparameters = $(params(node))")
 end
 
 # A multivariate node computes the likelihood of x under a multivariate distribution.
@@ -204,5 +182,7 @@ mutable struct MultivariateNode <: Leaf
 end
 
 function MultivariateNode(distribution::T, dims::Vector{Int}; parents = SPNNode[]) where {T<:MultivariateDistribution}
-    return MultivariateNode(gensym(), parents, distribution, dims)
+    return MultivariateNode(gensym(:multiv), parents, distribution, dims)
 end
+
+params(n::MultivariateNode) = Distributions.params(n.dist)
