@@ -280,7 +280,7 @@ end
 Compute the logpdf for multiple observations at once.
 """
 function logpdf(n::SumNode, x::AbstractMatrix{<:Real})
-    @inbounds l = map(k -> lp(n[k], x) .+ logweights(n)[k], 1:length(n))
+    @inbounds l = map(k -> logpdf(n[k], x) .+ logweights(n)[k], 1:length(n))
     m = max.(l...)
     p = mapreduce(y -> exp.(y - m), +, l)
     return map(y -> isfinite(y) ? y : -Inf, log.(p) + m)
