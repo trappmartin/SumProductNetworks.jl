@@ -50,6 +50,9 @@ updatescope!(spn)
 x = [0.8, 1.2];
 logp = logpdf(spn, x)
 
+# Access the stored log likelihood
+llh = spn.info[:llh]
+
 # Save the network to a DOT file.
 export_network(spn, "mySPN.dot")
 ```
@@ -88,7 +91,7 @@ idx = Axis{:id}(collect(keys(spn)))
 llhvals = AxisArray(Matrix{Float32}(undef, N, length(spn)), 1:N, idx)
 
 # Compute logpdf values for all nodes in the network.
-logpdf(spn, x; idx, llhvals)
+logpdf(spn, x; llhvals)
 
 # Print the logpdf value for each leaf.
 for node in spn.leaves
