@@ -19,13 +19,10 @@ end
 isnormalized(node::Leaf) = true
 
 hasweights(node::SumNode) = true
-hasweights(node::FiniteAugmentedProductNode) = true
 hasweights(node::Node) = false
 
 weights(node::SumNode) = exp.(node.logweights)
 logweights(node::SumNode) = node.logweights
-weights(node::FiniteAugmentedProductNode) = exp.(node.logomega)
-logweights(node::FiniteAugmentedProductNode) = node.logomega
 
 getindex(node::Node, i...) = getindex(node.children, i...)
 
@@ -172,14 +169,6 @@ function add!(parent::ProductNode, child::SPNNode)
     if !(child in parent.children)
         push!(parent.children, child)
         push!(child.parents, parent)
-    end
-end
-
-function add!(parent::FiniteAugmentedProductNode, child::SPNNode, logomega::Float32)
-    if !(child in parent.children)
-        push!(parent.children, child)
-        push!(child.parents, parent)
-        push!(parent.logomega, logomega)
     end
 end
 

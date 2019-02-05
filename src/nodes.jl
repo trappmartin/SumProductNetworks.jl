@@ -1,6 +1,6 @@
 export SumProductNetwork
 export SPNNode, Node, Leaf, SumNode, ProductNode
-export FiniteSumNode, FiniteProductNode, FiniteAugmentedProductNode
+export FiniteSumNode, FiniteProductNode
 export IndicatorNode, UnivariateNode 
 export MultivariateNode
 
@@ -87,18 +87,6 @@ header(node::SPNNode) = "$(summary(node))($(node.id))"
 eltype(::Type{FiniteSumNode{T}}) where T<:Real = T
 eltype(n::SPNNode) = eltype(typeof(n))
 
-# A finite split node.
-mutable struct FiniteSplitNode <: ProductNode
-    id::Symbol
-    parents::Vector{SPNNode}
-    children::Vector{SPNNode}
-    split::Vector{Float64}
-end
-
-function FiniteSplitNode(split::Vector{Float64}; parents = SPNNode[])
-    return FiniteProductNode(gensym(), parents, SPNNode[], split, Int[])
-end
-
 # A finite product node.
 struct FiniteProductNode <: ProductNode
     id::Symbol
@@ -111,30 +99,6 @@ end
 function FiniteProductNode(;D=1, N=1, parents = SPNNode[])
     return FiniteProductNode(gensym(:prod), parents, SPNNode[], falses(D), falses(N))
 end
-
-mutable struct FiniteAugmentedProductNode{T <: Real} <: ProductNode
-    id::Symbol
-    parents::Vector{SPNNode}
-    children::Vector{SPNNode}
-    logomega::Vector{T}
-    α::Union{Float64, Vector{Float64}}
-    scopeVec::BitArray{1}
-    obsVec::BitArray{1}
-end
-
-function FiniteAugmentedProductNode{T}(; D = 0, N = 0, parents = SPNNode[], α = 1.0) where T<:Real
-    return FiniteAugmentedProductNode{T}(
-                               gensym(),
-                               parents,
-                               SPNNode[],
-                               T[],
-                               α,
-                               falses(D),
-                               falses(N)
-    )
-end
-
-eltype(::Type{FiniteAugmentedProductNode{T}}) where T<:Real = T
 
 # Definition of an indicater Node.
 mutable struct IndicatorNode <: Leaf
