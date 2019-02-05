@@ -124,6 +124,11 @@ end
 assignobs!(spn.root, collect(1:N))
 ```
 
+## Examples
+The following examples illustrate the use of this package: (WIP)
+
+* [Parameter optimization using ForwardDiff](examples/parameterOptimization.jl)
+
 ## Documentation
 
 #### Datatypes
@@ -134,7 +139,7 @@ The following types are implemented and supported in this package. The abstract 
 SPNNode
 Node <: SPNNode
 Leaf <: SPNNode
-SumNode{T} <: Node
+SumNode <: Node
 ProductNode <: Node
 
 # Node types.
@@ -233,6 +238,9 @@ The following functions are general utility functions.
 ```julia
 # Independence test by Margaritis and Thurn for discrete sets.
 bmitest(X::Vector{Int}, Y::Vector{Int})
+
+# Efficient projections onto the L 1-ball.
+projectToPositiveSimplex!(q::AbstractVector{<:Real}; lowerBound = 0.0, s = 1.0)
 ```
 
 ### Contribute
