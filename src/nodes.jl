@@ -37,12 +37,12 @@ end
 
 struct SumProductNetwork
     root::Node
-    nodes::Vector{SPNNode}
-    leaves::Vector{Leaf}
+    nodes::Vector{<:SPNNode}
+    leaves::Vector{<:SPNNode}
     idx::Dict{Symbol,Int}
     topological_order::Vector{Int}
     layers::Vector{AbstractVector{SPNNode}}
-    info::Dict{Symbol, Real}
+    info::Dict{Symbol,<:Real}
 end
 
 function SumProductNetwork(root::Node)
@@ -90,17 +90,17 @@ logpdf(node, rand(4))
 """
 mutable struct FiniteSumNode{T<:Real} <: SumNode
     id::Symbol
-    parents::Vector{SPNNode}
-    children::Vector{SPNNode}
+    parents::Vector{<:Node}
+    children::Vector{<:SPNNode}
     logweights::Vector{T}
     scopeVec::BitArray{1}
     obsVec::BitArray{1}
 end
 
-function FiniteSumNode{T}(;D=1, N=1, parents=SPNNode[]) where {T<:Real}
+function FiniteSumNode{T}(;D=1, N=1, parents::Vector{<:Node}=Node[]) where {T<:Real}
     return FiniteSumNode{T}(gensym(:sum), parents, SPNNode[], T[], falses(D), falses(N))
 end
-function FiniteSumNode(;D=1, N=1, parents=SPNNode[])
+function FiniteSumNode(;D=1, N=1, parents::Vector{<:Node}=Node[])
     return FiniteSumNode{Float64}(;D=D, N=N, parents=parents)
 end
 
@@ -124,13 +124,13 @@ logpdf(node, rand(4))
 """
 mutable struct FiniteProductNode <: ProductNode
     id::Symbol
-    parents::Vector{SPNNode}
-    children::Vector{SPNNode}
+    parents::Vector{<:Node}
+    children::Vector{<:SPNNode}
     scopeVec::BitArray{1}
     obsVec::BitArray{1}
 end
 
-function FiniteProductNode(;D=1, N=1, parents = SPNNode[])
+function FiniteProductNode(;D=1, N=1, parents::Vector{<:Node} = Node[])
     return FiniteProductNode(gensym(:prod), parents, SPNNode[], falses(D), falses(N))
 end
 
@@ -154,10 +154,10 @@ mutable struct IndicatorNode <: Leaf
     id::Symbol
     value::Int
     scope::Int
-    parents::Vector{SPNNode}
+    parents::Vector{<:Node}
 end
 
-function IndicatorNode(value::Int, dim::Int; parents = SPNNode[])
+function IndicatorNode(value::Int, dim::Int; parents::Vector{<:Node} = Node[])
     return IndicatorNode(gensym(:indicator), value, dim, parents)
 end
 
@@ -183,12 +183,12 @@ logpdf(node, rand(2)) # == logpdf(Normal(), rand(2))
 """
 mutable struct UnivariateNode <: Leaf
     id::Symbol
-    parents::Vector{SPNNode}
+    parents::Vector{<:Node}
     dist::UnivariateDistribution
     scope::Int
 end
 
-function UnivariateNode(distribution::T, dim::Int; parents = SPNNode[]) where {T<:UnivariateDistribution}
+function UnivariateNode(distribution::T, dim::Int; parents::Vector{<:Node} = Node[]) where {T<:UnivariateDistribution}
     return UnivariateNode(gensym(:univ), parents, distribution, dim)
 end
 params(n::UnivariateNode) = Distributions.params(n.dist)
@@ -210,12 +210,12 @@ logpdf(node, rand(2)) # == logpdf(MvNormal(), rand(2))
 """
 mutable struct MultivariateNode <: Leaf
     id::Symbol
-    parents::Vector{SPNNode}
+    parents::Vector{<:Node}
     dist::MultivariateDistribution
     scope::Vector{Int}
 end
 
-function MultivariateNode(distribution::T, dims::Vector{Int}; parents = SPNNode[]) where {T<:MultivariateDistribution}
+function MultivariateNode(distribution::T, dims::Vector{Int}; parents::Vector{<:Node} = Node[]) where {T<:MultivariateDistribution}
     return MultivariateNode(gensym(:multiv), parents, distribution, dims)
 end
 params(n::MultivariateNode) = Distributions.params(n.dist)
