@@ -122,7 +122,7 @@ logpdf(node, rand(4))
 ```
 
 """
-struct FiniteProductNode <: ProductNode
+mutable struct FiniteProductNode <: ProductNode
     id::Symbol
     parents::Vector{SPNNode}
     children::Vector{SPNNode}
