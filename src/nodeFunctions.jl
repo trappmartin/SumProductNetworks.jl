@@ -297,19 +297,14 @@ function logpdf(n::ProductNode, x::AbstractMatrix{<:Real})
     return mapreduce(k -> hasscope(n[k]) ? logpdf(n[k], x) : ones(N) * -Inf, +, 1:length(n))
 end
 
-function logpdf!(node::ProductNode, x::AbstractMatrix{T}, llhvals::AxisArray) where T<:Real
-    @inbounds fill!( view(llhvals, :, node.id), 0.0f0 )
-    @inbounds for child in filter(c -> hasscope(c), children(node))
-        llhvals[:, node.id] += llhvals[:, child.id]
-    end
+function logpdf!(node::ProductNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
+    N = size(x, 1)
+    llhvals[:, node.id] = map(U, mapreduce(k -> hasscope(n[k]) ? logpdf(n[k], x) : ones(N) * -Inf, +, 1:length(n)))
     return llhvals
 end
 
-function logpdf!(node::ProductNode, x::AbstractVector{T}, llhvals::AxisArray) where T<:Real
-    @inbounds fill!( view(llhvals, node.id), 0.0f0 )
-    @inbounds for child in filter(c -> hasscope(c), children(node))
-        llhvals[node.id] += llhvals[child.id]
-    end
+function logpdf!(node::ProductNode, x::AbstractVector{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
+    llhvals[node.id] = map(U, mapreduce(k -> hasscope(n[k]) ? logpdf(n[k], x) : -Inf, +, 1:length(n)))
     return llhvals
 end
 
