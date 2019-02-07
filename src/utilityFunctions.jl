@@ -1,4 +1,4 @@
-export complexity, depth, projectToPositiveSimplex!
+export complexity, depth, projectToPositiveSimplex!, initllhvals
 
 """
 Get all nodes in topological order using Tarjan's algoritm.
@@ -91,4 +91,22 @@ function projectToPositiveSimplex!(q::AbstractVector{<:Real}; lowerBound = 0.0, 
     q[:] .-= θ
     q[q .< lowerBound] .= lowerBound
     return q
+end
+
+
+"""
+    initllhvals(spn::SumProductNetwork, X::AbstractMatrix)
+
+Construct a log likelihoods data-structure using `spn` and `X`.
+"""
+function initllhvals(spn::SumProductNetwork, X::AbstractMatrix)
+    idx = Axis{:id}(collect(keys(spn)))
+    llhvals = AxisArray(ones(size(X, 1), length(idx)) * -Inf, 1:size(X, 1), idx)
+    return llhvals
+end
+
+function initllhvals(spn::SumProductNetwork, X::AbstractVector)
+    idx = Axis{:id}(collect(keys(spn)))
+    llhvals = AxisArray(ones(length(idx)) * -Inf, idx)
+    return llhvals
 end
