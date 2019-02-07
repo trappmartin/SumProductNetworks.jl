@@ -86,12 +86,14 @@ end
 # Compile the constructed network to an SPN type
 spn = SumProductNetwork(root);
 
-# Compute the logpdf value for every node in the SPN.
-idx = Axis{:id}(collect(keys(spn)))
-llhvals = AxisArray(Matrix{Float32}(undef, N, length(spn)), 1:N, idx)
+# Update the scope of all nodes.
+updatescope!(spn)
+
+# Store the logpdf value for every node in the SPN.
+llhvals = initllhvals(spn, x)
 
 # Compute logpdf values for all nodes in the network.
-logpdf(spn, x; llhvals)
+logpdf!(spn, x, llhvals)
 
 # Print the logpdf value for each leaf.
 for node in spn.leaves
@@ -116,7 +118,7 @@ function assignobs!(node::SumNode, observations::Vector{Int})
     # Update the weights of the root.
     w = map(c -> nobs(c) / nobs(node), children(node))
     for k in 1:length(node)
-        logweights(node)[k] = T(log(w[k]))
+        logweights(node)[k] = map(T, log(w[k]))
     end
 end
 
@@ -241,6 +243,9 @@ bmitest(X::Vector{Int}, Y::Vector{Int})
 
 # Efficient projections onto the L 1-ball.
 projectToPositiveSimplex!(q::AbstractVector{<:Real}; lowerBound = 0.0, s = 1.0)
+
+# Construct a log likelihoods data-structure.
+initllhvals(spn::SumProductNetwork, X::AbstractMatrix)
 ```
 
 ### Contribute
