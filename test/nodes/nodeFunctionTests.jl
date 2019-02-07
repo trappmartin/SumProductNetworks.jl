@@ -31,6 +31,7 @@ end
 
     add!(node, IndicatorNode(0, 1), log(0.3))
     add!(node, IndicatorNode(1, 1), log(0.7))
+    updatescope!(node)
 
     @test logpdf(node, [0]) ≈ log(0.3)
     @test logpdf(node, [1]) ≈ log(0.7)
@@ -49,7 +50,7 @@ end
     p2 = FiniteProductNode(D = 2)
     add!(p2, IndicatorNode(2, 1))
     add!(p2, IndicatorNode(2, 2))
-    
+
     add!(n, p1, log(0.8))
     add!(n, p2, log(0.2))
 
@@ -66,6 +67,11 @@ end
     add!(node, IndicatorNode(1, 1))
     add!(node, IndicatorNode(1, 2))
 
+    # Product nodes without scope always return p(x) = 1.
+    @test logpdf(node, [0, 0]) == 0
+
+    updatescope!(node)
+
     @test logpdf(node, [0, 1]) == -Inf
     @test logpdf(node, [1, 0]) == -Inf
     @test logpdf(node, [1, 1]) == 0
@@ -74,7 +80,7 @@ end
     s1 = FiniteSumNode(D = 1)
     add!(s1, IndicatorNode(1, 1), log(0.8))
     add!(s1, IndicatorNode(2, 1), log(0.2))
-    
+
     s2 = FiniteSumNode(D = 1)
     add!(s2, IndicatorNode(1, 2), log(0.2))
     add!(s2, IndicatorNode(2, 2), log(0.8))
