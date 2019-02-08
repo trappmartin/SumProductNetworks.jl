@@ -8,6 +8,7 @@ export hasscope, hasobs
 export logweights
 export updatescope!
 export classes, children, parents, length, add!, remove!, logpdf!, logpdf
+export rand
 
 function isnormalized(node::Node)
     if !hasweights(node)
@@ -202,7 +203,7 @@ function logpdf!(spn::SumProductNetwork, X::AbstractMatrix{<:Real}, llhvals::Axi
 
     # Call inplace functions.
     for layer in spn.layers
-        #Threads.@threads 
+        #Threads.@threads
         for node in layer
             logpdf!(node, X, llhvals)
         end
@@ -225,7 +226,7 @@ function logpdf!(spn::SumProductNetwork, x::AbstractVector{<:Real}, llhvals::Axi
 
     # Call inplace functions.
     for layer in spn.layers
-        #Threads.@threads 
+        #Threads.@threads
         for node in layer
             logpdf!(node, x, llhvals)
         end
@@ -336,3 +337,38 @@ logpdf(n::UnivariateNode, x::AbstractVector{<:Real}) = logpdf(n.dist, x[scope(n)
 logpdf(n::UnivariateNode, x::AbstractMatrix{<:Real}) = logpdf.(n.dist, x[:,scope(n)])
 logpdf(n::MultivariateNode, x::AbstractVector{<:Real}) = logpdf(n.dist, x[scope(n)])
 logpdf(n::MultivariateNode, x::AbstractMatrix{<:Real}) = logpdf.(n.dist, x[:,scope(n)])
+
+rand(spn::SumProductNetwork) = rand(spn.root)
+
+function rand(node::Node)
+    @assert isnormalized(node)
+    @assert hasscope(node)
+    v = rand_(node)
+    return map(d -> v[d], sort(scope(node)))
+end
+
+rand(node::IndicatorNode) = node.value
+rand(node::UnivariateNode) = rand(node.dist)
+rand(node::MultivariateNode) = rand(node.dist)
+
+function rand_(node::ProductNode)
+    @assert isnormalized(node)
+    @assert hasscope(node)
+    return mapreduce(c -> rand_(c), merge, filter(c -> hasscope(c), children(node)))
+end
+
+function rand_(node::SumNode)
+    @assert isnormalized(node)
+    @assert hasscope(node)
+    w = Float64.(weights(node))
+    z = rand(Categorical(w / sum(w))) # Normalisation due to precision errors.
+    # Generate observation by drawing from a child.
+    return rand_(children(node)[z])
+end
+
+rand_(node::IndicatorNode) = Dict(node.scope => node.value)
+rand_(node::UnivariateNode) = Dict(node.scope => rand(node.dist))
+function rand_(node::MultivariateNode)
+	x = rand(node.dist)
+	return Dict(d[2] => x[d[1]] for d in enumerate(node.scope))
+end

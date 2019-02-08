@@ -193,6 +193,9 @@ complexity(spn::SumProductNetwork)
 
 # Export the SPN to a DOT file.
 export_network(spn::SumProductNetwork, filename::String)
+
+# Draw a random sample for the SPN.
+rand(spn::SumProductNetwork)
 ```
 
 #### Utility Functions on Nodes
@@ -232,6 +235,9 @@ logweights(node::Node)
 
 # Is the SPN rooted at the node normalized?
 isnormalized(node::SPNNode)
+
+# Draw a random sample from a node.
+rand(node::SPNNode)
 ```
 
 #### General utility functions

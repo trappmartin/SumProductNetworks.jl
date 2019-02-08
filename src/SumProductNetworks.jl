@@ -9,7 +9,7 @@ using AxisArrays
 
 using StatsBase: countmap
 
-import Base: getindex, map, parent, length, size, show, isequal, getindex, keys, eltype
+import Base: getindex, map, parent, length, size, show, isequal, getindex, keys, eltype, rand
 import Distributions.logpdf
 import StatsBase.nobs
 
