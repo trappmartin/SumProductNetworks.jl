@@ -244,7 +244,7 @@ node(x::AbstractArray)
 
 # Compute the log pdf but use the passed parameters instead.
 logpdf(node::Leaf, x::AbstractArray, p...)
-logpdf(node::SumNode, x::AbstractArray, logweights::AbstractVector)
+logpdf(node::SumNode, x::AbstractArray; lw::AbstractVector=logweights(node))
 
 # Draw a random sample from a node.
 rand(node::SPNNode)
