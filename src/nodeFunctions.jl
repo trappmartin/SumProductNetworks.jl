@@ -252,13 +252,13 @@ logpdf(n::SumNode, x::AbstractArray{<:Real}) = n(x)
 logpdf(n::SumNode, x::AbstractArray{<:Real}, lw::AbstractVector{<:Real}) = n(x, lw)
 
 function logpdf!(n::SumNode, x::AbstractVector{<:Real}, llhvals::AxisArray{U,1}) where {U<:Real}
-    y = view(llhvals, map(c -> c.id, children(n)))
+    @inbounds y = map(c -> llhvals[c.id], children(n))
     llhvals[n.id] = map(U, n(x, y, logweights(n)))
     return llhvals
 end
 
 function logpdf!(n::SumNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U,2}) where {U<:Real}
-    Y = view(llhvals, :, map(c -> c.id, children(n)))'
+    @inbounds Y = mapreduce(llhvals[:, c.id], hcat, map(c -> c.id, children(n)))
     @inbounds llhvals[:,n.id] = map(i -> map(U, n(x, view(Y, :, i), logweights(n))), 1:size(x,1))
     return llhvals
 end
@@ -325,13 +325,13 @@ function _logpdf(n::ProductNode, x::AbstractMatrix{<:Real}, y::AxisArray{<:Real,
 end
 
 function logpdf!(n::ProductNode, x::AbstractVector{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
-    y = view(llhvals, map(c -> c.id, children(n)))
+    @inbounds y = map(c -> llhvals[c.id], children(n))
     llhvals[n.id] = map(U, _logpdf(n, x, y))
     return llhvals
 end
 
 function logpdf!(n::ProductNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
-    Y = view(llhvals, :, map(c -> c.id, children(n)))
+    @inbounds Y = mapreduce(llhvals[:, c.id], hcat, map(c -> c.id, children(n)))
     llhvals[:,n.id] = map(U, _logpdf(n, x, y))
     return llhvals
 end
