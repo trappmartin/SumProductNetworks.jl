@@ -8,7 +8,8 @@ using Test
     node = IndicatorNode(value, dim)
 
     @test logpdf(node, [1, 2]) == -Inf
-    @test logpdf(node, [1, 1]) == 0.
+    @test logpdf(node, [1, 1]) == 0
+    @test logpdf(node, [1, 2], 2) == 0
 end
 
 @testset "univariate node" begin
@@ -16,6 +17,7 @@ end
     node = UnivariateNode(dist, 2)
 
     @test logpdf(node, [0.1, 1.0]) ≈ logpdf(dist, 1.0)
+    @test logpdf(node, [0.1, 1.0], 1.0, 0.5) ≈ logpdf(Normal(1.0, 0.5), 1.0)
 end
 
 @testset "multivariate node" begin
@@ -36,8 +38,10 @@ end
     @test logpdf(node, [0]) ≈ log(0.3)
     @test logpdf(node, [1]) ≈ log(0.7)
 
+    @test first(logpdf(node, ones(1, 1))) ≈ log(0.7)
+    @test logpdf(node, reshape([1, 0], 2, 1)) ≈ log.([0.7, 0.3])
+
     spn = SumProductNetwork(node)
-    updatescope!(spn)
 
     @test exp.(logpdf(spn, reshape([1, 0], 2, 1))) ≈ [0.7, 0.3]
     @test exp.(logpdf(spn, reshape([1, 2], 2, 1))) ≈ [0.7, 0]

@@ -2,13 +2,13 @@
 [![Build Status](https://travis-ci.org/trappmartin/SumProductNetworks.jl.svg?branch=master)](https://travis-ci.org/trappmartin/SumProductNetworks.jl)
 [![Coverage Status](https://coveralls.io/repos/github/trappmartin/SumProductNetworks.jl/badge.svg?branch=master)](https://coveralls.io/github/trappmartin/SumProductNetworks.jl?branch=master)
 
-This software package implements the tractable probabilistic model sum-product network (SPN) in Julia. 
+This software package implements the tractable probabilistic model sum-product network (SPN) in Julia.
 The package provides a clean and modular interface for SPNs and implements various helper and utility functions to efficienty work with SPN models.
 
 ### News
 * 18.10.2018 - The package is officialy registered.
 * 10.10.2018 - The package now provides more efficient logpdf routines and allows for multithreaded computations.
-* 24.09.2018 - SumProductNetworks now works under Julia 1.0. 
+* 24.09.2018 - SumProductNetworks now works under Julia 1.0.
 
 ## Installation
 Make sure you have Julia 1.0 running. The package can be installed using Julia's package mode. (You can enter the package mode by typing ] in the REPL.)
@@ -235,6 +235,16 @@ logweights(node::Node)
 
 # Is the SPN rooted at the node normalized?
 isnormalized(node::SPNNode)
+
+# Compute the log pdf.
+logpdf(node::SPNNode, x::AbstractArray)
+
+# Alternatively, you can call the object with some data.
+node(x::AbstractArray)
+
+# Compute the log pdf but use the passed parameters instead.
+logpdf(node::Leaf, x::AbstractArray, p...)
+logpdf(node::SumNode, x::AbstractArray, logweights::AbstractVector)
 
 # Draw a random sample from a node.
 rand(node::SPNNode)

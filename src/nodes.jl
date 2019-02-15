@@ -1,7 +1,7 @@
 export SumProductNetwork
 export SPNNode, Node, Leaf, SumNode, ProductNode
 export FiniteSumNode, FiniteProductNode
-export IndicatorNode, UnivariateNode 
+export IndicatorNode, UnivariateNode
 export MultivariateNode
 
 # Abstract definition of an SumProductNetwork node.
@@ -75,7 +75,7 @@ end
 
 """
    FiniteSumNode <: SumNode
-   
+
 A sum node computes a convex combination of its weight and the pdf's of its children.
 
 ## Usage:
@@ -109,7 +109,7 @@ eltype(n::SPNNode) = eltype(typeof(n))
 
 """
    FiniteProductNode <: ProductNode
-   
+
 A product node computes a product of the pdf's of its children.
 
 ## Usage:
@@ -136,7 +136,7 @@ end
 
 """
    IndicatorNode <: Leaf
-   
+
 An indicator node evaluates an indicator function.
 
 ## Usage:
@@ -168,7 +168,7 @@ params(n::IndicatorNode) = (n.value)
 
 """
    UnivariateNode <: Leaf
-   
+
 A univariate node evaluates the logpdf of its univariate distribution function.
 
 ## Usage:
@@ -195,7 +195,7 @@ params(n::UnivariateNode) = Distributions.params(n.dist)
 
 """
    MultivariateNode <: Leaf
-   
+
 A multivariate node evaluates the logpdf of its multivariate distribution function.
 
 ## Usage:

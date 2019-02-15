@@ -199,7 +199,7 @@ end
 
 function logpdf!(spn::SumProductNetwork, X::AbstractMatrix{<:Real}, llhvals::AxisArray)
 
-    fill!(llhvals, -Inf32)
+    fill!(llhvals, -Inf)
 
     # Call inplace functions.
     for layer in spn.layers
@@ -222,7 +222,7 @@ end
 
 function logpdf!(spn::SumProductNetwork, x::AbstractVector{<:Real}, llhvals::AxisArray)
 
-    fill!(llhvals, -Inf32)
+    fill!(llhvals, -Inf)
 
     # Call inplace functions.
     for layer in spn.layers
@@ -240,103 +240,154 @@ end
 function logpdf(spn::SumProductNetwork, x::AbstractVector{<:Real})
     idx = Axis{:id}(collect(keys(spn)))
     llhvals = AxisArray(Vector{Float64}(undef, length(idx)), idx)
-    return logpdf!(spn, X, llhvals)
+    return logpdf!(spn, x, llhvals)
 end
 
 """
-    logpdf(n::SumNode, x::AbstractVector{<:Real})
+    logpdf(n::SumNode, x)
 
-Compute the logpdf for a single observation.
+Compute the logpdf of a sum node.
 """
-function logpdf(n::SumNode, x::AbstractVector{<:Real})
-    @inbounds l = map(k -> logpdf(n[k], x) + logweights(n)[k], 1:length(n))
-    return logsumexp(l)
-end
+logpdf(n::SumNode, x::AbstractArray{<:Real}; lw::AbstractVector{<:Real}=logweights(n)) = n(x, lw=lw)
 
-"""
-    logpdf!(n::SumNode, x::AbstractVector{<:Real}, llhvals::AxisArray{<:Real})
-
-Implace version of logpdf for a single observation.
-"""
-function logpdf!(n::SumNode, x::AbstractVector{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
-    @inbounds l = map(k -> llhvals[n[k].id] + logweights(n)[k], 1:length(n))
-    llhvals[n.id] = map(U, logsumexp(l))
+function logpdf!(n::SumNode, x::AbstractVector{<:Real}, llhvals::AxisArray{U,1}) where {U<:Real}
+    @inbounds y = map(c -> llhvals[c.id], children(n))
+    llhvals[n.id] = map(U, _logpdf(n, x, y, logweights(n)))
     return llhvals
 end
 
-"""
-    logpdf(n::SumNode, x::AbstractMatrix{<:Real})
-
-Compute the logpdf for multiple observations at once.
-"""
-function logpdf(n::SumNode, x::AbstractMatrix{<:Real})
-    @inbounds l = map(k -> logpdf(n[k], x) .+ logweights(n)[k], 1:length(n))
-    m = max.(l...)
-    p = mapreduce(y -> exp.(y - m), +, l)
-    return map(y -> isfinite(y) ? y : -Inf, log.(p) + m)
-end
-
-"""
-    logpdf!(n::SumNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{<:Real})
-
-Implace version of logpdf for multiple observations at once.
-"""
-function logpdf!(n::SumNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
-    @inbounds l = map(k -> view(llhvals, :, n[k].id) .+ logweights(n)[k], 1:length(n))
-    m = max.(l...)
-    p = mapreduce(y -> exp.(y - m), +, l)
-    llhvals[:,n.id] .= map(y -> isfinite(y) ? y : -Inf, log.(p) + m)
+function logpdf!(n::SumNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U,2}) where {U<:Real}
+    @inbounds Y = mapreduce(c -> llhvals[:, c.id], hcat, children(n))
+    @inbounds llhvals[:,n.id] = map(i -> map(U, _logpdf(n, x, view(Y, i, :), logweights(n))), 1:size(x,1))
     return llhvals
 end
 
-function logpdf(n::ProductNode, x::AbstractVector{<:Real})
-    if !hasscope(n)
-        return 0.0
-    end
-    return mapreduce(k -> hasscope(n[k]) ? logpdf(n[k], x) : 0.0, +, 1:length(n))
+# ############################################ #
+# Concrete implementation for finite sum node. #
+# ############################################ #
+function (n::FiniteSumNode)(x::AbstractArray{<:Real}, y::AbstractVector{<:Real}; lw::AbstractVector{<:Real}=logweights(n))
+    return _logpdf(n, x, y, lw)
 end
 
-function logpdf(n::ProductNode, x::AbstractMatrix{<:Real})
+function _logpdf(n::SumNode, x::AbstractArray{<:Real}, y::AbstractVector{<:Real}, lw::AbstractVector{<:Real})
+    l = lw+y
+    m = maximum(l)
+    lp = log(mapreduce(v -> exp(v-m), +, l)) + m
+    return isfinite(lp) ? lp : -Inf
+end
+
+function (n::FiniteSumNode)(x::AbstractVector{<:Real}; lw::AbstractVector{<:Real} = logweights(n))
+    y = map(c -> c(x), children(n))
+    return _logpdf(n, x, y, lw)
+end
+
+function (n::FiniteSumNode)(x::AbstractMatrix{<:Real}; lw::AbstractVector{<:Real}=logweights(n))
+    @inbounds Y = mapreduce(i -> map(c -> c(view(x, i, :)), children(n)), hcat, 1:size(x,1))
+    return @inbounds map(i -> _logpdf(n, x, view(Y, :, i), lw), 1:size(x,1))
+end
+
+"""
+    logpdf(n::ProductNode, x)
+
+Compute the logpdf of a product node.
+"""
+logpdf(n::ProductNode, x::AbstractArray{<:Real}) = n(x)
+(n::FiniteProductNode)(x::AbstractArray{<:Real}, y::AbstractVector{<:Real}) = _logpdf(n, x, y)
+function (n::FiniteProductNode)(x::AbstractVector{<:Real})
+    y = map(c -> c(x), children(n))
+    return _logpdf(n, x, y)
+end
+
+function (n::FiniteProductNode)(x::AbstractMatrix{<:Real})
+    @inbounds Y = mapreduce(i -> map(c -> c(view(x, i, :)), children(n)), hcat, 1:size(x,1))
+    return _logpdf(n, x, Y)
+end
+
+function _logpdf(n::ProductNode, x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
     if !hasscope(n)
         return 0.0
+    else
+        return mapreduce(k -> hasscope(n[k]) ? y[k] : 0.0, +, 1:length(n))
     end
+end
+
+function _logpdf(n::ProductNode, x::AbstractMatrix{<:Real}, y::AbstractMatrix{<:Real})
     N = size(x, 1)
-    return mapreduce(k -> hasscope(n[k]) ? logpdf(n[k], x) : ones(N), +, 1:length(n))
-end
-
-function logpdf!(n::ProductNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
     if !hasscope(n)
-        return 0.0
+        return zeros(N)
+    else
+        return mapreduce(k -> hasscope(n[k]) ? y[k,:] : ones(N), +, 1:length(n))
     end
-    N = size(x, 1)
-    llhvals[:, n.id] = map(U, mapreduce(k -> hasscope(n[k]) ? llhvals[:,n[k].id] : ones(N), +, 1:length(n)))
-    return llhvals
 end
 
 function logpdf!(n::ProductNode, x::AbstractVector{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
-    if !hasscope(n)
-        return 0.0
-    end
-    llhvals[n.id] = map(U, mapreduce(k -> hasscope(n[k]) ? llhvals[n[k].id] : 0.0, +, 1:length(n)))
+    @inbounds y = map(c -> llhvals[c.id], children(n))
+    llhvals[n.id] = map(U, _logpdf(n, x, y))
     return llhvals
 end
 
+function logpdf!(n::ProductNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
+    @inbounds Y = mapreduce(c -> llhvals[:, c.id], hcat, children(n))
+    llhvals[:,n.id] = map(U, _logpdf(n, x, y))
+    return llhvals
+end
+
+# ################## #
+# Leaf distributions #
+# ################## #
+"""
+    logpdf(n::Leaf, x)
+
+Compute the logpdf of a leaf node.
+"""
 function logpdf!(n::Leaf, x::AbstractVector{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
-    llhvals[n.id] = map(U, logpdf(n, x))
+    llhvals[n.id] = map(U, n(x))
     return llhvals
 end
 
 function logpdf!(n::Leaf, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
-    llhvals[:, n.id] .= map(U, logpdf(n, x))
+    llhvals[:,n.id] .= map(U, n(x))
     return llhvals
 end
 
-logpdf(n::IndicatorNode, x::AbstractVector{<:Real}) = x[scope(n)] == n.value ? 0.0 : -Inf
-logpdf(n::IndicatorNode, x::AbstractMatrix{<:Real}) = map(b -> b ? 0.0 : -Inf, x[:,scope(n)] .== n.value)
-logpdf(n::UnivariateNode, x::AbstractVector{<:Real}) = logpdf(n.dist, x[scope(n)])
-logpdf(n::UnivariateNode, x::AbstractMatrix{<:Real}) = logpdf.(n.dist, x[:,scope(n)])
-logpdf(n::MultivariateNode, x::AbstractVector{<:Real}) = logpdf(n.dist, x[scope(n)])
-logpdf(n::MultivariateNode, x::AbstractMatrix{<:Real}) = logpdf.(n.dist, x[:,scope(n)])
+@inline (n::IndicatorNode)(x::AbstractVector{<:Real}) = n(x, n.value)
+@inline (n::IndicatorNode)(x::AbstractVector{<:Real}, θ::T) where {T<:Real} = _logpdf(n, x, θ)
+
+function _logpdf(n::IndicatorNode, x::AbstractVector{<:Real}, θ::T) where {T<:Real}
+    return x[scope(n)] == θ ? 0.0 : -Inf
+end
+
+@inline (n::UnivariateNode)(x::AbstractVector{<:Real}) = n(x, Distributions.params(n.dist)...)
+@inline (n::UnivariateNode)(x::AbstractVector{<:Real}, θ...) = _logpdf(n, x, θ...)
+
+function _logpdf(n::UnivariateNode, x::AbstractVector{<:Real}, θ...)
+    if θ == params(n)
+        return logpdf(n.dist, x[scope(n)])
+    else
+        return logpdf((typeof(n.dist))(θ...), x[scope(n)])
+    end
+end
+
+@inline (n::MultivariateNode)(x::AbstractVector{<:Real}) = n(x, Distributions.params(n.dist)...)
+@inline (n::MultivariateNode)(x::AbstractVector{<:Real}, θ...) = _logpdf(n, x, θ...)
+
+function _logpdf(n::MultivariateNode, x::AbstractVector{<:Real}, θ...)
+    if θ == params(n)
+        return logpdf(n.dist, x[scope(n)])
+    else
+        return logpdf((typeof(n.dist))(θ...), x[scope(n)])
+    end
+end
+
+(n::IndicatorNode)(x::AbstractMatrix{<:Real}) = @inbounds map(i -> n(view(x,i,:)), 1:size(x,1))
+(n::IndicatorNode)(x::AbstractMatrix{<:Real}, θ...) = @inbounds map(i -> n(view(x,i,:), θ...), 1:size(x,1))
+(n::UnivariateNode)(x::AbstractMatrix{<:Real}) = @inbounds map(i -> n(view(x,i,:)), 1:size(x,1))
+(n::UnivariateNode)(x::AbstractMatrix{<:Real}, θ...) = @inbounds map(i -> n(view(x,i,:), θ...), 1:size(x,1))
+(n::MultivariateNode)(x::AbstractMatrix{<:Real}) = @inbounds map(i -> n(view(x,i,:)), 1:size(x,1))
+(n::MultivariateNode)(x::AbstractMatrix{<:Real}, θ...) = @inbounds map(i -> n(view(x,i,:), θ...), 1:size(x,1))
+
+@inline logpdf(n::Leaf, x::AbstractArray{<:Real}) = n(x)
+@inline logpdf(n::Leaf, x::AbstractArray{<:Real}, y...) = n(x, y...)
 
 rand(spn::SumProductNetwork) = rand(spn.root)
 
