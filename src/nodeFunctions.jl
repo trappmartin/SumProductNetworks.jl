@@ -199,7 +199,7 @@ end
 
 function logpdf!(spn::SumProductNetwork, X::AbstractMatrix{<:Real}, llhvals::AxisArray)
 
-    fill!(llhvals, -Inf32)
+    fill!(llhvals, -Inf)
 
     # Call inplace functions.
     for layer in spn.layers
@@ -222,7 +222,7 @@ end
 
 function logpdf!(spn::SumProductNetwork, x::AbstractVector{<:Real}, llhvals::AxisArray)
 
-    fill!(llhvals, -Inf32)
+    fill!(llhvals, -Inf)
 
     # Call inplace functions.
     for layer in spn.layers
@@ -258,8 +258,8 @@ function logpdf!(n::SumNode, x::AbstractVector{<:Real}, llhvals::AxisArray{U,1})
 end
 
 function logpdf!(n::SumNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U,2}) where {U<:Real}
-    Y = view(llhvals, :, map(c -> c.id, children(n)))
-    @inbounds llhvals[:,n.id] = map(i -> map(U, n(x, view(Y, i, :), logweights(n))), 1:size(x,1))
+    Y = view(llhvals, :, map(c -> c.id, children(n)))'
+    @inbounds llhvals[:,n.id] = map(i -> map(U, n(x, view(Y, :, i), logweights(n))), 1:size(x,1))
     return llhvals
 end
 
