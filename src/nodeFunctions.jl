@@ -248,47 +248,43 @@ end
 
 Compute the logpdf of a sum node.
 """
-logpdf(n::SumNode, x::AbstractArray{<:Real}) = n(x)
-logpdf(n::SumNode, x::AbstractArray{<:Real}, lw::AbstractVector{<:Real}) = n(x, lw)
+logpdf(n::SumNode, x::AbstractArray{<:Real}; lw::AbstractVector{<:Real}=logweights(n)) = n(x, lw=lw)
 
 function logpdf!(n::SumNode, x::AbstractVector{<:Real}, llhvals::AxisArray{U,1}) where {U<:Real}
     @inbounds y = map(c -> llhvals[c.id], children(n))
-    llhvals[n.id] = map(U, n(x, y, logweights(n)))
+    llhvals[n.id] = map(U, _logpdf(n, x, y, logweights(n)))
     return llhvals
 end
 
 function logpdf!(n::SumNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U,2}) where {U<:Real}
     @inbounds Y = mapreduce(c -> llhvals[:, c.id], hcat, children(n))
-    @inbounds llhvals[:,n.id] = map(i -> map(U, n(x, view(Y, :, i), logweights(n))), 1:size(x,1))
+    @inbounds llhvals[:,n.id] = map(i -> map(U, _logpdf(n, x, view(Y, i, :), logweights(n))), 1:size(x,1))
     return llhvals
 end
 
 # ############################################ #
 # Concrete implementation for finite sum node. #
 # ############################################ #
-function (n::FiniteSumNode)(x::AbstractArray{<:Real}, y::AxisArray{<:Real,1}, lw::AbstractVector{<:Real})
+function (n::FiniteSumNode)(x::AbstractArray{<:Real}, y::AbstractVector{<:Real}; lw::AbstractVector{<:Real}=logweights(n))
     return _logpdf(n, x, y, lw)
 end
 
-function _logpdf(n::SumNode, x::AbstractArray{<:Real}, y::AxisArray{<:Real,1}, lw::AbstractVector{<:Real})
+function _logpdf(n::SumNode, x::AbstractArray{<:Real}, y::AbstractVector{<:Real}, lw::AbstractVector{<:Real})
     l = lw+y
     m = maximum(l)
     lp = log(mapreduce(v -> exp(v-m), +, l)) + m
     return isfinite(lp) ? lp : -Inf
 end
 
-function (n::FiniteSumNode)(x::AbstractVector{<:Real}, lw::AbstractVector{<:Real})
-    y = AxisArray(map(c -> c(x), children(n)))
+function (n::FiniteSumNode)(x::AbstractVector{<:Real}; lw::AbstractVector{<:Real} = logweights(n))
+    y = map(c -> c(x), children(n))
     return _logpdf(n, x, y, lw)
 end
 
-function (n::FiniteSumNode)(x::AbstractMatrix{<:Real}, lw::AbstractVector{<:Real})
-    @inbounds Y = AxisArray(mapreduce(i -> map(c -> c(view(x, i, :)), children(n)), hcat, 1:size(x,1)))
-    return @inbounds map(i -> n(x, view(Y, :, i), lw), 1:size(x,1))
+function (n::FiniteSumNode)(x::AbstractMatrix{<:Real}; lw::AbstractVector{<:Real}=logweights(n))
+    @inbounds Y = mapreduce(i -> map(c -> c(view(x, i, :)), children(n)), hcat, 1:size(x,1))
+    return @inbounds map(i -> _logpdf(n, x, view(Y, :, i), lw), 1:size(x,1))
 end
-
-(n::FiniteSumNode)(x::AbstractArray{<:Real}, y::AxisArray{<:Real,1}) = n(x, y, logweights(n))
-(n::FiniteSumNode)(x::AbstractArray{<:Real}) = n(x, logweights(n))
 
 """
     logpdf(n::ProductNode, x)
@@ -296,18 +292,18 @@ end
 Compute the logpdf of a product node.
 """
 logpdf(n::ProductNode, x::AbstractArray{<:Real}) = n(x)
-(n::FiniteProductNode)(x::AbstractArray{<:Real}, y::AxisArray{<:Real}) = _logpdf(n, x, y)
+(n::FiniteProductNode)(x::AbstractArray{<:Real}, y::AbstractVector{<:Real}) = _logpdf(n, x, y)
 function (n::FiniteProductNode)(x::AbstractVector{<:Real})
-    y = AxisArray(map(c -> c(x), children(n)))
+    y = map(c -> c(x), children(n))
     return _logpdf(n, x, y)
 end
 
 function (n::FiniteProductNode)(x::AbstractMatrix{<:Real})
-    @inbounds Y = AxisArray(mapreduce(i -> map(c -> c(view(x, i, :)), children(n)), hcat, 1:size(x,1)))
+    @inbounds Y = mapreduce(i -> map(c -> c(view(x, i, :)), children(n)), hcat, 1:size(x,1))
     return _logpdf(n, x, Y)
 end
 
-function _logpdf(n::ProductNode, x::AbstractVector{<:Real}, y::AxisArray{<:Real,1})
+function _logpdf(n::ProductNode, x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
     if !hasscope(n)
         return 0.0
     else
@@ -315,7 +311,7 @@ function _logpdf(n::ProductNode, x::AbstractVector{<:Real}, y::AxisArray{<:Real,
     end
 end
 
-function _logpdf(n::ProductNode, x::AbstractMatrix{<:Real}, y::AxisArray{<:Real,2})
+function _logpdf(n::ProductNode, x::AbstractMatrix{<:Real}, y::AbstractMatrix{<:Real})
     N = size(x, 1)
     if !hasscope(n)
         return zeros(N)

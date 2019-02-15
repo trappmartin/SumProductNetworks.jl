@@ -8,7 +8,8 @@ using Test
     node = IndicatorNode(value, dim)
 
     @test logpdf(node, [1, 2]) == -Inf
-    @test logpdf(node, [1, 1]) == 0.
+    @test logpdf(node, [1, 1]) == 0
+    @test logpdf(node, [1, 2], 2) == 0
 end
 
 @testset "univariate node" begin
@@ -16,6 +17,7 @@ end
     node = UnivariateNode(dist, 2)
 
     @test logpdf(node, [0.1, 1.0]) ≈ logpdf(dist, 1.0)
+    @test logpdf(node, [0.1, 1.0], 1.0, 0.5) ≈ logpdf(Normal(1.0, 0.5), 1.0)
 end
 
 @testset "multivariate node" begin
