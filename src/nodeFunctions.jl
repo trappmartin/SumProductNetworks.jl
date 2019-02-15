@@ -240,7 +240,7 @@ end
 function logpdf(spn::SumProductNetwork, x::AbstractVector{<:Real})
     idx = Axis{:id}(collect(keys(spn)))
     llhvals = AxisArray(Vector{Float64}(undef, length(idx)), idx)
-    return logpdf!(spn, X, llhvals)
+    return logpdf!(spn, x, llhvals)
 end
 
 """

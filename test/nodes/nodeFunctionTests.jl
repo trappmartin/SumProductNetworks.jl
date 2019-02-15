@@ -36,7 +36,9 @@ end
     @test logpdf(node, [0]) ≈ log(0.3)
     @test logpdf(node, [1]) ≈ log(0.7)
 
-    updatescope!(node)
+    @test logpdf(node, ones(1, 1)) .≈ log(0.7)
+    @test logpdf(node, reshape([1, 0], 2, 1)) ≈ log.([0.7, 0.3])
+
     spn = SumProductNetwork(node)
 
     @test exp.(logpdf(spn, reshape([1, 0], 2, 1))) ≈ [0.7, 0.3]
