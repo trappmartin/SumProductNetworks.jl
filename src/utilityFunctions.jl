@@ -56,7 +56,7 @@ sub2ind2(s1, i, j) = i + (j-1)*s1
 """
   sub2ind3(size1, size2, ind1, ind2, ind3) -> linear index
 """
-sub2ind3(s1, s2, i, j, k) = i + (j-1)*s1 + (k-1)*s1*s2 
+sub2ind3(s1, s2, i, j, k) = i + (j-1)*s1 + (k-1)*s1*s2
 
 """
 
@@ -70,7 +70,7 @@ See Algorithm 1 in:
 
 """
 function projectToPositiveSimplex!(q::AbstractVector{<:Real}; lowerBound = 0.0, s = 1.0)
-    
+
     if sum(q) == 0.0
         q[:] = ones(length(q)) / length(q)
         return q
@@ -100,13 +100,18 @@ end
 Construct a log likelihoods data-structure using `spn` and `X`.
 """
 function initllhvals(spn::SumProductNetwork, X::AbstractMatrix)
-    idx = Axis{:id}(collect(keys(spn)))
-    llhvals = AxisArray(ones(size(X, 1), length(idx)) * -Inf, 1:size(X, 1), idx)
-    return llhvals
+    return initllhvals(spn, size(X,1))
 end
 
 function initllhvals(spn::SumProductNetwork, X::AbstractVector)
+    return initllhvals(spn, 1)
+end
+
+function initllhvals(spn::SumProductNetwork, N::Int)
     idx = Axis{:id}(collect(keys(spn)))
-    llhvals = AxisArray(ones(length(idx)) * -Inf, idx)
-    return llhvals
+    if N == 1
+        return AxisArray(ones(length(idx)) * -Inf, idx)
+    else
+        return AxisArray(ones(N, length(idx)) * -Inf, 1:N, idx)
+    end
 end

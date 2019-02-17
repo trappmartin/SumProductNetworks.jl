@@ -203,8 +203,7 @@ function logpdf!(spn::SumProductNetwork, X::AbstractMatrix{<:Real}, llhvals::Axi
 
     # Call inplace functions.
     for layer in spn.layers
-        #Threads.@threads
-        for node in layer
+        Threads.@threads for node in layer
             logpdf!(node, X, llhvals)
         end
     end
@@ -226,8 +225,7 @@ function logpdf!(spn::SumProductNetwork, x::AbstractVector{<:Real}, llhvals::Axi
 
     # Call inplace functions.
     for layer in spn.layers
-        #Threads.@threads
-        for node in layer
+        Threads.@threads for node in layer
             logpdf!(node, x, llhvals)
         end
     end
@@ -312,11 +310,11 @@ function _logpdf(n::ProductNode, x::AbstractVector{<:Real}, y::AbstractVector{<:
 end
 
 function _logpdf(n::ProductNode, x::AbstractMatrix{<:Real}, y::AbstractMatrix{<:Real})
-    N = size(x, 1)
+    N = size(x,1)
     if !hasscope(n)
         return zeros(N)
     else
-        return mapreduce(k -> hasscope(n[k]) ? y[k,:] : ones(N), +, 1:length(n))
+        return mapreduce(k -> hasscope(n[k]) ? y[:,k] : ones(N), +, 1:length(n))
     end
 end
 

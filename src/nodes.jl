@@ -4,6 +4,8 @@ export FiniteSumNode, FiniteProductNode
 export IndicatorNode, UnivariateNode
 export MultivariateNode
 
+export root, leaves
+
 # Abstract definition of an SumProductNetwork node.
 abstract type SPNNode end
 abstract type Node <: SPNNode end
@@ -72,6 +74,8 @@ function Base.show(io::IO, spn::SumProductNetwork)
     println(io, "\t#leaves = $(length(spn.leaves))")
     println(io, "\tdepth = $(length(spn.layers))")
 end
+leaves(spn::SumProductNetwork) = spn.leaves
+root(spn::SumProductNetwork) = spn.root
 
 """
    FiniteSumNode <: SumNode
