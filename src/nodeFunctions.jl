@@ -328,7 +328,7 @@ end
 
 function logpdf!(n::ProductNode, x::AbstractMatrix{<:Real}, llhvals::AxisArray{U}) where {U<:Real}
     @inbounds Y = mapreduce(c -> llhvals[:, c.id], hcat, children(n))
-    llhvals[:,n.id] = map(U, _logpdf(n, x, y))
+    llhvals[:,n.id] = map(U, _logpdf(n, x, Y))
     return llhvals
 end
 
