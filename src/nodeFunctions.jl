@@ -314,7 +314,7 @@ function _logpdf(n::ProductNode, x::AbstractMatrix{<:Real}, y::AbstractMatrix{<:
     if !hasscope(n)
         return zeros(N)
     else
-        return mapreduce(k -> hasscope(n[k]) ? y[:,k] : ones(N), +, 1:length(n))
+        return mapreduce(k -> hasscope(n[k]) ? y[:,k] : zeros(N), +, 1:length(n))
     end
 end
 
