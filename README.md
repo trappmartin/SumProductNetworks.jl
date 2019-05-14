@@ -53,6 +53,10 @@ logp = logpdf(spn, x)
 # Access the stored log likelihood
 llh = spn.info[:llh]
 
+# Evaluate the network by marginalising out a RV.
+x = [0.8, NaN]
+logp = logpdf(spn, x)
+
 # Save the network to a DOT file.
 export_network(spn, "mySPN.dot")
 ```

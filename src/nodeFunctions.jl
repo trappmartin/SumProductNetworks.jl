@@ -352,13 +352,17 @@ end
 @inline (n::IndicatorNode)(x::AbstractVector{<:Real}, θ::T) where {T<:Real} = _logpdf(n, x, θ)
 
 function _logpdf(n::IndicatorNode, x::AbstractVector{<:Real}, θ::T) where {T<:Real}
-    return x[scope(n)] == θ ? 0.0 : -Inf
+    return isnan(x[scope(n)]) ? 0.0 : (x[scope(n)] == θ ? 0.0 : -Inf)
 end
 
 @inline (n::UnivariateNode)(x::AbstractVector{<:Real}) = n(x, Distributions.params(n.dist)...)
 @inline (n::UnivariateNode)(x::AbstractVector{<:Real}, θ...) = _logpdf(n, x, θ...)
 
 function _logpdf(n::UnivariateNode, x::AbstractVector{<:Real}, θ...)
+    if isnan(x[scope(n)])
+        return 0.0
+    end
+
     if θ == params(n)
         return logpdf(n.dist, x[scope(n)])
     else
@@ -370,6 +374,9 @@ end
 @inline (n::MultivariateNode)(x::AbstractVector{<:Real}, θ...) = _logpdf(n, x, θ...)
 
 function _logpdf(n::MultivariateNode, x::AbstractVector{<:Real}, θ...)
+
+    @assert !any(isnan, x[scope(n)]) "NaN values for multivariate leaves is not supported."
+
     if θ == params(n)
         return logpdf(n.dist, x[scope(n)])
     else
