@@ -20,6 +20,10 @@ using SparseArrays
 using Random
 using Printf
 
+using DataStructures
+using Distances
+using Clustering
+
 # include general implementations
 include("nodes.jl")
 include("nodeFunctions.jl")
