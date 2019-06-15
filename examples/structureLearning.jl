@@ -3,22 +3,14 @@ using SumProductNetworks
 
 println("make dataset A and B")
 
-A = vcat(
-    randn(1, 100) .+ 0.0,
-    randn(1, 100) .+ 0.5,
-    randn(1, 100) .+ 1.0,
-    randn(1, 100) .+ 1.5,
-)
+N = 1000
+D = 4
 
-B = vcat(
-    randn(1, 100) .+ 2.0,
-    randn(1, 100) .+ 2.5,
-    randn(1, 100) .+ 3.0,
-    randn(1, 100) .+ 3.5,
-)
+A = vcat([randn(1, N) .+ (2 + 0.5*i) for i in 1:D]...)
+B = vcat([randn(1, N) .+ (4 + 0.5*i) for i in 1:D]...)
 
 println("generate an SPN by LearnSPN with dataset A")
-spn = generate_spn(A, :learnspn; minclustersize=20)
+spn = generate_spn(A, :learnspn)
 updatescope!(spn)
 
 println("mean log-likelihood for...")

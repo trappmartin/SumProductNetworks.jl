@@ -6,7 +6,9 @@ using Reexport
 using StatsFuns
 using SpecialFunctions
 using AxisArrays
-
+using DataStructures
+using Distances
+using Clustering
 using StatsBase: countmap
 
 import Base: getindex, map, parent, length, size, show, isequal, getindex, keys, eltype, rand
@@ -19,10 +21,6 @@ using LinearAlgebra
 using SparseArrays
 using Random
 using Printf
-
-using DataStructures
-using Distances
-using Clustering
 
 # include general implementations
 include("nodes.jl")
