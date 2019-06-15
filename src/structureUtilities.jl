@@ -10,13 +10,12 @@ Arguments:
 * `algo`: Algorithm, one out of [:learnspn, :random].
 """
 function generate_spn(X::Matrix, algo::Symbol; params...)
-
     if algo == :learnspn
         return learnspn(X; params...)
     elseif algo == :random
         return randomspn(X; params...)
     else
-        @error("Unknown structure learning method: ", method)
+        @error("Unknown structure learning algorithm: ", algo)
     end
 end
 
