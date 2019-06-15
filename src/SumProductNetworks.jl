@@ -3,12 +3,13 @@ module SumProductNetworks
 # loading dependencies into workspaces
 using Reexport
 @reexport using Distributions
-using StatsFuns
-using SpecialFunctions
+
 using AxisArrays
+using Clustering
 using DataStructures
 using Distances
-using Clustering
+using SpecialFunctions
+using StatsFuns
 using StatsBase: countmap
 
 import Base: getindex, map, parent, length, size, show, isequal, getindex, keys, eltype, rand
@@ -30,6 +31,7 @@ include("networkFunctions.jl")
 # include approach specific implementations
 include("bmiTest.jl")
 include("structureUtilities.jl")
+include("parameterUtilities.jl")
 
 # include utilities
 include("utilityFunctions.jl")

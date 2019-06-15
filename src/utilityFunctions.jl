@@ -115,3 +115,14 @@ function initllhvals(spn::SumProductNetwork, N::Int)
         return AxisArray(ones(N, length(idx)) * -Inf, 1:N, idx)
     end
 end
+
+
+"""
+    initgradvals(spn::SumProductNetwork)
+
+Construct a gradient (w.r.t. nodes and leaves) data-structure using `spn`.
+"""
+function initgradvals(spn::SumProductNetwork)
+    keys = map(n -> n.id, values(spn))
+    return AxisArray(Array{Real}(undef, length(index)), Axis{:id}(keys))
+end
