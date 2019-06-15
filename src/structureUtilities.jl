@@ -45,6 +45,12 @@ function learnspn(X; distribution=Normal(), minclustersize=100)
         
         # stopping condition: too small cluster, factorize variables
         if length(instances) <= minclustersize
+            # root doesn't have enough instances for clustering
+            if typeof(node) <: SumNode
+                prod = FiniteProductNode()
+                add!(node, prod, log(1.0))
+                node = prod
+            end
             for v in variables
                 slice = X[v, instances]
                 add!(node, UnivariateNode(mle(distribution, slice), v))
