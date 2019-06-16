@@ -27,8 +27,8 @@ Return Sum Product Network learned by a simplified LearnSPN algorithm.
 function learnspn(X; distribution=Normal(), minclustersize=100)
     q = Queue{Tuple}()
     root = FiniteSumNode()
-    variables = collect(1:size(X)[1])
-    instances = collect(1:size(X)[2])
+    instances = collect(1:size(X)[1])
+    variables = collect(1:size(X)[2])
     enqueue!(q, (root, variables, instances))
     
     while length(q) > 0
@@ -37,8 +37,8 @@ function learnspn(X; distribution=Normal(), minclustersize=100)
         # stopping condition, one variable left, estimate distribution
         if length(variables) == 1
             v = variables[1]
-            slice = X[v, instances]
-            add!(node, UnivariateNode(mle(distribution, X[v, :]), v))
+            slice = X[instances, v]
+            add!(node, UnivariateNode(mle(distribution, X[:, v]), v))
             continue
         end
         
@@ -51,21 +51,21 @@ function learnspn(X; distribution=Normal(), minclustersize=100)
                 node = prod
             end
             for v in variables
-                slice = X[v, instances]
+                slice = X[instances, v]
                 add!(node, UnivariateNode(mle(distribution, slice), v))
             end
             continue
         end
         
         # divide and conquer
-        if typeof(node) <: SumNode
+        if isa(node, SumNode)
             clusterweights = cluster_instances(X, variables, instances)
             for (cluster, weight) in clusterweights
                 prod = FiniteProductNode()
                 add!(node, prod, log(weight))
                 enqueue!(q, (prod, variables, cluster))
             end
-        else  # typeof(node) <: ProductNode
+        else  # isa(node, ProductNode)
             splits = split_variables(X, variables, instances)
             for split in splits
                 if length(split) == 1
@@ -94,11 +94,11 @@ function split_variables(X, variables, instances)
         return binary_x
     end
     @assert length(variables) > 1
-    slice = X[variables, instances]
+    slice = X[instances, variables]
     distances = zeros(length(variables))
-    p = sum(binarize(slice[rand(1:length(variables)), :]))/length(instances)
+    p = sum(binarize(slice[:, rand(1:length(variables))]))/length(instances)
     for i in 1:length(variables)
-        q = sum(binarize(slice[i, :]))/length(instances)
+        q = sum(binarize(slice[:, i]))/length(instances)
         e = (p + q)/2
         d = evaluate(KLDivergence(), [p, (1 - p), q, (1 - q)], [e, (1 - e), e, (1 - e)])
         distances[i] = d
@@ -116,8 +116,8 @@ end
 Cluster instances into two groups by k-means clustering.
 """
 function cluster_instances(X, variables, instances)
-    slice = X[variables, instances]
-    results = kmeans(slice, 2)
+    slice = X[instances, variables]
+    results = kmeans(transpose(slice), 2)
     clusterone = instances[results.assignments .== 1]
     clustertwo = setdiff(instances, clusterone)
     weight = length(clusterone)/length(instances)    

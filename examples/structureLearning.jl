@@ -6,8 +6,8 @@ println("make dataset A and B")
 N = 1000
 D = 4
 
-A = vcat([randn(1, N) .+ (2 + 0.5*i) for i in 1:D]...)
-B = vcat([randn(1, N) .+ (4 + 0.5*i) for i in 1:D]...)
+A = hcat([randn(N) .+ (2 + 0.5*i) for i in 1:D]...)
+B = hcat([randn(N) .+ (4 + 0.5*i) for i in 1:D]...)
 
 println("generate an SPN by LearnSPN with dataset A")
 spn = generate_spn(A, :learnspn)
