@@ -1,4 +1,4 @@
-export complexity, depth, projectToPositiveSimplex!, initllhvals
+export complexity, depth, projectToPositiveSimplex!, initllhvals, initgradvals
 
 """
 Get all nodes in topological order using Tarjan's algoritm.
@@ -124,5 +124,5 @@ Construct a gradient (w.r.t. nodes and leaves) data-structure using `spn`.
 """
 function initgradvals(spn::SumProductNetwork)
     keys = map(n -> n.id, values(spn))
-    return AxisArray(Array{Real}(undef, length(index)), Axis{:id}(keys))
+    return AxisArray(Array{Real}(undef, length(keys)), Axis{:id}(keys))
 end

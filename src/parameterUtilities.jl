@@ -38,7 +38,7 @@ function em!(spn::SumProductNetwork, X::Matrix;
 
     # store sufficient statistics of sum nodes and leaves
     sumnodes = filter(n -> isa(n, SumNode), values(spn))
-    suffstats = Dict{Symbol, Vector{Real}}
+    suffstats = Dict{Symbol, Vector{Real}}()
     for s in sumnodes
         suffstats[s.id] = Vector{Real}(undef, length(s))
     end
@@ -51,12 +51,12 @@ function em!(spn::SumProductNetwork, X::Matrix;
     for i in 1:maxiters
         # pre-compute log-likelihoods and gradient
         logpdf = logpdf!(spn, X, llhvals)
-        graident!(spn, llhvals, gradvals)
+        gradient!(spn, llhvals, gradvals)
 
         # accumulate sufficient statistics of sum nodes and leaves
         for x in eachcol(X)
             for n in values(spn)
-                coeff = exp(gradvals[n.id] + llhvals[n.id] - llhvals[spn.root])
+                coeff = exp(gradvals[n.id] + llhvals[n.id] - llhvals[spn.root.id])
                 if isa(n, SumNode)
                     suffstats[n.id] .+= coeff.*exp(weights(n))
                 elseif isa(n, Leaf)

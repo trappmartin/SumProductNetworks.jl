@@ -8,6 +8,7 @@ export hasscope, hasobs
 export logweights
 export updatescope!
 export classes, children, parents, length, add!, remove!, logpdf!, logpdf
+export gradient!, gradient
 export rand
 
 function isnormalized(node::Node)
@@ -424,9 +425,9 @@ function diff!(n::Node, llhvals::AxisArray, gradvals::AxisArray)
     logpdfs = Vector{Real}(undef, length(parents(n)))
     for (i, p) in enumerate(parents(n))
         childidx = findfirst(isequal(n), children(p))
-        if p <: SumNode
+        if isa(p, SumNode)
             logpdfs[i] = gradvals[p.id] + weights(p)[childidx]
-        else  # p <: ProductNode
+        else  # isa(p, ProductNode)
             logpdfs[i] = gradvals[p.id] + llhvals[p.id] - llhvals[n.id]
         end
     end
