@@ -100,7 +100,7 @@ end
 Construct a log likelihoods data-structure using `spn` and `X`.
 """
 function initllhvals(spn::SumProductNetwork, X::AbstractMatrix)
-    return initllhvals(spn, size(X,1))
+    return initllhvals(spn, size(X, 1))
 end
 
 function initllhvals(spn::SumProductNetwork, X::AbstractVector)
@@ -120,9 +120,21 @@ end
 """
     initgradvals(spn::SumProductNetwork)
 
-Construct a gradient (w.r.t. nodes and leaves) data-structure using `spn`.
+Construct a gradient (w.r.t. nodes and leaves) data-structure using `spn` and `X`.
 """
-function initgradvals(spn::SumProductNetwork)
-    keys = map(n -> n.id, values(spn))
-    return AxisArray(Array{Real}(undef, length(keys)), Axis{:id}(keys))
+function initgradvals(spn::SumProductNetwork, X::AbstractMatrix)
+    return initllhvals(spn, size(X, 1))
+end
+
+function initgradvals(spn::SumProductNetwork, X::AbstractVector)
+    return initllhvals(spn, 1)
+end
+
+function initgradvals(spn::SumProductNetwork, N::Int)
+    idx = Axis{:id}(collect(keys(spn)))
+    if N == 1
+        return AxisArray(ones(length(idx)) * -Inf, idx)
+    else
+        return AxisArray(ones(N, length(idx)) * -Inf, 1:N, idx)
+    end
 end

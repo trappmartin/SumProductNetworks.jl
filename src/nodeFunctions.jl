@@ -402,14 +402,17 @@ Compute the gradient of Sum Product Networks with respect to internal nodes.
 """
 function gradient(spn::SumProductNetwork, llhvals::AxisArray)
     gradvals = initgradvals(spn)
-    return gradient!(spn, gradvals)
+    return gradient!(spn, llhvals, gradvals)
 end
 
 function gradient!(spn::SumProductNetwork, llhvals::AxisArray, gradvals::AxisArray)
-    gradvals[spn.root.id] = 0.0
     for layer in reverse(spn.layers)
         Threads.@threads for node in layer
-            diff!(node, gradvals)
+            if node == spn.root
+                gradvals[:, spn.root.id] .= 0.0
+                continue
+            end
+            diff!(node, llhvals, gradvals)
         end
     end
     return gradvals
@@ -420,19 +423,19 @@ end
 
 Compute the partial derivative of Sum Product Networks with respect to `n`.
 """
-function diff!(n::Node, llhvals::AxisArray, gradvals::AxisArray)
+function diff!(n::SPNNode, llhvals::AxisArray, gradvals::AxisArray)
     # using logsumexp trick to avoid overflow
-    logpdfs = Vector{Real}(undef, length(parents(n)))
+    logpdfs = Matrix{Float64}(undef, size(llhvals, 1), length(parents(n)))
     for (i, p) in enumerate(parents(n))
         childidx = findfirst(isequal(n), children(p))
         if isa(p, SumNode)
-            logpdfs[i] = gradvals[p.id] + weights(p)[childidx]
+            logpdfs[:, i] = gradvals[:, p.id] .+ weights(p)[childidx]
         else  # isa(p, ProductNode)
-            logpdfs[i] = gradvals[p.id] + llhvals[p.id] - llhvals[n.id]
+            logpdfs[:, i] = gradvals[:, p.id] + llhvals[:, p.id] - llhvals[:, n.id]
         end
     end
-    gradvals[n.id] = logsumexp(logpdfs)
-    return gradvals[n.id]
+    gradvals[:, n.id] = mapslices(logsumexp, logpdfs, dims=2)
+    return gradvals[:, n.id]
 end
 
 rand(spn::SumProductNetwork) = rand(spn.root)
