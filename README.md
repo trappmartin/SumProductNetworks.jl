@@ -165,12 +165,15 @@ SumProductNetwork(root::Node)
 ```
 
 #### Structure Learning
-Utility functions for structure learning are currently not implemented in this package. An additional package providing a variety of structure learning algorithms will be provided soon.
+Utility functions for structure learning.
 
 The interface for learning SPN structure is:
 
 ```julia
 generate_spn(X::Matrix, algo::Symbol; params...)
+
+# learnSPN algorithm by Gens et al.
+generate_spn(X, :learnspn)
 ```
 
 #### Utility Functions on an SumProductNetwork
