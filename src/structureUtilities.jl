@@ -24,13 +24,13 @@ end
 
 Return Sum Product Network learned by a simplified LearnSPN algorithm.
 """
-function learnspn(X; distribution=Normal(), minclustersize=100)
+function learnspn(X; distributions::Vector = map(d -> Normal, 1:size(X,2)), minclustersize=100)
     q = Queue{Tuple}()
     root = FiniteSumNode()
     instances = collect(1:size(X)[1])
     variables = collect(1:size(X)[2])
     enqueue!(q, (root, variables, instances))
-    
+
     while length(q) > 0
         node, variables, instances = dequeue!(q)
 
@@ -38,10 +38,10 @@ function learnspn(X; distribution=Normal(), minclustersize=100)
         if length(variables) == 1
             v = variables[1]
             slice = X[instances, v]
-            add!(node, UnivariateNode(mle(distribution, X[:, v]), v))
+            add!(node, UnivariateNode(fit(distributions[v], slice), v))
             continue
         end
-        
+
         # stopping condition: too small cluster, factorize variables
         if length(instances) <= minclustersize
             # root doesn't have enough instances for clustering
@@ -52,11 +52,11 @@ function learnspn(X; distribution=Normal(), minclustersize=100)
             end
             for v in variables
                 slice = X[instances, v]
-                add!(node, UnivariateNode(mle(distribution, slice), v))
+                add!(node, UnivariateNode(fit(distributions[v], slice), v))
             end
             continue
         end
-        
+
         # divide and conquer
         if isa(node, SumNode)
             clusterweights = cluster_instances(X, variables, instances)
@@ -78,7 +78,7 @@ function learnspn(X; distribution=Normal(), minclustersize=100)
             end
         end
     end
-    
+
     return SumProductNetwork(root)
 end
 
@@ -106,7 +106,7 @@ function split_variables(X, variables, instances)
     dependentindex = partialsortperm(distances, 1:floor(Integer, length(variables)/2))
     splitone = variables[dependentindex]
     splittwo = setdiff(variables, splitone)
-    
+
     return (splitone, splittwo)
 end
 
@@ -120,24 +120,12 @@ function cluster_instances(X, variables, instances)
     results = kmeans(transpose(slice), 2)
     clusterone = instances[results.assignments .== 1]
     clustertwo = setdiff(instances, clusterone)
-    weight = length(clusterone)/length(instances)    
-    
+    weight = length(clusterone)/length(instances)
+
     if length(clustertwo) == 0
         return ((clusterone, weight),)
     end
     return ((clusterone, weight), (clustertwo, 1 - weight))
-end
-
-"""
-    mle(distribution, X; <keyword arguments>)
-
-Return MLE of `distribution` given `X`.
-"""
-function mle(distribution::Normal, X; epsilon=0.5)
-    μ_hat = mean(X)
-    rawstd = std(X)
-    σ_hat = isnan(rawstd) ? epsilon : rawstd + epsilon
-    return Normal(μ_hat, σ_hat)
 end
 
 randomspn(X;params...) = @error("Random structure learning is currently not supported.")
