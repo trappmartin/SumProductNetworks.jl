@@ -5,3 +5,6 @@ Reexport
 StatsBase 0.25.0
 AxisArrays
 SpecialFunctions
+DataStructures
+Distances
+Clustering
