@@ -6,3 +6,4 @@ experiments
 *.mat
 *.csv
 *.pdf
+Manifest.toml

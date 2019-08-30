@@ -20,6 +20,9 @@ using SparseArrays
 using Random
 using Printf
 
+# include custom distributions
+include("distributions.jl")
+
 # include general implementations
 include("nodes.jl")
 include("nodeFunctions.jl")

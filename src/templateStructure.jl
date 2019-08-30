@@ -74,7 +74,29 @@ function templateRegion(likelihoods::AbstractVector,
 
 end
 
-function RAT_SPN(N::Int, D::Int, llhs::AbstractVector{Function}, parameters::AbstractMatrix{AbstractVector};
+
+function ratspn(x::AbstractMatrix{T};
+               Ksplits::Int=2,
+               Kparts::Int=2,
+               Ksums::Int=2,
+               Kdists::Int=5,
+               maxdepth::Int=2
+              ) where {T<:Real}
+
+    N,D = size(x)
+    isdiscrete = map(d -> all(isinteger, x[:,d]), 1:D)
+
+    K = map(d -> isdiscrete[d] ? length(unique(x[:,d])) : Inf)
+
+    llhs = map(d -> isdiscrete[d] ? Categorical(K[d]) : Normal(), 1:D)
+    priors = map(d -> isdiscrete[d] ? Dirichlet(K[d], 1.0) : NormalInverseGamma(), 1:D)
+
+    return ratspn(N,D, likelihood, priors, Ksplits, Kparts, Ksums, Kdists, maxdepth)
+end
+
+function ratspn(N::Int, D::Int,
+                likelihoods::AbstractVector{<:Distribution},
+                priors::AbstractVector{<:Distribution},
                 Ksplits::Int # Number of partitions under each region
                 Kparts::Int # Number of sub-regions under each partition
                 Ksums::Int # Number of sum nodes per region
@@ -86,5 +108,5 @@ function RAT_SPN(N::Int, D::Int, llhs::AbstractVector{Function}, parameters::Abs
     @assert length(llhs) == D == size(parameters, 1)
     @assert Kdists == size(parameters, 2)
 
-    return templateRegion()
+    #return templateRegion()
 end
