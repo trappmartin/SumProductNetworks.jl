@@ -27,13 +27,15 @@ include("distributions.jl")
 include("nodes.jl")
 include("nodeFunctions.jl")
 include("networkFunctions.jl")
-
-# include approach specific implementations
-include("bmiTest.jl")
-include("structureUtilities.jl")
+include("regiongraphs.jl")
 
 # include utilities
 include("utilityFunctions.jl")
 include("io.jl")
+
+# include approach specific implementations
+include("bmiTest.jl")
+include("structureUtilities.jl")
+include("ratspn.jl")
 
 end # module

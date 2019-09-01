@@ -1,3 +1,5 @@
+export FactorizedDistributionGraphNode
+
 abstract type AbstractRegionGraphNode end
 
 function setscope!(n::AbstractRegionGraphNode, dims::Vector{Int})
@@ -209,23 +211,21 @@ Parameters:
 
 * ids::Symbol                               Id
 * scopeVecs::Vector{Bool}                   Active dimensions (D)
-* obsVecs::Matrix{Bool}                     Active observations (N x K)
+* likelihoods::Vector{Type{Distribution}}   Likelihood functions (D)
 * priors::Vector{Distribution}              Priors for each dimension (D)
-* likelihoods::Vector{Distribution}         Likelihood functions (D)
-* sstats::Matrix{AbstractSufficientStats}   Sufficient stats (D x K)
+* parameters::Vector{Matrix}                Parameters for each k≦K for each dimension (D)
 
 """
 struct FactorizedDistributionGraphNode <: AbstractRegionGraphNode
     id::Symbol
     scopeVecs::Vector{Bool}
-    obsVecs::Matrix{Bool}
-    likelihoods::Vector{<:Distribution}
-    parameters::Matrix
+    likelihoods::Vector{Type}
+    priors::Vector{<:Distribution}
+    parameters::Vector{Matrix}
 end
 
 haschildren(d::FactorizedDistributionGraphNode) = false
 updatescope!(d::FactorizedDistributionGraphNode) = scope(d)
-obs(d::FactorizedDistributionGraphNode, k::Int) = findall(d.obsVecs[:,k])
 
 function _logpdf!(n::FactorizedDistributionGraphNode,
                   x::AbstractMatrix{T},
@@ -233,10 +233,10 @@ function _logpdf!(n::FactorizedDistributionGraphNode,
     fill!(out, zero(V))
     ds = scope(n)
     for d in ds
-        sstats_ = n.sstats[d,:]
-        θ = postparams.(Ref(n.priors[d]), sstats_)
-        lpd_ = _logpostpdf.(Ref(n.likelihoods[d]), Ref(view(x,:,d)), θ)
-        out .+= reduce(hcat, lpd_)
+        for k in Base.axes(@inbounds(n.parameters[d]), dims=[2])
+            θ = @inbounds(@view(n.parameters[d][:,k]))
+            out[:,k] += logpdf(n.likelihoods[d](θ...), @inbounds(@view(x[:,d])))
+        end
     end
     return out
 end
@@ -247,7 +247,7 @@ end
 Log pdf of an atomic region node in a region graph.
 """
 function logpdf(n::FactorizedDistributionGraphNode, x::AbstractMatrix{T}) where {T<:Real}
-    (N, D) = size(x)
+    N = size(x,1)
     K = length(n)
     lp_ = zeros(Float64, N, K)
     return _logpdf!(n, x, lp_)
@@ -259,15 +259,15 @@ end
 Log pdf of an atomic node in a region graph. (in-place)
 """
 function logpdf!(n::FactorizedDistributionGraphNode, x::AbstractMatrix{T}, out::AxisArray{V}) where {T<:Real,V<:AbstractMatrix}
-    (N, D) = size(x)
+    N = size(x,1)
     K = length(n)
 
     i = findfirst(out.axes[1].val .== id(n))
-    if !isassigned(out, i)
-        out[id(n)] = zeros(Float64, N, K)
+    if !isassigned(out,i)
+        @inbounds out[id(n)] = zeros(V,N,K)
     end
 
-    _logpdf!(n, x, out[id(n)])
+    _logpdf!(n, x, @view(out[id(n)]))
     return out
 end
 

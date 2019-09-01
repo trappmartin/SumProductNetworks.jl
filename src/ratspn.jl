@@ -1,17 +1,18 @@
-export templateLeaves, templatePartition, templateRegion
+export ratspn
+#export templateLeaves, templatePartition, templateRegion
 
 function templateLeaves(likelihoods::AbstractVector{<:Distribution},
+                        priors::AbstractVector{<:Distribution},
                         N::Int, D::Int, K::Int)
-    ids = map(k -> gensym("factorization"), 1:K)
     scopeVec = zeros(Bool, D)
-    obsVec = zeros(Bool, N, K)
+    parameters = map(prior -> rand(prior,K), priors)
 
     return FactorizedDistributionGraphNode(
                                     gensym("fact"),
                                     scopeVec,
-                                    obsVec,
-                                    likelihoods_,
-                                    sstats_
+                                    likelihoods,
+                                    priors,
+                                    parameters
                                    )
 end
 
@@ -41,7 +42,7 @@ function templatePartition(likelihoods::AbstractVector,
                              )
 end
 
-function templateRegion(likelihoods::AbstractVector,
+function buildRegion(llhs::AbstractVector, priors::AbstractVector,
                         N::Int, D::Int,
                         K_sum::Int, K_prod::Int,
                         J::Int, K::Int,
@@ -49,29 +50,18 @@ function templateRegion(likelihoods::AbstractVector,
 
     K_ = root ? 1 : K_sum
     children = if depth == maxdepth
-        map(k -> templateLeaves(alpha_leaf_prior, priors_leaf, likelihoods, sstats, N, D, K), 1:J)
+        map(k -> buildLeaves(likelihoods, priors, N, D, K), 1:J)
     else
-        map(k -> templatePartition(alpha_region_prior, alpha_partition_prior, alpha_leaf_prior,
-                                   priors_leaf, likelihoods, sstats, N, D, K_sum, K_prod, J, K, depth+1, maxdepth), 1:J)
+        map(k -> buildPartition(likelihoods, priors, N, D, K_sum, K_prod, J, K, depth+1, maxdepth), 1:J)
     end
 
     Ch = sum(length.(children))
     scopeVec = zeros(Bool, D)
-    obsVec = zeros(Bool, N, K_)
-    logweights = convert(Matrix, reshape(mapreduce(_ -> rand(prior), hcat, 1:K_), Ch, K_))
+    logweights = rand(Dirichlet(Ch, 1.0), K_)
     active = zeros(Bool, size(logweights)...)
     @assert size(logweights) == (Ch, K_)
 
-    return RegionGraphNode(
-                           gensym("region"),
-                            scopeVec,
-                            obsVec,
-                            logweights,
-                            active,
-                            prior,
-                            children
-                          )
-
+    return RegionGraphNode( gensym("region"), scopeVec, logweights, children )
 end
 
 
@@ -86,27 +76,28 @@ function ratspn(x::AbstractMatrix{T};
     N,D = size(x)
     isdiscrete = map(d -> all(isinteger, x[:,d]), 1:D)
 
-    K = map(d -> isdiscrete[d] ? length(unique(x[:,d])) : Inf)
+    K = map(d -> isdiscrete[d] ? length(unique(x[:,d])) : Inf, 1:D)
 
     llhs = map(d -> isdiscrete[d] ? Categorical(K[d]) : Normal(), 1:D)
     priors = map(d -> isdiscrete[d] ? Dirichlet(K[d], 1.0) : NormalInverseGamma(), 1:D)
 
-    return ratspn(N,D, likelihood, priors, Ksplits, Kparts, Ksums, Kdists, maxdepth)
+    return ratspn(N,D, llhs, priors, Ksplits, Kparts, Ksums, Kdists, maxdepth)
 end
 
 function ratspn(N::Int, D::Int,
-                likelihoods::AbstractVector{<:Distribution},
+                llhs::AbstractVector{<:Distribution},
                 priors::AbstractVector{<:Distribution},
-                Ksplits::Int # Number of partitions under each region
-                Kparts::Int # Number of sub-regions under each partition
-                Ksums::Int # Number of sum nodes per region
-                Kdists::Int # Number of distibutions per terminal region
+                Ksplits::Int, # Number of partitions under each region
+                Kparts::Int, # Number of sub-regions under each partition
+                Ksums::Int, # Number of sum nodes per region
+                Kdists::Int, # Number of distibutions per terminal region
                 maxdepth::Int # Maximum number of consecutive region-partition pairs
                 )
 
     # sanity checks
-    @assert length(llhs) == D == size(parameters, 1)
-    @assert Kdists == size(parameters, 2)
+    @assert length(llhs) == D == length(priors)
+
+    
 
     #return templateRegion()
 end
