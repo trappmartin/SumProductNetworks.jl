@@ -1,20 +1,23 @@
-export FactorizedDistributionGraphNode
+export draw
+export FactorizedAtomicRegion
 
 abstract type AbstractRegionGraphNode end
 
 function setscope!(n::AbstractRegionGraphNode, dims::Vector{Int})
     fill!(n.scopeVecs, false)
-    n.scopeVecs[dims] .= true
+    @inbounds n.scopeVecs[dims] .= true
+    empty!(n.scope)
+    append!(n.scope, dims)
 end
 nscope(d::AbstractRegionGraphNode) = sum(d.scopeVecs)
 hasscope(d::AbstractRegionGraphNode) = any(d.scopeVecs)
-scope(d::AbstractRegionGraphNode) = findall(d.scopeVecs)
+scope(d::AbstractRegionGraphNode) = d.scope
 
-function setscope!(d::AbstractRegionGraphNode, i::Int, s::Bool)
-    d.scopeVecs[i] = s
+function setscope!(n::AbstractRegionGraphNode, i::Int, s::Bool)
+    @inbounds n.scopeVecs[i] = s
+    push!(n.scope, s)
 end
 
-length(d::AbstractRegionGraphNode) = size(d.obsVecs,2)
 id(d::AbstractRegionGraphNode) = d.id
 
 """
@@ -49,48 +52,24 @@ Parameters:
 
 * ids::Symbol                                           Id
 * scopeVecs::Vector{Bool}                               Active dimensions (D)
-* obsVecs::Matrix{Bool}                                 Active observations (N x K)
 * logweights::Matrix{<:Real}                            Log weights of sum nodes (Ch x K)
 * prior::Dirichlet                                      Prior for sum nodes
 * children::Vector{AbstractRegionGraphNode}             Children of region
 
 """
-struct RegionGraphNode{T<:Real} <: AbstractRegionGraphNode
+struct SumRegion{T<:Real,V<:AbstractRegionGraphNode} <: AbstractRegionGraphNode
     id::Symbol
     scopeVecs::Vector{Bool}
-    obsVecs::Matrix{Bool}
     logweights::Matrix{T}
-    active::Matrix{Bool}
-    prior::Dirichlet
-    children::Vector{<:AbstractRegionGraphNode}
+    children::Vector{V}
 end
 
-"""
-    Partition node.
+haschildren(n::SumRegion) = !isempty(n.children)
+children(n::SumRegion) = n.children
 
-Parameters:
-
-* ids::Symbol                                   Id
-* scopeVecs::Vector{Bool}                       Active dimensions (D)
-* obsVecs::Matrix{Bool}                         Active observations (N x K)
-* prior::Dirichlet                              Prior on product nodes
-* children::Vector{<:AbstractRegionGraphNode}   Child region nodes
-
-"""
-struct PartitionGraphNode <: AbstractRegionGraphNode
-    id::Symbol
-    scopeVecs::Vector{Bool}
-    obsVecs::Matrix{Bool}
-    prior::Dirichlet
-    children::Vector{<:AbstractRegionGraphNode}
-end
-
-haschildren(d::RegionGraphNode) = !isempty(d.children)
-children(d::RegionGraphNode) = d.children
-
-function updatescope!(d::RegionGraphNode)
-    updatescope!.(children(d))
-    setscope!(d, scope(first(d.children)))
+function updatescope!(n::SumRegion)
+    updatescope!.(children(n))
+    setscope!(n, scope(first(n.children)))
 end
 
 # Multi-threaded LSE
@@ -124,22 +103,21 @@ function _getchildlogpdf(child::PartitionGraphNode, out::AxisArray{V}) where {V<
     return reduce(_cross_prod, lp_)
 end
 
-"""
-    logpdf(d::RegionGraphNode, x::AbstractMatrix{T})
-
-Log pdf of a region node in a region graph.
-"""
-function logpdf(d::RegionGraphNode, x::AbstractMatrix{T}) where {T<:Real}
-    lp_ = logpdf.(d.children, Ref(x))
-    return _logsumexp(reduce(hcat, lp_)', d.logweights)
+function logpdf(n::SumRegion, x::AbstractMatrix{T}) where {T<:Real}
+    out = zeros(T, size(x,1), lengh(n))
+    logdf!(n, x, out)
+    return out
 end
 
-"""
-    logpdf!(d::RegionGraphNode, x::AbstractMatrix{T}, out::AxisArray{V})
+function logpdf!(n::SumRegion{T,Tc},
+                 x::AbstractMatrix{T},
+                 out::AbstractMatrix{T}) where {T<:Real,Tc<:FactorizedAtomicRegion}
 
-Log pdf of a region node in a region graph. (in-place)
-"""
-function logpdf!(d::RegionGraphNode, x::AbstractMatrix{T}, out::AxisArray{V}) where {T<:Real,V<:AbstractMatrix}
+    for k1 = 1:length()
+
+
+
+
     lp_ = _getchildlogpdf.(children(d), Ref(out))
     out[id(d)] = _logsumexp(reduce(hcat, lp_)', d.logweights)
     return out
@@ -162,16 +140,6 @@ function logmllh!(n::RegionGraphNode,
     return out
 end
 
-## Partition Graph Node
-
-haschildren(d::PartitionGraphNode) = !isempty(d.children)
-children(d::PartitionGraphNode) = d.children
-
-function updatescope!(d::PartitionGraphNode)
-    s_ = mapreduce(updatescope!, vcat, children(d))
-    setscope!(d, unique(s_))
-end
-
 function _cross_prod(x1::AbstractMatrix{T}, x2::AbstractMatrix{T}) where {T<:Real}
     nx, ny = size(x1,2), size(x2,2)
     r = zeros(T, size(x1,1), nx*ny)
@@ -182,26 +150,6 @@ function _cross_prod(x1::AbstractMatrix{T}, x2::AbstractMatrix{T}) where {T<:Rea
         end
     end
     return r
-end
-
-"""
-    logpdf(d::PartitionGraphNode, x::AbstractMatrix{T})
-
-Log pdf of a partition node in a region graph.
-"""
-function logpdf(d::PartitionGraphNode, x::AbstractMatrix{T}) where {T<:Real}
-    childrn_ = children(d)
-    lp_ = logpdf.(childrn_, Ref(x))
-    return reduce(_cross_prod, lp_)
-end
-
-"""
-    logpdf!(d::RegionGraphNode, x::AbstractMatrix{T}, out::AxisArray{V})
-
-Log pdf of a partition node in a region graph. (in-place)
-"""
-function logpdf!(d::PartitionGraphNode, x::AbstractMatrix{T}, out::AxisArray{V}) where {T<:Real,V<:AbstractMatrix}
-    return out
 end
 
 """
@@ -216,58 +164,83 @@ Parameters:
 * parameters::Vector{Matrix}                Parameters for each k≦K for each dimension (D)
 
 """
-struct FactorizedDistributionGraphNode <: AbstractRegionGraphNode
+struct FactorizedAtomicRegion <: AbstractRegionGraphNode
     id::Symbol
+    K::Int
     scopeVecs::Vector{Bool}
-    likelihoods::Vector{Type}
-    priors::Vector{<:Distribution}
+    scope::Vector{Int}
+    likelihoods::Vector{Function}
+    priors::Vector{Distribution}
     parameters::Vector{Matrix}
 end
 
-haschildren(d::FactorizedDistributionGraphNode) = false
-updatescope!(d::FactorizedDistributionGraphNode) = scope(d)
+function FactorizedAtomicRegion(likelihoods::Vector{Function},
+                                         parameters::Vector{<:Matrix},
+                                         D::Int;
+                                         priors::Vector{Distribution}=Vector{Distribution}()
+                                        )
+    K = size(first(parameters), 2)
+    for p in parameters
+        @assert size(p,2) == K
+    end
+    svec = falses(D)
+    return FactorizedAtomicRegion(gensym(), K, Int[], svec, likelihoods, priors, parameters)
+end
 
-function _logpdf!(n::FactorizedDistributionGraphNode,
+function draw(priors::Vector{Distribution}, K::Int)
+    return map(prior -> prior isa UnivariateDistribution ? reshape(rand(prior,K),1,:) : rand(prior,K), priors)
+end
+
+@inline haschildren(n::FactorizedAtomicRegion) = false
+@inline updatescope!(n::FactorizedAtomicRegion) = scope(d)
+@inline length(n::FactorizedAtomicRegion) = n.K
+
+function apply!(n::FactorizedAtomicRegion,
+                x::AbstractMatrix{T},
+                out::AbstractVector{V},
+                k::Int
+               ) where {T,V}
+    for d in scope(n)
+        @inbounds begin
+            θ = @view(n.parameters[d][:,k])
+            out[:] += n.likelihoods[d].(@view(x[:,d]), θ...)
+        end
+    end
+end
+
+function _logpdf!(n::FactorizedAtomicRegion,
                   x::AbstractMatrix{T},
                   out::AbstractMatrix{V}) where {T<:Real,V<:Real}
     fill!(out, zero(V))
-    ds = scope(n)
-    for d in ds
-        for k in Base.axes(@inbounds(n.parameters[d]), dims=[2])
-            θ = @inbounds(@view(n.parameters[d][:,k]))
-            out[:,k] += logpdf(n.likelihoods[d](θ...), @inbounds(@view(x[:,d])))
-        end
+    for k in 1:lenght(n)
+        apply!(n, x, @view(out[:,k]), k)
     end
     return out
 end
 
-"""
-    logpdf(d::FactorizedDistributionGraphNode, x::AbstractMatrix{T})
-
-Log pdf of an atomic region node in a region graph.
-"""
-function logpdf(n::FactorizedDistributionGraphNode, x::AbstractMatrix{T}) where {T<:Real}
+function logpdf(n::FactorizedAtomicRegion, x::AbstractMatrix{T}) where {T<:Real}
     N = size(x,1)
     K = length(n)
     lp_ = zeros(Float64, N, K)
     return _logpdf!(n, x, lp_)
 end
 
-"""
-    logpdf!(d::FactorizedDistributionGraphNode, x::AbstractMatrix{T}, out::AxisArray{V})
-
-Log pdf of an atomic node in a region graph. (in-place)
-"""
-function logpdf!(n::FactorizedDistributionGraphNode, x::AbstractMatrix{T}, out::AxisArray{V}) where {T<:Real,V<:AbstractMatrix}
-    N = size(x,1)
-    K = length(n)
-
-    i = findfirst(out.axes[1].val .== id(n))
-    if !isassigned(out,i)
-        @inbounds out[id(n)] = zeros(V,N,K)
+function _pdf!(n::FactorizedAtomicRegion,
+                  x::AbstractMatrix{T},
+                  out::AbstractMatrix{V}) where {T<:Real,V<:Real}
+    fill!(out, zero(V))
+    ds = scope(n)
+    for d in ds
+        for (θ, lp) in zip(eachslice(n.parameters[d], dims=2), eachslice(out, dims=2))
+            @inbounds lp[:] .*= exp.(n.likelihoods[d].(@view(x[:,d]), θ...))
+        end
     end
-
-    _logpdf!(n, x, @view(out[id(n)]))
     return out
 end
 
+function pdf(n::FactorizedAtomicRegion, x::AbstractMatrix{T}) where {T<:Real}
+    N = size(x,1)
+    K = length(n)
+    lp_ = zeros(Float64, N, K)
+    return _pdf!(n, x, lp_)
+end
