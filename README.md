@@ -277,5 +277,6 @@ Feel free to open a PR if you want to contribute!
 ### References
 Please consider citing any of the following publications if you use this package.
 
-* Martin Trapp, Tamas Madl, Robert Peharz, Franz Pernkopf, Robert Trappl: **Safe Semi-Supervised Learning of Sum-Product Networks.** UAI 2017. [pdf](http://auai.org/uai2017/proceedings/papers/108.pdf) [bibtex](https://dblp.uni-trier.de/rec/bibtex/conf/uai/TrappMPPT17)
-* Martin Trapp, Robert Peharz, Marcin Skowron, Tamas Madl, Franz Pernkopf, Robert Trappl: **Structure Inference in Sum-Product Networks using Infinite Sum-Product Trees.** NIPS 2016 - Workshop on Practical Bayesian Nonparametrics. [paper](https://www.spsc.tugraz.at/sites/default/files/BNPNIPS_2016_paper_9.pdf) [bibtex](https://www.spsc.tugraz.at/biblio/export/bibtex/3537)
+* Martin Trapp, Robert Peharz, Hong Ge, Franz Pernkopf, Zoubin Ghahramani: **Bayesian learning of sum-product networks.** In proceedings of NeurIPS, 2019.
+* Martin Trapp, Tamas Madl, Robert Peharz, Franz Pernkopf, Robert Trappl: **Safe Semi-Supervised Learning of Sum-Product Networks.** In proceedings of UAI, 2017. [pdf](http://auai.org/uai2017/proceedings/papers/108.pdf) [bibtex](https://dblp.uni-trier.de/rec/bibtex/conf/uai/TrappMPPT17)
+* Martin Trapp, Robert Peharz, Marcin Skowron, Tamas Madl, Franz Pernkopf, Robert Trappl: **Structure Inference in Sum-Product Networks using Infinite Sum-Product Trees.** In proceedings of NeurIPS workshop on BNP, 2016. [paper](https://www.spsc.tugraz.at/sites/default/files/BNPNIPS_2016_paper_9.pdf) [bibtex](https://www.spsc.tugraz.at/biblio/export/bibtex/3537)
