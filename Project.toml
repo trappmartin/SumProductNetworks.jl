@@ -1,0 +1,15 @@
+name = "SumProductNetworks"
+uuid = "5f6e642e-680c-5a9c-a175-7c23ed4da89e"
+version = "0.1.4"
+
+[deps]
+AxisArrays = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+StatsFuns = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
+
+[compat]
+julia = ">= 1.0"
