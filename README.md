@@ -17,6 +17,12 @@ Make sure you have Julia 1.0 running. The package can be installed using Julia's
 pkg> add SumProductNetworks
 ```
 
+To install this package in its `master` branch version, use `PackageSpec`:
+
+```bash
+julia -e 'using Pkg; Pkg.add(PackageSpec(url="https://github.com/trappmartin/SumProductNetworks.jl"))'
+```
+
 ## Usage
 The following minimal example illustrates the use of the package.
 
