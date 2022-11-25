@@ -9,6 +9,9 @@ export logweights
 export updatescope!
 export classes, children, parents, length, add!, remove!, logpdf!, logpdf
 export rand
+export getid
+
+getid(node::Node) = node.id
 
 function isnormalized(node::Node)
     if !hasweights(node)

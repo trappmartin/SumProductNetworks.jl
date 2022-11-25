@@ -31,12 +31,12 @@ function normalize!(spn::SumProductNetwork; ϵ = 1e-10)
 
         for fnode in parents(node)
             if isa(fnode, SumNode)
-                id = findfirst(children(fnode) .== node)
+                id = findfirst(getid.(children(fnode)) .== getid(node))
                 @assert id > 0
                 T = eltype(fnode)
                 logweights(fnode)[id] = logweights(fnode)[id] + T(log(α))
             elseif isa(fnode, ProductNode)
-                id = findfirst(nodes .== fnode)
+                id = findfirst(getid.(nodes) .== getid(fnode))
                 if id == 0
                     @error("Parent of the following node not found! ", nid)
                 end
