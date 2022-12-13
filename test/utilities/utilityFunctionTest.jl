@@ -2,7 +2,6 @@ using SumProductNetworks
 using Test
 
 @testset "utility functions" begin
-    q = rand(2)
     @test sum(projectToPositiveSimplex!(q)) == 1.0
 
     # check corner cases
